@@ -37,7 +37,83 @@
                         }
                     ]
                 },
-                "children": []
+                "children": [
+                    {
+                        "id": "looking_1",
+                        "type": "clip",
+                        "data": {
+                            "url": "https://hifi-public.s3.amazonaws.com/ozan/anim/looking/looking_1.fbx",
+                            "startFrame": 0.0,
+                            "endFrame": 0.0,
+                            "timeScale": 1.0,
+                            "loopFlag": true
+                        },
+                        "children": []
+                    },
+                    {
+                        "id": "looking_3",
+                        "type": "clip",
+                        "data": {
+                            "url": "https://hifi-public.s3.amazonaws.com/ozan/anim/looking/looking_3.fbx",
+                            "startFrame": 0.0,
+                            "endFrame": 0.0,
+                            "timeScale": 1.0,
+                            "loopFlag": true
+                        },
+                        "children": []
+                    },
+                    {
+                        "id": "looking_4",
+                        "type": "clip",
+                        "data": {
+                            "url": "https://hifi-public.s3.amazonaws.com/ozan/anim/looking/looking_4.fbx",
+                            "startFrame": 0.0,
+                            "endFrame": 0.0,
+                            "timeScale": 1.0,
+                            "loopFlag": true
+                        },
+                        "children": []
+                    },
+
+                    {
+                        "id": "looking_5",
+                        "type": "clip",
+                        "data": {
+                            "url": "https://hifi-public.s3.amazonaws.com/ozan/anim/looking/looking_5.fbx",
+                            "startFrame": 0.0,
+                            "endFrame": 0.0,
+                            "timeScale": 1.0,
+                            "loopFlag": true
+                        },
+                        "children": []
+                    },
+
+                    {
+                        "id": "looking_6",
+                        "type": "clip",
+                        "data": {
+                            "url": "https://hifi-public.s3.amazonaws.com/ozan/anim/looking/looking_6.fbx",
+                            "startFrame": 0.0,
+                            "endFrame": 0.0,
+                            "timeScale": 1.0,
+                            "loopFlag": true
+                        },
+                        "children": []
+                    },
+
+                    {
+                        "id": "looking_7",
+                        "type": "clip",
+                        "data": {
+                            "url": "https://hifi-public.s3.amazonaws.com/ozan/anim/looking/looking_7.fbx",
+                            "startFrame": 0.0,
+                            "endFrame": 0.0,
+                            "timeScale": 1.0,
+                            "loopFlag": true
+                        },
+                        "children": []
+                    }
+                ]
             },
             {
                 "id": "manipulatorOverlay",

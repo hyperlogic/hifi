@@ -36,6 +36,10 @@ public:
     void setLoopFlagVar(const QString& loopFlagVar) { _loopFlagVar = loopFlagVar; }
     void setFrameVar(const QString& frameVar) { _frameVar = frameVar; }
 
+#ifndef NDEBUG
+    void trackingDump() const;
+#endif
+
 protected:
     void loadURL(const QString& url);
 

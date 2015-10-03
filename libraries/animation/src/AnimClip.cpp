@@ -113,6 +113,56 @@ float AnimClip::accumulateTime(float frame, float dt, Triggers& triggersOut) con
     return frame;
 }
 
+#ifndef NDEBUG
+void AnimClip::trackingDump() const {
+    assert(_skeleton);
+    int hipsJoint = _skeleton->nameToJointIndex("Hips");
+    int spine2Joint = _skeleton->nameToJointIndex("Spine2");
+    int leftEyeJoint = _skeleton->nameToJointIndex("LeftEye");
+    int rightEyeJoint = _skeleton->nameToJointIndex("RightEye");
+
+    qCDebug(animation) << "AJT:" << _id << "= {";
+    qCDebug(animation) << "AJT:    " << "\"numFrames\":" << _anim.size() << ",";
+    qCDebug(animation) << "AJT:    " << "\"frames\": [";
+    for (size_t i = 0; i < _anim.size(); i++) {
+        qCDebug(animation) << "AJT:         [";
+
+        AnimPose p = _skeleton->getAbsolutePose(hipsJoint, _anim[i]);
+        qCDebug(animation) << "AJT:             {";
+        qCDebug(animation) << "AJT:                 \"jointName\": \"Hips\",";
+        qCDebug(animation) << "AJT:                 \"position\": { \"x\":" << p.trans.x << ", \"y\":" << p.trans.y << ", \"z\":" << p.trans.z << "},";
+        qCDebug(animation) << "AJT:                 \"rotation\": { \"x\":" << p.rot.x << ", \"y\":" << p.rot.y << ", \"z\":" << p.rot.z << ", \"w\":" << p.rot.w << "}";
+        qCDebug(animation) << "AJT:             },";
+
+        p = _skeleton->getAbsolutePose(spine2Joint, _anim[i]);
+        qCDebug(animation) << "AJT:             {";
+        qCDebug(animation) << "AJT:                 \"jointName\": \"Spine2\",";
+        qCDebug(animation) << "AJT:                 \"position\": { \"x\":" << p.trans.x << ", \"y\":" << p.trans.y << ", \"z\":" << p.trans.z << "},";
+        qCDebug(animation) << "AJT:                 \"rotation\": { \"x\":" << p.rot.x << ", \"y\":" << p.rot.y << ", \"z\":" << p.rot.z << ", \"w\":" << p.rot.w << "}";
+        qCDebug(animation) << "AJT:             },";
+
+        AnimPose l = _skeleton->getAbsolutePose(leftEyeJoint, _anim[i]);
+        AnimPose r = _skeleton->getAbsolutePose(rightEyeJoint, _anim[i]);
+        p = l;
+        p.trans = (l.trans + r.trans) / 2.0f;
+
+        qCDebug(animation) << "AJT:             {";
+        qCDebug(animation) << "AJT:                 \"jointName\": \"Eye\",";
+        qCDebug(animation) << "AJT:                 \"position\": { \"x\":" << p.trans.x << ", \"y\":" << p.trans.y << ", \"z\":" << p.trans.z << "},";
+        qCDebug(animation) << "AJT:                 \"rotation\": { \"x\":" << p.rot.x << ", \"y\":" << p.rot.y << ", \"z\":" << p.rot.z << ", \"w\":" << p.rot.w << "}";
+        qCDebug(animation) << "AJT:             }";
+
+        if (i == _anim.size() - 1) {
+            qCDebug(animation) << "AJT:         ]";
+        } else {
+            qCDebug(animation) << "AJT:         ],";
+        }
+    }
+    qCDebug(animation) << "AJT:    " << "]";
+    qCDebug(animation) << "AJT: }";
+}
+#endif
+
 void AnimClip::copyFromNetworkAnim() {
     assert(_networkAnim && _networkAnim->isLoaded() && _skeleton);
     _anim.clear();
@@ -175,9 +225,10 @@ void AnimClip::copyFromNetworkAnim() {
         }
     }
 
+    trackingDump();
+
     _poses.resize(skeletonJointCount);
 }
-
 
 const AnimPoseVec& AnimClip::getPosesInternal() const {
     return _poses;

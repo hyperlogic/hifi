@@ -330,6 +330,12 @@ const AnimPoseVec& AnimInverseKinematics::evaluate(const AnimVariantMap& animVar
 
 //virtual
 const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars, float dt, Triggers& triggersOut, const AnimPoseVec& underPoses) {
+
+    // AJT: HACK: evaluate children just for dump purposes..
+    for (auto& child : _children) {
+        child->evaluate(animVars, dt, triggersOut);
+    }
+    
     if (_relativePoses.size() != underPoses.size()) {
         loadPoses(underPoses);
     } else {
