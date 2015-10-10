@@ -13,31 +13,34 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 
-#define hifi_SmoothOperator_h
 #ifndef hifi_SmoothOperator_h
+#define hifi_SmoothOperator_h
 
+#include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include "NumericalConstants.h"
 
+class SmoothOperatorTests;
+
 class SmoothOperator {
+    friend class SmoothOperatorTests;
 public:
     SmoothOperator();
     virtual ~SmoothOperator();
 
     struct State {
-        State(const glm::vec3& positionIn, const glm::quat& rotationIn,
-              const glm::vec3& linearVelIn, const glm::vec3& angularVelIn,
-              const glm::vec3& linearAccIn, const glm::vec3& angularAccIn) :
-            position(positionIn), rotation(rotationIn),
-            linearVel(linearVelIn), angularVel(angularVelIn),
-            linearAcc(linearAccIn), angularAcc(angularAccIn) {}
+        State() {}
+        State(quint64 tIn, const glm::vec3& positionIn, const glm::quat& rotationIn,
+              const glm::vec3& linearVelIn, const glm::vec3& angularVelIn) :
+            t(tIn), position(positionIn), rotation(rotationIn),
+            linearVel(linearVelIn), angularVel(angularVelIn) {}
+        quint64 t; // usec
         glm::vec3 position;   // meters
         glm::quat rotation;   // radians
         glm::vec3 linearVel;  // meters / sec
         glm::vec3 angularVel; // radians / sec
-        glm::vec3 linearAcc;  // meters / sec^2
-        glm::vec3 angularAcc; // radians / sec^2
+        inline bool operator<(const State& rhs) const { return t < rhs.t; }
     };
 
     void add(quint64 t, const glm::vec3& pos, const glm::quat& rot);
@@ -45,20 +48,12 @@ public:
 
 protected:
 
-    struct TimedBasicState {
-        TimedBasicState(quint64 tIn, const glm::vec3& positionIn, const glm::quat& rotationIn) :
-            t(tIn), position(positionIn), rotation(rotationIn) {}
-        quint64 t; // usec
-        glm::vec3& position;
-        glm::quat& rotation;
-        inline bool operator<(const TimedBasicState& rhs) const { return t < rhs.t; }
-    };
-
-    State extrapolate(quint64 t, const TimedBasicState& state) const;
-    State interpolate(quint64 t, const TimedBasicState& prevState, const TimedBasicState& currState, const TimedBasicState& nextState) const;
+    void computeDerivatives();
+    State extrapolate(quint64 t, const State& s) const;
+    State interpolate(quint64 t, const State& s0, const State& s1) const;
     State smooth(quint64 dt, const State& currentState, const State& desiredState) const;
 
-    std::vector<TimedBasicState> _history;
+    std::vector<State> _history;
 };
 
 #endif // hifi_SmoothOperator_h
