@@ -51,7 +51,6 @@ protected:
     void computeDerivatives();
     State extrapolate(quint64 t, const State& s) const;
     State interpolate(quint64 t, const State& s0, const State& s1) const;
-    State smooth(quint64 dt, const State& currentState, const State& desiredState) const;
 
     std::vector<State> _history;
 };

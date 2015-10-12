@@ -1,13 +1,13 @@
 #include "SmoothOperator.h"
 #include "GLMHelpers.h"
 
-const size_t MAX_STATE_HISTORY_SIZE = 20;
+const size_t MAX_STATE_HISTORY_SIZE = 4;
 const quint64 BUFFER_LATENCY_USEC = 100 * USECS_PER_MSEC;  // 100ms (in usec)
 const float MAX_EXTRAPOLATION_TIME =  0.2f; // 200ms (in sec)
 
 struct Derivatives {
     glm::vec3 linearVel;  // meters / sec
-    glm::vec3 angularVel; // radians / sec
+    glm::vec3 angularVel; // direction is axis of rotation, length is (radians / sec)
 };
 
 static float usecToSec(quint64 t) {
@@ -31,6 +31,21 @@ static glm::vec3 quatToAngularSpin(const glm::quat& q) {
 
 static float approach(float t) {
     return 1.0f - (1.0f / (t + 1.0f));
+}
+
+// https://en.wikipedia.org/wiki/Cubic_Hermite_spline
+// interpolate between position p0 and p1, using tangent vectors m0 and m1.
+static glm::vec3 hermite(const glm::vec3& p0, const glm::vec3& m0,
+                         const glm::vec3& p1, const glm::vec3& m1, float t) {
+
+    float one_minus_t_squared = ((1.0f - t) * (1.0f - t));
+    float t_squared = t * t;
+    float h00 = (1.0f + 2.0f * t) * one_minus_t_squared;
+    float h10 = t * one_minus_t_squared;
+    float h01 = t_squared * (3.0f - (2.0f * t));
+    float h11 = t_squared * (t - 1.0f);
+
+    return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
 }
 
 SmoothOperator::SmoothOperator() {
@@ -58,7 +73,7 @@ void SmoothOperator::computeDerivatives() {
     _history[0].linearVel = glm::vec3(0);
     _history[0].angularVel = glm::vec3(0);
 
-    for (int i = 1; i < _history.size(); i++) {
+    for (size_t i = 1; i < _history.size(); i++) {
         float dt = usecToSec(_history[i].t - _history[i-1].t);
         if (dt > 0.0f) {
             _history[i].linearVel = glm::vec3(0.0f);
@@ -97,7 +112,7 @@ SmoothOperator::State SmoothOperator::smooth(quint64 t, quint64 dt, const State&
         auto s0 = std::min(0U, s1 - 1);
         desiredState = interpolate(sampleTime, _history[s0], _history[s1]);
     }
-    return smooth(dt, currentState, desiredState);
+    return desiredState;
 }
 
 SmoothOperator::State SmoothOperator::extrapolate(quint64 t, const State& s) const {
@@ -123,7 +138,7 @@ SmoothOperator::State SmoothOperator::interpolate(quint64 t, const State& s0, co
     float alpha = dt / usecToSec(s1.t - s0.t);
 
     // interpolate position
-    glm::vec3 position = lerp(s0.position, s1.position, alpha);
+    glm::vec3 position = hermite(s0.position, s0.linearVel, s1.position, s1.linearVel, alpha);
     glm::vec3 linearVel = lerp(s0.linearVel, s1.linearVel, alpha);
 
     // interpolate rotation
@@ -131,11 +146,6 @@ SmoothOperator::State SmoothOperator::interpolate(quint64 t, const State& s0, co
     glm::vec3 angularVel = lerp(s0.angularVel, s1.angularVel, alpha);
 
     return State(t, position, rotation, linearVel, angularVel);
-}
-
-SmoothOperator::State SmoothOperator::smooth(quint64 dt, const State& currentState, const State& desiredState) const {
-    // TODO: some kind of c2 smoothing, b-splines?
-    return desiredState;
 }
 
 
