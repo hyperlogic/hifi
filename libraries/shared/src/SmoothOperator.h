@@ -44,7 +44,7 @@ public:
     };
 
     void add(quint64 t, const glm::vec3& pos, const glm::quat& rot);
-    State smooth(quint64 t, quint64 dt, const State& currentState) const;
+    State smooth(quint64 t, const State& currentState) const;
 
 protected:
 

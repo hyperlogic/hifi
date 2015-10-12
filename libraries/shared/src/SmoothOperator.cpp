@@ -87,20 +87,21 @@ void SmoothOperator::computeDerivatives() {
     }
 }
 
-SmoothOperator::State SmoothOperator::smooth(quint64 t, quint64 dt, const State& currentState) const {
+SmoothOperator::State SmoothOperator::smooth(quint64 t, const State& currentState) const {
     if (_history.size() == 0) {
         return currentState;
     }
 
-    quint64 sampleTime = t + dt - BUFFER_LATENCY_USEC;
+    quint64 sampleTime = t - BUFFER_LATENCY_USEC;
 
     State desiredState;
 
     // find the youngest sample that is still in the future.
     size_t i;
     for (i = 0; i < _history.size(); i++) {
-        if (_history[i].t >= sampleTime)
+        if (_history[i].t >= sampleTime) {
             break;
+        }
     }
 
     if (i == _history.size()) {
