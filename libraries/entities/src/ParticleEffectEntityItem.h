@@ -175,7 +175,7 @@ public:
     static const float MAXIMUM_EMIT_ACCELERATION;
     void setEmitAcceleration(const glm::vec3& emitAcceleration);
     const glm::vec3& getEmitAcceleration() const { return _emitAcceleration; }
-    
+
     static const glm::vec3 DEFAULT_ACCELERATION_SPREAD;
     static const float MINIMUM_ACCELERATION_SPREAD;
     static const float MAXIMUM_ACCELERATION_SPREAD;
@@ -226,22 +226,46 @@ protected:
     using Particles = std::deque<Particle>;
 
     bool isAnimatingSomething() const;
-    
+
     Particle createParticle();
     void stepSimulation(float deltaTime);
-    void integrateParticle(Particle& particle, float deltaTime);
-    
-    struct Particle {
-        float seed { 0.0f };
-        float lifetime { 0.0f };
-        glm::vec3 position { Vectors::ZERO };
-        glm::vec3 velocity { Vectors::ZERO };
-        glm::vec3 acceleration { Vectors::ZERO };
+
+    __declspec(align(16)) struct Particle {
+        Particle() {};
+        Particle(float seedIn, float lifetimeIn, const glm::vec3& position, const glm::vec3& velocity, const glm::vec3& acceleration) {
+            px = position.x;
+            py = position.y;
+            pz = position.z;
+            seed = seedIn;
+
+            vx = velocity.x;
+            vy = velocity.y;
+            vz = velocity.z;
+            lifetime = lifetime;
+
+            ax = acceleration.x;
+            ay = acceleration.y;
+            az = acceleration.z;
+            padding = 0.0f;
+        }
+
+        const glm::vec3& getPosition() const {
+            return *reinterpret_cast<const glm::vec3*>(&px);
+        }
+
+        float getLifetime() const { return lifetime; }
+        float getSeed() const { return seed; }
+
+        void integrate(float dt);
+    protected:
+        float px, py, pz, seed;
+        float vx, vy, vz, lifetime;
+        float ax, ay, az, padding;
     };
-    
+
     // Particles container
     Particles _particles;
-    
+
     // Particles properties
     rgbColor _color;
     xColor _colorStart = DEFAULT_COLOR;
@@ -256,25 +280,25 @@ protected:
     float _radiusFinish = DEFAULT_RADIUS_FINISH;
     float _radiusSpread = DEFAULT_RADIUS_SPREAD;
     float _lifespan = DEFAULT_LIFESPAN;
-    
+
     // Emiter properties
     quint32 _maxParticles = DEFAULT_MAX_PARTICLES;
-    
+
     float _emitRate = DEFAULT_EMIT_RATE;
     float _emitSpeed = DEFAULT_EMIT_SPEED;
     float _speedSpread = DEFAULT_SPEED_SPREAD;
-    
+
     glm::quat _emitOrientation = DEFAULT_EMIT_ORIENTATION;
     glm::vec3 _emitDimensions = DEFAULT_EMIT_DIMENSIONS;
     float _emitRadiusStart = DEFAULT_EMIT_RADIUS_START;
     glm::vec3 _emitAcceleration = DEFAULT_EMIT_ACCELERATION;
     glm::vec3 _accelerationSpread = DEFAULT_ACCELERATION_SPREAD;
-    
+
     float _polarStart = DEFAULT_POLAR_START;
     float _polarFinish = DEFAULT_POLAR_FINISH;
     float _azimuthStart = DEFAULT_AZIMUTH_START;
     float _azimuthFinish = DEFAULT_AZIMUTH_FINISH;
-    
+
 
     quint64 _lastSimulated { 0 };
     bool _isEmitting { true };
@@ -282,10 +306,10 @@ protected:
     QString _textures { DEFAULT_TEXTURES };
     bool _texturesChangedFlag { false };
     ShapeType _shapeType { SHAPE_TYPE_NONE };
-    
+
     float _timeUntilNextEmit { 0.0f };
 
-    
+
     bool _emitterShouldTrail { DEFAULT_EMITTER_SHOULD_TRAIL };
 };
 

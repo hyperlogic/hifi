@@ -40,6 +40,73 @@
 #include "EntityScriptingInterface.h"
 #include "ParticleEffectEntityItem.h"
 
+
+
+//
+// on x86 architecture, assume that SSE2 is present
+//
+#if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__x86_64__)
+
+#include <emmintrin.h>
+
+void ParticleEffectEntityItem::Particle::integrate(float dt) {
+    float dtSquared = 0.5f * dt * dt;
+
+    // save these so they don't get slammed by the _mm_store_ps
+    float lifetimeTemp = lifetime;
+    float seedTemp = seed;
+
+    // loads
+    __m128 t = _mm_load_ps1(&dt);
+    __m128 tSquared = _mm_load_ps1(&dtSquared);
+    __m128 a = _mm_load_ps(&ax);
+    __m128 v0 = _mm_load_ps(&vx);
+    __m128 x0 = _mm_load_ps(&px);
+
+    // v = v0 + a * t
+    __m128 at = _mm_mul_ps(a, t);
+    __m128 v = _mm_add_ps(v0, at);
+
+    // x = x0 + v0 * t + a * t * t
+    __m128 atSquared = _mm_mul_ps(a, tSquared);
+    __m128 vt = _mm_mul_ps(v0, t);
+    __m128 x0_plus_vt = _mm_add_ps(x0, vt);
+    __m128 x = _mm_add_ps(x0_plus_vt, atSquared);
+
+    // store
+    _mm_store_ps(&px, x);
+    _mm_store_ps(&vx, v);
+
+    lifetime = lifetimeTemp + dt;
+    seed = seedTemp;
+}
+
+#else
+
+void ParticleEffectEntityItem::Particle::integrate(float dt) {
+
+    glm::vec3 a(ax, ay, az);
+    glm::vec3 atSquared = (0.5f * dt * dt) * a;
+    glm::vec3 p(px, py, pz);
+    glm::vec3 v(vx, vy, vz);
+
+    glm::vec3 at = a * deltaTime;
+    p += v * dt + atSquared;
+    v += at;
+
+    px = p.x;
+    py = p.y;
+    pz = p.z;
+
+    vx = v.x;
+    vy = v.y;
+    vz = v.z;
+
+    lifetime += dt;
+}
+
+#endif // defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__x86_64__)
+
 const float SCRIPT_MAXIMUM_PI = 3.1416f;  // Round up so that reasonable property values work
 
 const xColor ParticleEffectEntityItem::DEFAULT_COLOR = { 255, 255, 255 };
@@ -273,7 +340,7 @@ void ParticleEffectEntityItem::setRadiusFinish(float radiusFinish) {
     }
 }
 
-void ParticleEffectEntityItem::setRadiusSpread(float radiusSpread) { 
+void ParticleEffectEntityItem::setRadiusSpread(float radiusSpread) {
     if (MINIMUM_PARTICLE_RADIUS <= radiusSpread && radiusSpread <= MAXIMUM_PARTICLE_RADIUS) {
         _radiusSpread = radiusSpread;
     }
@@ -415,7 +482,7 @@ int ParticleEffectEntityItem::readEntitySubclassDataFromBuffer(const unsigned ch
         // OLD PROP_EMIT_VELOCITY FAKEOUT
         SKIP_ENTITY_PROPERTY(PROP_EMIT_SPEED, glm::vec3);
     }
-    
+
     if (args.bitstreamVersion >= VERSION_ENTITIES_PARTICLE_MODIFICATIONS) {
         READ_ENTITY_PROPERTY(PROP_EMIT_ACCELERATION, glm::vec3, setEmitAcceleration);
         READ_ENTITY_PROPERTY(PROP_ACCELERATION_SPREAD, glm::vec3, setAccelerationSpread);
@@ -586,26 +653,18 @@ void ParticleEffectEntityItem::updateShapeType(ShapeType type) {
     }
 }
 
-void ParticleEffectEntityItem::integrateParticle(Particle& particle, float deltaTime) {
-    glm::vec3 atSquared = (0.5f * deltaTime * deltaTime) * particle.acceleration;
-    glm::vec3 at = particle.acceleration * deltaTime;
-    particle.position += particle.velocity * deltaTime + atSquared;
-    particle.velocity += at;
-}
-
 void ParticleEffectEntityItem::stepSimulation(float deltaTime) {
     // update particles between head and tail
     int popCount = 0;
     for (Particle& particle : _particles) {
-        particle.lifetime += deltaTime;
 
         // if particle has died.
-        if (particle.lifetime >= _lifespan) {
+        if (particle.getLifetime() + deltaTime >= _lifespan) {
             // move head forward
             popCount++;
         } else {
             // Otherwise update it
-            integrateParticle(particle, deltaTime);
+            particle.integrate(deltaTime);
         }
     }
     _particles.erase(_particles.begin(), _particles.begin() + popCount);
@@ -615,21 +674,19 @@ void ParticleEffectEntityItem::stepSimulation(float deltaTime) {
 
         float timeLeftInFrame = deltaTime;
         while (_timeUntilNextEmit < timeLeftInFrame) {
-            // overflow! move head forward by one.
-            // because the case of head == tail indicates an empty array, not a full one.
+            // overflow!
             // This can drop an existing older particle, but this is by design, newer particles are a higher priority.
             if (_particles.size() >= _maxParticles) {
                 _particles.pop_front();
             }
-            
+
             // emit a new particle at tail index.
             _particles.push_back(createParticle());
             auto particle = _particles.back();
-            particle.lifetime += timeLeftInFrame;
-            
+
             // Initialize it
-            integrateParticle(particle, deltaTime);
-            
+            particle.integrate(deltaTime);
+
             // Advance in frame
             timeLeftInFrame -= _timeUntilNextEmit;
             _timeUntilNextEmit = 1.0f / _emitRate;
@@ -640,40 +697,42 @@ void ParticleEffectEntityItem::stepSimulation(float deltaTime) {
 }
 
 ParticleEffectEntityItem::Particle ParticleEffectEntityItem::createParticle() {
-    Particle particle;
 
- 
-    particle.seed = randFloatInRange(-1.0f, 1.0f);
+    float seed = randFloatInRange(-1.0f, 1.0f);
+    glm::vec3 position;
     if (getEmitterShouldTrail()) {
-        particle.position = getPosition();
+        position = getPosition();
     }
+
+    glm::vec3 velocity;
+    glm::vec3 acceleration;
     // Position, velocity, and acceleration
     if (_polarStart == 0.0f && _polarFinish == 0.0f && _emitDimensions.z == 0.0f) {
         // Emit along z-axis from position
 
-        particle.velocity = (_emitSpeed + 0.2f * _speedSpread) * (_emitOrientation * Vectors::UNIT_Z);
-        particle.acceleration = _emitAcceleration + randFloatInRange(-1.0f, 1.0f) * _accelerationSpread;
-        
+        velocity = (_emitSpeed + 0.2f * _speedSpread) * (_emitOrientation * Vectors::UNIT_Z);
+        acceleration = _emitAcceleration + randFloatInRange(-1.0f, 1.0f) * _accelerationSpread;
+
     } else {
         // Emit around point or from ellipsoid
         // - Distribute directions evenly around point
         // - Distribute points relatively evenly over ellipsoid surface
         // - Distribute points relatively evenly within ellipsoid volume
-        
+
         float elevationMinZ = sin(PI_OVER_TWO - _polarFinish);
         float elevationMaxZ = sin(PI_OVER_TWO - _polarStart);
       //  float elevation = asin(elevationMinZ + (elevationMaxZ - elevationMinZ) * randFloat());
         float elevation = asin(elevationMinZ + (elevationMaxZ - elevationMinZ) *randFloat());
-        
+
         float azimuth;
         if (_azimuthFinish >= _azimuthStart) {
             azimuth = _azimuthStart + (_azimuthFinish - _azimuthStart) *  randFloat();
         } else {
             azimuth = _azimuthStart + (TWO_PI + _azimuthFinish - _azimuthStart) * randFloat();
         }
-        
+
         glm::vec3 emitDirection;
-        
+
         if (_emitDimensions == Vectors::ZERO) {
             // Point
             emitDirection = glm::quat(glm::vec3(PI_OVER_TWO - elevation, 0.0f, azimuth)) * Vectors::UNIT_Z;
@@ -686,7 +745,7 @@ ParticleEffectEntityItem::Particle ParticleEffectEntityItem::createParticle() {
                 emitRadiusStart + randFloatInRange(0.0f, MAXIMUM_EMIT_RADIUS_START - emitRadiusStart);
                 radiusScale = 1.0f - std::pow(1.0f - randRadius, 3.0f);
             }
-            
+
             glm::vec3 radii = radiusScale * 0.5f * _emitDimensions;
             float x = radii.x * glm::cos(elevation) * glm::cos(azimuth);
             float y = radii.y * glm::cos(elevation) * glm::sin(azimuth);
@@ -697,20 +756,21 @@ ParticleEffectEntityItem::Particle ParticleEffectEntityItem::createParticle() {
                 radii.y > 0.0f ? y / (radii.y * radii.y) : 0.0f,
                 radii.z > 0.0f ? z / (radii.z * radii.z) : 0.0f
             ));
-            
+
             if (getEmitterShouldTrail()) {
-                particle.position += _emitOrientation * emitPosition;
+                position += _emitOrientation * emitPosition;
             }
             else {
-                particle.position = _emitOrientation * emitPosition;
+                position = _emitOrientation * emitPosition;
             }
         }
-        
-        particle.velocity = (_emitSpeed + randFloatInRange(-1.0f, 1.0f) * _speedSpread) * (_emitOrientation * emitDirection);
-        particle.acceleration = _emitAcceleration + randFloatInRange(-1.0f, 1.0f) * _accelerationSpread;
+
+        velocity = (_emitSpeed + randFloatInRange(-1.0f, 1.0f) * _speedSpread) * (_emitOrientation * emitDirection);
+        acceleration = _emitAcceleration + randFloatInRange(-1.0f, 1.0f) * _accelerationSpread;
     }
-    
-    return particle;
+
+    float lifetime = 0.0f;
+    return Particle(seed, lifetime, position, velocity, acceleration);
 }
 
 void ParticleEffectEntityItem::setMaxParticles(quint32 maxParticles) {

@@ -233,7 +233,7 @@ void RenderableParticleEffectEntityItem::updateRenderItem() {
     auto particlePrimitives = std::make_shared<ParticlePrimitives>();
     particlePrimitives->reserve(_particles.size()); // Reserve space
     for (auto& particle : _particles) {
-        particlePrimitives->emplace_back(particle.position, glm::vec2(particle.lifetime, particle.seed));
+        particlePrimitives->emplace_back(particle.getPosition(), glm::vec2(particle.getLifetime(), particle.getSeed()));
     }
 
     bool successb, successp, successr;
