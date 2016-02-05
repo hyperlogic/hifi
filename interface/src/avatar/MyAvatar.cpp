@@ -1361,36 +1361,18 @@ void MyAvatar::updateOrientation(float deltaTime) {
         totalBodyYaw += _driveKeys[STEP_YAW];
     }
 
-    // use head/HMD orientation to turn while flying
-    if (getCharacterController()->getState() == CharacterController::State::Hover) {
-
-        // This is the direction the user desires to fly in.
-        glm::vec3 desiredFacing = getHead()->getCameraOrientation() * Vectors::UNIT_Z;
-        desiredFacing.y = 0.0f;
-
-        // This is our reference frame, it is captured when the user begins to move.
-        glm::vec3 referenceFacing = transformVector(_sensorToWorldMatrix, _hoverReferenceCameraFacing);
-        referenceFacing.y = 0.0f;
-        referenceFacing = glm::normalize(referenceFacing);
-        glm::vec3 referenceRight(referenceFacing.z, 0.0f, -referenceFacing.x);
-        const float HOVER_FLY_ROTATION_PERIOD = 0.5f;
-        float tau = glm::clamp(deltaTime / HOVER_FLY_ROTATION_PERIOD, 0.0f, 1.0f);
-
-        // new facing is a linear interpolation between the desired and reference vectors.
-        glm::vec3 newFacing = glm::normalize((1.0f - tau) * referenceFacing + tau * desiredFacing);
-
-        // calcualte the signed delta yaw angle to apply so that we match our newFacing.
-        float sign = copysignf(1.0f, glm::dot(desiredFacing, referenceRight));
-        float deltaAngle = sign * acosf(glm::clamp(glm::dot(referenceFacing, newFacing), -1.0f, 1.0f));
-
-        // speedFactor is 0 when we are at rest adn 1.0 when we are at max flying speed.
-        const float MAX_FLYING_SPEED = 30.0f;
-        float speedFactor = glm::min(glm::length(getVelocity()) / MAX_FLYING_SPEED, 1.0f);
-
-        // apply our delta, but scale it by the speed factor, so we turn faster when we are flying faster.
-        totalBodyYaw += (speedFactor * deltaAngle * (180.0f / PI));
+    // use head/HMD orientation to turn while moving
+    if (!Menu::getInstance()->isOptionChecked(MenuOption::ComfortMode)) {
+        // discomfort mode!
+        if (getCharacterController()->getState() == CharacterController::State::Hover) {
+            const float HOVER_FLY_ROTATION_PERIOD = 0.5f;
+            const float MAX_FLYING_SPEED = 30.0f;
+            totalBodyYaw += rotateTowardDesiredFacing(deltaTime, HOVER_FLY_ROTATION_PERIOD, MAX_FLYING_SPEED);
+        } else if (getCharacterController()->getState() == CharacterController::State::Ground) {
+            const float WALK_ROTATION_PERIOD = 0.5f;
+            totalBodyYaw += rotateTowardDesiredFacing(deltaTime, WALK_ROTATION_PERIOD, MAX_WALKING_SPEED);
+        }
     }
-
 
     // update body orientation by movement inputs
     setOrientation(getOrientation() * glm::quat(glm::radians(glm::vec3(0.0f, totalBodyYaw, 0.0f))));
@@ -1411,6 +1393,32 @@ void MyAvatar::updateOrientation(float deltaTime) {
         head->setBasePitch(PITCH(euler));
         head->setBaseRoll(ROLL(euler));
     }
+}
+
+float MyAvatar::rotateTowardDesiredFacing(float deltaTime, float period, float maxSpeed) const {
+    // This is the direction the user desires to fly in.
+    glm::vec3 desiredFacing = getHead()->getCameraOrientation() * Vectors::UNIT_Z;
+    desiredFacing.y = 0.0f;
+
+    // This is our reference frame, it is captured when the user begins to move.
+    glm::vec3 referenceFacing = transformVector(_sensorToWorldMatrix, _moveReferenceCameraFacing);
+    referenceFacing.y = 0.0f;
+    referenceFacing = glm::normalize(referenceFacing);
+    glm::vec3 referenceRight(referenceFacing.z, 0.0f, -referenceFacing.x);
+    float tau = glm::clamp(deltaTime / period, 0.0f, 1.0f);
+
+    // new facing is a linear interpolation between the desired and reference vectors.
+    glm::vec3 newFacing = glm::normalize((1.0f - tau) * referenceFacing + tau * desiredFacing);
+
+    // calcualte the signed delta yaw angle to apply so that we match our newFacing.
+    float sign = copysignf(1.0f, glm::dot(desiredFacing, referenceRight));
+    float deltaAngle = sign * acosf(glm::clamp(glm::dot(referenceFacing, newFacing), -1.0f, 1.0f));
+
+    // speedFactor is 0 when we are at rest adn 1.0 when we are at max speed.
+    float speedFactor = glm::min(glm::length(getVelocity()) / maxSpeed, 1.0f);
+
+    // apply our delta, but scale it by the speed factor, so we turn faster when we are moving faster.
+    return speedFactor * deltaAngle * (180.0f / PI);
 }
 
 glm::vec3 MyAvatar::applyKeyboardMotor(float deltaTime, const glm::vec3& localVelocity, bool isHovering) {
@@ -1571,12 +1579,12 @@ void MyAvatar::updatePosition(float deltaTime) {
 
 
     // capture the head rotation, in sensor space, when the user first indicates they would like to move/fly.
-    if (!_hoverReferenceCameraFacingIsCaptured && (fabs(_driveKeys[TRANSLATE_Z]) > 0.1f || fabs(_driveKeys[TRANSLATE_X]) > 0.1f)) {
-        _hoverReferenceCameraFacingIsCaptured = true;
+    if (!_moveReferenceCameraFacingIsCaptured && (fabs(_driveKeys[TRANSLATE_Z]) > 0.1f || fabs(_driveKeys[TRANSLATE_X]) > 0.1f)) {
+        _moveReferenceCameraFacingIsCaptured = true;
         // transform the camera facing vector into sensor space.
-        _hoverReferenceCameraFacing = transformVector(glm::inverse(_sensorToWorldMatrix), getHead()->getCameraOrientation() * Vectors::UNIT_Z);
-    } else if (_hoverReferenceCameraFacingIsCaptured && (fabs(_driveKeys[TRANSLATE_Z]) <= 0.1f && fabs(_driveKeys[TRANSLATE_X]) <= 0.1f)) {
-        _hoverReferenceCameraFacingIsCaptured = false;
+        _moveReferenceCameraFacing = transformVector(glm::inverse(_sensorToWorldMatrix), getHead()->getCameraOrientation() * Vectors::UNIT_Z);
+    } else if (_moveReferenceCameraFacingIsCaptured && (fabs(_driveKeys[TRANSLATE_Z]) <= 0.1f && fabs(_driveKeys[TRANSLATE_X]) <= 0.1f)) {
+        _moveReferenceCameraFacingIsCaptured = false;
     }
 }
 

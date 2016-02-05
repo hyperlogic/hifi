@@ -356,6 +356,7 @@ private:
 
     // private methods
     void updateOrientation(float deltaTime);
+    float rotateTowardDesiredFacing(float deltaTime, float period, float maxSpeed) const;
     glm::vec3 applyKeyboardMotor(float deltaTime, const glm::vec3& velocity, bool isHovering);
     glm::vec3 applyScriptedMotor(float deltaTime, const glm::vec3& velocity);
     void updatePosition(float deltaTime);
@@ -414,8 +415,8 @@ private:
     AtRestDetector _hmdAtRestDetector;
     bool _lastIsMoving { false };
 
-    bool _hoverReferenceCameraFacingIsCaptured { false };
-    glm::vec3 _hoverReferenceCameraFacing; // hmd sensor space
+    bool _moveReferenceCameraFacingIsCaptured { false };
+    glm::vec3 _moveReferenceCameraFacing; // hmd sensor space
 };
 
 QScriptValue audioListenModeToScriptValue(QScriptEngine* engine, const AudioListenerMode& audioListenerMode);
