@@ -238,18 +238,31 @@ function entityIsGrabbedByOther(entityID) {
     return false;
 }
 
+function getControllerPoseInWorld(hand) {
+    var key = (hand === RIGHT_HAND) ? Controller.Standard.RightHand : Controller.Standard.LeftHand
+    var pose = Controller.getPoseValue(key);
+    var sensorToWorldTranslation = MyAvatar.getSensorToWorldTranslation();
+    var sensorToWorldRotation = MyAvatar.getSensorToWorldRotation();
+
+    // transform controller into world by using sensorToWorld translation and rotation.
+    var rotation = Quat.multiply(sensorToWorldRotation, pose.rotation);
+    var translation = Vec3.sum(sensorToWorldTranslation, Vec3.multiplyQbyV(sensorToWorldRotation, pose.translation));
+
+    pose.rotation = rotation;
+    pose.translation = translation;
+
+    return pose;
+}
+
 function MyController(hand) {
     this.hand = hand;
     if (this.hand === RIGHT_HAND) {
         this.getHandPosition = MyAvatar.getRightPalmPosition;
-        // this.getHandRotation = MyAvatar.getRightPalmRotation;
     } else {
         this.getHandPosition = MyAvatar.getLeftPalmPosition;
-        // this.getHandRotation = MyAvatar.getLeftPalmRotation;
     }
     this.getHandRotation = function() {
-        var controllerHandInput = (this.hand === RIGHT_HAND) ? Controller.Standard.RightHand : Controller.Standard.LeftHand;
-        return Quat.multiply(MyAvatar.orientation, Controller.getPoseValue(controllerHandInput).rotation);
+        return getControllerPoseInWorld(this.hand).rotation;
     }
 
     this.actionID = null; // action this script created...

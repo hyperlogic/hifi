@@ -416,6 +416,24 @@ glm::mat4 MyAvatar::getSensorToWorldMatrix() const {
     return _sensorToWorldMatrix;
 }
 
+glm::vec3 MyAvatar::getSensorToWorldTranslation() const {
+    glm::mat4 sensorToWorldMatrix(glm::mat4::_null);
+    {
+        std::unique_lock<std::mutex> lock(_lastSensorToWorldMatrixMutex);
+        sensorToWorldMatrix = _lastSensorToWorldMatrix;
+    }
+    return extractTranslation(sensorToWorldMatrix);
+}
+
+glm::quat MyAvatar::getSensorToWorldRotation() const {
+    glm::mat4 sensorToWorldMatrix(glm::mat4::_null);
+    {
+        std::unique_lock<std::mutex> lock(_lastSensorToWorldMatrixMutex);
+        sensorToWorldMatrix = _lastSensorToWorldMatrix;
+    }
+    return glmExtractRotation(sensorToWorldMatrix);
+}
+
 // Pass a recent sample of the HMD to the avatar.
 // This can also update the avatar's position to follow the HMD
 // as it moves through the world.
@@ -438,6 +456,12 @@ void MyAvatar::updateSensorToWorldMatrix() {
     _sensorToWorldMatrix = desiredMat * glm::inverse(_bodySensorMatrix);
 
     lateUpdatePalms();
+
+    // atomically copy the sensorToWorldMatrix for access by other threads.
+    {
+        std::unique_lock<std::mutex> lock(_lastSensorToWorldMatrixMutex);
+        _lastSensorToWorldMatrix = _sensorToWorldMatrix;
+    }
 }
 
 //  Update avatar head rotation with sensor data

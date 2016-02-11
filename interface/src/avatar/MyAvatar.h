@@ -100,6 +100,9 @@ public:
     const glm::vec2& getHMDSensorFacingMovingAverage() const { return _hmdSensorFacingMovingAverage; }
     glm::mat4 getSensorToWorldMatrix() const;
 
+    // returns an object with translation, rotation and scale fields. (thread-safe)
+    Q_INVOKABLE glm::vec3 getSensorToWorldTranslation() const;
+    Q_INVOKABLE glm::quat getSensorToWorldRotation() const;
 
     // Pass a recent sample of the HMD to the avatar.
     // This can also update the avatar's position to follow the HMD
@@ -385,6 +388,8 @@ private:
 
     // used to transform any sensor into world space, including the _hmdSensorMat, or hand controllers.
     glm::mat4 _sensorToWorldMatrix;
+    mutable std::mutex _lastSensorToWorldMatrixMutex;
+    glm::mat4 _lastSensorToWorldMatrix; // copy of last known good sensorToWorldMatrix, used for thread-safe get.
 
     struct FollowHelper {
         glm::mat4 _desiredBodyMatrix;
