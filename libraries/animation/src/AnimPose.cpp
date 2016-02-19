@@ -33,8 +33,12 @@ glm::vec3 AnimPose::xformPoint(const glm::vec3& rhs) const {
     return *this * rhs;
 }
 
+glm::vec3 AnimPose::xformVectorFast(const glm::vec3& rhs) const {
+    return rot * rhs;
+}
+
 // really slow
-glm::vec3 AnimPose::xformVector(const glm::vec3& rhs) const {
+glm::vec3 AnimPose::xformVectorFull(const glm::vec3& rhs) const {
     glm::vec3 xAxis = rot * glm::vec3(scale.x, 0.0f, 0.0f);
     glm::vec3 yAxis = rot * glm::vec3(0.0f, scale.y, 0.0f);
     glm::vec3 zAxis = rot * glm::vec3(0.0f, 0.0f, scale.z);

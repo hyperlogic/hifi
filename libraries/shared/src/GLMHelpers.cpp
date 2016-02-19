@@ -462,3 +462,18 @@ bool isNaN(glm::quat value) {
     return isNaN(value.w) || isNaN(value.x) || isNaN(value.y) || isNaN(value.z);
 }
 
+bool rayCircleIntersection2D(const glm::vec2& rayStart, const glm::vec2& ray, glm::vec2& center, float radius, float& t1, float& t2) {
+    glm::vec2 f = (rayStart - center);
+    float a = glm::dot(ray, ray);
+    float b = 2.0f * glm::dot(f, ray);
+    float c = glm::dot(f, f) - radius * radius;
+    float disc = b * b - 4.0f * a * c;
+    if (disc < 0.0f) {
+        return false; // no solutions
+    } else {
+        disc = sqrtf(disc);
+        t1 = (-b - disc) / 2.0f * a;
+        t2 = (-b + disc) / 2.0f * a;
+        return true;
+    }
+}

@@ -231,4 +231,7 @@ glm::vec2 getFacingDir2D(const glm::mat4& m);
 bool isNaN(glm::vec3 value);
 bool isNaN(glm::quat value);
 
+// t1 and t2 are only valid if rayCircleIntersection2D()
+bool rayCircleIntersection2D(const glm::vec2& rayStart, const glm::vec2& ray, glm::vec2& center, float radius, float& t1, float& t2);
+
 #endif // hifi_GLMHelpers_h

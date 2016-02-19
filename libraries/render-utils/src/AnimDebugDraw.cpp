@@ -253,8 +253,8 @@ static void addLink(const AnimPose& rootPose, const AnimPose& pose, const AnimPo
     AnimPose pose1 = rootPose * pose;
 
     glm::vec3 boneAxisWorld = glm::normalize(pose1.trans - pose0.trans);
-    glm::vec3 boneAxis0 = glm::normalize(pose0.inverse().xformVector(boneAxisWorld));
-    glm::vec3 boneAxis1 = glm::normalize(pose1.inverse().xformVector(boneAxisWorld));
+    glm::vec3 boneAxis0 = glm::normalize(pose0.inverse().xformVectorFast(boneAxisWorld));
+    glm::vec3 boneAxis1 = glm::normalize(pose1.inverse().xformVectorFast(boneAxisWorld));
 
     glm::vec3 boneBase = pose0 * (boneAxis0 * radius);
     glm::vec3 boneTip = pose1 * (boneAxis1 * -radius);

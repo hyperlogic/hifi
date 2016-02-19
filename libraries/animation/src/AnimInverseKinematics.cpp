@@ -243,6 +243,9 @@ int AnimInverseKinematics::solveTargetWithCCD(const IKTarget& target, AnimPoseVe
     // cache tip absolute position
     glm::vec3 tipPosition = absolutePoses[tipIndex].trans;
 
+    int rightArmIndex = _skeleton->nameToJointIndex("RightArm");
+    int leftArmIndex = _skeleton->nameToJointIndex("LeftArm");
+
     // descend toward root, pivoting each joint to get tip closer to target position
     while (pivotIndex != _hipsIndex && pivotsParentIndex != -1) {
         // compute the two lines that should be aligned
@@ -326,6 +329,45 @@ int AnimInverseKinematics::solveTargetWithCCD(const IKTarget& target, AnimPoseVe
                 absolutePoses[pivotsParentIndex].rot) *
                 deltaRotation *
                 absolutePoses[pivotIndex].rot);
+
+        // dynamically update arm constraints to avoid putting the elbows into the body.
+        if (pivotsParentIndex == leftArmIndex || pivotsParentIndex == rightArmIndex) {
+            SwingTwistConstraint* constraint = static_cast<SwingTwistConstraint*>(getConstraint(pivotsParentIndex));
+
+            const float ELBOW_RADIUS = 0.05f;
+            const float BODY_RADIUS = 0.16f;  // TODO: get this from myAvatar.
+            const float CIRCLE_RADIUS = ELBOW_RADIUS + BODY_RADIUS;
+            const float CONE_ANGLE = PI / 2.0f;
+            const int NUM_SEGMENTS = 25;
+            const float dTheta = (2.0f * PI) / NUM_SEGMENTS;
+
+            glm::vec2 elbowPosition2D(jointPosition.x, jointPosition.z);
+            glm::vec2 bodyPosition2D(absolutePoses[_hipsIndex].trans.x, absolutePoses[_hipsIndex].trans.z);
+
+            AnimPose parentPose = absolutePoses[pivotsParentIndex];
+            glm::vec3 referenceVector = parentPose.xformVectorFast(Vectors::UNIT_Y);
+
+            std::vector<float> dotProducts;
+            dotProducts.reserve(NUM_SEGMENTS);
+            float theta = 0.0f;
+            for (int i = 0; i < NUM_SEGMENTS; i++, theta += dTheta) {
+                float dot = cosf(CONE_ANGLE);
+                glm::vec2 ray2D(cosf(theta), sinf(theta));
+                float t1, t2;
+                bool hit = rayCircleIntersection2D(elbowPosition2D, ray2D, bodyPosition2D, CIRCLE_RADIUS, t1, t2);
+                if (hit) {
+                    glm::vec2 intersection2D = elbowPosition2D + ray2D * t1;
+                    glm::vec3 constraintVector = glm::vec3(intersection2D.x, jointPosition.y, intersection2D.y) - parentPose.trans;
+                    // TODO: prevent normalizing zero vectors.
+                    float newDot = glm::min(glm::dot(glm::normalize(constraintVector), referenceVector), 1.0f);
+                    if (newDot > dot) {
+                        dot = newDot;
+                    }
+                }
+                dotProducts.push_back(dot);
+            }
+            constraint->setSwingLimits(dotProducts);
+        }
 
         // enforce pivot's constraint
         RotationConstraint* constraint = getConstraint(pivotIndex);
