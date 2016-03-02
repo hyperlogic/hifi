@@ -9,30 +9,53 @@ var center = Vec3.sum(MyAvatar.position, Vec3.multiply(3, Quat.getFront(orientat
 
 var currentVolume = 1.0;
 
-var clip = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/gregorian.wav");
+var clip1 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/gregorian.wav");
+var clip2 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/alan.wav");
 
-var injector = Audio.playSound(clip, {
-    position: center,
-    volume: currentVolume
-});
+var injector1, injector2;
+var updateInterval;
+
+
+Script.setTimeout(initAudioClips, 5000);
+
+function initAudioClips() {
+    injector1 = Audio.playSound(clip1, {
+        position: center,
+        volume: currentVolume
+    });
+
+    injector2 = Audio.playSound(clip2, {
+        position: center,
+        volume: currentVolume
+    });
+    
+    updateInterval = Script.setInterval(update, UPDATE_TIME)
+}
 
 
 
 function update() {
+    print("INTERVAL")
     // We want to get realtive y distance of avatar's hand from avatar's y position
-    var relativeHandYPosition =  MyAvatar.getRightPalmPosition().y - MyAvatar.position.y; 
-    var newVolume = map(relativeHandYPosition, 1.1, -0.1, 1, 0);
+    var relativeRightHandYPosition =  MyAvatar.getRightPalmPosition().y - MyAvatar.position.y; 
+    var newVolume = map(relativeRightHandYPosition, 1.1, -0.1, 1, 0);
     newVolume = clamp(newVolume, 0, 1);
-    print(newVolume)
-    injector.setOptions({position: center, volume: newVolume});
+    injector1.setOptions({position: center, volume: newVolume});
+
+    var relativeLeftHandYPosition =  MyAvatar.getLeftPalmPosition().y - MyAvatar.position.y; 
+    newVolume = map(relativeLeftHandYPosition, 1.1, -0.1, 1, 0);
+    newVolume = clamp(newVolume, 0, 1);
+    injector2.setOptions({position: center, volume: newVolume});
+
+
    
 }
 
 
 function cleanup() {
-    injector.stop();
+    injector1.stop();
+    injector2.stop();
 }
 
 
-Script.setInterval(update, UPDATE_TIME)
 Script.scriptEnding.connect(cleanup);
