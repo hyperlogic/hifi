@@ -5,7 +5,7 @@ var UPDATE_TIME = 20;
 var currentVolume = 0.0;
 
 var clip1 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/hackathonSounds/synth/chillstep-synth.wav");
-var clip2 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/hackathonSounds/drops/drop1.wav");
+var clip2 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/hackathonSounds/drums/beat.wav");
 
 var injector1, injector2;
 var AVATAR_POSITION_Y_OFFSET = 0.2;
@@ -33,6 +33,7 @@ var debugBox = Entities.addEntity({
         blue: 200
     }
 });
+
 
 function initAudioClips() {
     injector1 = Audio.playSound(clip1, {

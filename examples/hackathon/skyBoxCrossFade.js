@@ -16,19 +16,12 @@ var zone = Entities.addEntity({
 
         "ProceduralEntity": {
             "version": 2,
-            "shaderUrl": "https://hifi-public.s3.amazonaws.com/austin/shaders/skybox/omgSkybox.fs",
+            "shaderUrl": "file:///C:/Users/Eric/hifi/examples/hackathon/skybox.fs?v1" + Math.random(),
             "channels": [
                 "https://hifi-public.s3.amazonaws.com/austin/assets/images/skybox/starmap_8k.jpg",
-                "https://hifi-public.s3.amazonaws.com/austin/assets/images/skybox/celestial_grid.jpg",
-                "https://hifi-public.s3.amazonaws.com/austin/assets/images/skybox/constellation_figures.jpg",
-                "https://hifi-public.s3.amazonaws.com/austin/assets/images/skybox/constellation_boundaries.jpg"
             ],
             "uniforms": {
-                "rotationSpeed": 0.001,
-                "uDayColor": [0.9, 0.7, 0.7],
-                "constellationLevel": 0.01,
-                "constellationBoundaryLevel": 0.01,
-                "gridLevel": 0.00
+                "red": 0.9
             }
         }
     })
