@@ -1,60 +1,87 @@
 Script.include("../libraries/utils.js");
 var UPDATE_TIME = 50;
 
-var orientation = Camera.getOrientation();
-orientation = Quat.safeEulerAngles(orientation);
-orientation.x = 0;
-orientation = Quat.fromVec3Degrees(orientation);
-var center = Vec3.sum(MyAvatar.position, Vec3.multiply(3, Quat.getFront(orientation)));
 
 var currentVolume = 1.0;
 
-var clip1 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/gregorian.wav");
-var clip2 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/alan.wav");
+var clip1 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/hackathonSounds/synth/chillstep-synth.wav");
+var clip2 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content/eric/Sounds/hackathonSounds/piano/piano-sidechained.wav");
 
 var injector1, injector2;
-var updateInterval;
 
 
-Script.setTimeout(initAudioClips, 5000);
+Script.setTimeout(initAudioClips, 1000);
+
+var handHeightRange = {min: -0.1, max: 1};
+
+var debugBox = Entities.addEntity({
+    type: "Box",
+    position: MyAvatar.position,
+    dimensions: {x: 0.1, y: 0.1, z: 0.1},
+    color: {red: 200, green : 10, blue: 200}
+});
 
 function initAudioClips() {
     injector1 = Audio.playSound(clip1, {
-        position: center,
-        volume: currentVolume
+        position: MyAvatar.position,
+        volume: currentVolume,
+        loop: true
     });
 
     injector2 = Audio.playSound(clip2, {
-        position: center,
-        volume: currentVolume
+        position: MyAvatar.position,
+        volume: currentVolume,
+        loop: true
     });
-    
-    updateInterval = Script.setInterval(update, UPDATE_TIME)
+
+    Script.setInterval(update, UPDATE_TIME)
 }
 
 
 
 function update() {
-    print("INTERVAL")
     // We want to get realtive y distance of avatar's hand from avatar's y position
-    var relativeRightHandYPosition =  MyAvatar.getRightPalmPosition().y - MyAvatar.position.y; 
-    var newVolume = map(relativeRightHandYPosition, 1.1, -0.1, 1, 0);
-    newVolume = clamp(newVolume, 0, 1);
-    injector1.setOptions({position: center, volume: newVolume});
+    var rightPalmYPosition = MyAvatar.getRightPalmPosition().y
+    if (rightPalmYPosition < MyAvatar.position.y) {
+        newVolume = 0;
+    } else {
+        var relativeRightHandYPosition = rightPalmYPosition - MyAvatar.position.y;
+        var newVolume = map(relativeRightHandYPosition, handHeightRange.max, handHeightRange.min, 1, 0);
+        newVolume = clamp(newVolume, 0, 1);
 
-    var relativeLeftHandYPosition =  MyAvatar.getLeftPalmPosition().y - MyAvatar.position.y; 
-    newVolume = map(relativeLeftHandYPosition, 1.1, -0.1, 1, 0);
-    newVolume = clamp(newVolume, 0, 1);
-    injector2.setOptions({position: center, volume: newVolume});
+    }
+    injector1.setOptions({
+        position: MyAvatar.position,
+        volume: newVolume,
+        loop: true
+    });
+
+    var leftPalmYPosition = MyAvatar.getLeftPalmPosition().y
+    if (leftPalmYPosition < MyAvatar.position.y) {
+        newVolume = 0;
+    } else {
+        var relativeLeftHandYPosition = leftPalmYPosition - MyAvatar.position.y;
+        var newVolume = map(relativeLeftHandYPosition, handHeightRange.max, handHeightRange.min, 1, 0);
+        newVolume = clamp(newVolume, 0, 1);
+
+    }
+    injector2.setOptions({
+        position: MyAvatar.position,
+        volume: newVolume,
+        loop: true
+    });
+
+    print(newVolume)
 
 
-   
+
 }
 
 
 function cleanup() {
     injector1.stop();
     injector2.stop();
+    Entities.deleteEntity(debugBox);
 }
 
 
