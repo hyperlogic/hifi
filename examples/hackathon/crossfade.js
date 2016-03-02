@@ -10,6 +10,8 @@ var clip2 = SoundCache.getSound("https://s3-us-west-1.amazonaws.com/hifi-content
 var injector1, injector2;
 var AVATAR_POSITION_Y_OFFSET = 0.2;
 
+var clipPosition = MyAvatar.getHeadPosition();
+
 Script.setTimeout(initAudioClips, 1000);
 
 var handHeightRange = {
@@ -34,13 +36,13 @@ var debugBox = Entities.addEntity({
 
 function initAudioClips() {
     injector1 = Audio.playSound(clip1, {
-        position: MyAvatar.position,
+        position: clipPosition,
         volume: currentVolume,
         loop: true
     });
 
     injector2 = Audio.playSound(clip2, {
-        position: MyAvatar.position,
+        position: clipPosition,
         volume: currentVolume,
         loop: true
     });
@@ -68,7 +70,7 @@ function updateAudio() {
 
     }
     injector1.setOptions({
-        position: MyAvatar.position,
+        position: clipPosition,
         volume: newVolume,
         loop: true
     });
@@ -83,7 +85,7 @@ function updateAudio() {
 
     }
     injector2.setOptions({
-        position: MyAvatar.position,
+        position: clipPosition,
         volume: newVolume,
         loop: true
     });
