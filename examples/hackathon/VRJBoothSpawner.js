@@ -9,7 +9,7 @@ orientation = Quat.fromVec3Degrees(orientation);
 
 var SPHERE_RADIUS = 1;
 var CARTRIDGE_SEARCH_HZ = 300;
-var CARTRIDGE_PARAM_UPDATE_HZ = 50;
+var CARTRIDGE_PARAM_UPDATE_HZ = 100;
 
 var activeCartridges = [];
 var rightHandPosition, leftHandPosition;
@@ -28,10 +28,26 @@ var sphereOverlay = Overlays.addOverlay('sphere', {
     visible: true
 });
 
+var handToCartridgeDistanceThreshold = 0.4;
+
 
 function updateCartridgeParams() {
     // go through our active list...
-    print("UPDATE ")
+    activeCartridges.forEach(function(activeCartridge) {
+        var cartridgePosition = Entities.getEntityProperties(activeCartridge, "position").position;
+        var distanceToRightHand = Vec3.distance(MyAvatar.getRightPalmPosition(), cartridgePosition);
+        var distanceToLeftHand = Vec3.distance(MyAvatar.getLeftPalmPosition(), cartridgePosition);
+        var distanceToClosestHand = Math.min(distanceToLeftHand, distanceToRightHand);
+        // The closer the hand, the louder the sound should be...
+        var newVolume;
+        if (distanceToClosestHand > handToCartridgeDistanceThreshold) {
+            newVolume = 0;
+        } else {
+          newVolume = map(distanceToClosestHand, 0, handToCartridgeDistanceThreshold, 1, 0);
+        }
+
+        Entities.callEntityMethod(activeCartridge, "setSoundVolume", [JSON.stringify({newVolume: newVolume})]);
+    });
 }
 
 

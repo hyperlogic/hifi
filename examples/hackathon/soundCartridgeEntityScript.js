@@ -46,8 +46,17 @@
             }
         },
 
+        setSoundVolume: function(entityID, data) {
+            if (!_this.injector) {
+                print ("NO INJECTOR!");
+                return;
+            }
+            var newVolume = JSON.parse(data[0]).newVolume;
+            _this.audioOptions.volume = newVolume;
+            _this.injector.setOptions(_this.audioOptions);
+        },
+
         updateSoundPosition: function() {
-            print("CARTRIDGE POSITION MAY HAVE CHANGED, UPDATE POSITION!");
             if (_this.injector) {  
               _this.position = Entities.getEntityProperties(_this.entityID, "position").position;
               _this.audioOptions.position = _this.position;
