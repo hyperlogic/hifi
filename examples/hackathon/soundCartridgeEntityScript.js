@@ -4,6 +4,7 @@
     var _this;
     SoundCartridge = function() {
         _this = this;
+        _this.audioOptions = {loop: true};
      
     };
 
@@ -11,12 +12,24 @@
 
         playSound: function() {
             var position = Entities.getEntityProperties(_this.entityID, "position").position;
-            _this.injector = Audio.playSound(_this.clip, {position: position});
+            if (!_this.injector) {
+                _this.audioOptions.position = position;
+                _this.injector = Audio.playSound(_this.clip, _this.audioOptions);  
+            } else {
+                //We already have injector so just restart
+                _this.injector.restart();
+            }
         }, 
+
+        stopSound: function() {
+            print("STOP SOUND!!!!!!!!!!!!!!")
+            if (_this.injector) {
+                _this.injector.stop();
+            }
+        },
 
         preload: function(entityID) {
             this.entityID = entityID;
-            print("PRELOAD ENTITY SCRIPT!!!")
             var userData = getEntityUserData(_this.entityID);
             if (!userData.soundURL) {
                 print("WARNING: NO SOUND URL ON USER DATA!!!!!");
@@ -26,8 +39,8 @@
 
         unload: function() {
             if (_this.injector) {
-                print("EBL STOP INJECTOR");
                 _this.injector.stop();
+                delete _this.injector;
             }
         }
 

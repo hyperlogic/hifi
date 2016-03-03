@@ -8,15 +8,15 @@ orientation.x = 0;
 orientation = Quat.fromVec3Degrees(orientation);
 
 var SPHERE_RADIUS = 1;
-var UPDATE_TIME = 5000;
+var UPDATE_TIME = 1000;
 
 var activeCartridges = [];
 
 
-var spherePosition = MyAvatar.position;
+var SPHERE_POSITION = MyAvatar.position;
 var sphereOverlay = Overlays.addOverlay('sphere', {
     size: SPHERE_RADIUS * 2,
-    position: MyAvatar.position,
+    position: SPHERE_POSITION,
     color: {
         red: 200,
         green: 10,
@@ -28,25 +28,28 @@ var sphereOverlay = Overlays.addOverlay('sphere', {
 })
 
 
+
 function update() {
     // Get all entities in search sphere and for the ones that have soundURLs and are cartridges, call their entityMethod with appropriate data
     //DOing it with entity scripts makes it more scalable to multiuser since a friend can come grab cartriges from you
     // Folks can create thier own loops and share them amongst each other.
     // True multiuser DJing
-    var entities = Entities.findEntities(spherePosition, SPHERE_RADIUS);
+    var entities = Entities.findEntities(SPHERE_POSITION, SPHERE_RADIUS);
     entities.forEach(function(entity) {
         var name = Entities.getEntityProperties(entity, "name").name;
         var userData = getEntityUserData(entity);
 
-        if (name === "Sound Cartridge" && userData.soundURL && !cartridgeInActiveList(entity)) {
+        if (name === "Sound Cartridge" && userData.soundURL) {
             //We have a cartridge- play it
-
-            Entities.callEntityMethod(entity, "playSound");
-            print("PLAY SOUND")
-            activeCartridges.push(entity);
+            if (!cartridgeInActiveList(entity)) {
+                Entities.callEntityMethod(entity, "playSound");
+                activeCartridges.push(entity);
+            }
         }
+
     });
 
+    removeOutOfRangeCartridgesFromActiveList();
 
 }
 
@@ -57,7 +60,38 @@ function cartridgeInActiveList(cartridgeToCheck) {
             return true;
         }
     }
-    return false;}
+    return false;
+}
+
+function cartridgeIsInRange(cartridge) {
+    var cartridgePosition = Entities.getEntityProperties(cartridge, "position").position;
+    var distance = Vec3.distance(cartridgePosition, SPHERE_POSITION);
+    print("sphere position" + JSON.stringify(SPHERE_POSITION));
+    print("EBL DISTANCE " + distance)
+    if (distance > SPHERE_RADIUS) {
+        return false;
+    }
+
+    return true;
+
+}
+
+function removeOutOfRangeCartridgesFromActiveList() {
+    var cartridgeIndicesToRemove = [];
+    for (var i = 0; i < activeCartridges.length; i++) {
+        var activeCartridge = activeCartridges[i];
+        if (!cartridgeIsInRange(activeCartridge)) {
+            cartridgeIndicesToRemove.push(i);
+        }
+    }
+
+    cartridgeIndicesToRemove.forEach(function(cartridgeIndex) {
+           activeCartridges.splice(cartridgeIndex, 1);
+            print("EBL SPLICE OUT OF RANGE CLIP!")
+            Entities.callEntityMethod(activeCartridge, "stopSound");
+    });
+
+}
 
 function entitiesEqual(entityA, entityB) {
     if (!entityA || !entityB) {
