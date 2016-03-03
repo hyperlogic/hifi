@@ -8,7 +8,7 @@ orientation.x = 0;
 orientation = Quat.fromVec3Degrees(orientation);
 
 var SPHERE_RADIUS = 1;
-var CARTRIDGE_SEARCH_HZ = 300;
+var CARTRIDGE_SEARCH_HZ = 100;
 var CARTRIDGE_PARAM_UPDATE_HZ = 100;
 
 var activeCartridges = [];
