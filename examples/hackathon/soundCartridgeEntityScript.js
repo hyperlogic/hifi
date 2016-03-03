@@ -10,7 +10,6 @@
     SoundCartridge.prototype = {
 
         playSound: function() {
-            print("PLAY SOUND");
             var position = Entities.getEntityProperties(_this.entityID, "position").position;
             _this.injector = Audio.playSound(_this.clip, {position: position});
         }, 
@@ -27,6 +26,7 @@
 
         unload: function() {
             if (_this.injector) {
+                print("EBL STOP INJECTOR");
                 _this.injector.stop();
             }
         }

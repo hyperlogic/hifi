@@ -8,9 +8,9 @@ orientation.x = 0;
 orientation = Quat.fromVec3Degrees(orientation);
 
 var SPHERE_RADIUS = 1;
-var UPDATE_TIME = 100;
+var UPDATE_TIME = 5000;
 
-
+var activeCartridges = [];
 
 
 var spherePosition = MyAvatar.position;
@@ -38,23 +38,34 @@ function update() {
         var name = Entities.getEntityProperties(entity, "name").name;
         var userData = getEntityUserData(entity);
 
-        if (name === "Sound Cartridge" && userData.soundURL && !entitiesEqual(entity, activeCartidge)) {
+        if (name === "Sound Cartridge" && userData.soundURL && !cartridgeInActiveList(entity)) {
             //We have a cartridge- play it
 
             Entities.callEntityMethod(entity, "playSound");
-            activeCartidges.push(entity);
+            print("PLAY SOUND")
+            activeCartridges.push(entity);
         }
     });
 
 
 }
 
+function cartridgeInActiveList(cartridgeToCheck) {
+    // Check to see if specified cartrige is in this active list
+    for (var i = 0; i < activeCartridges.length; i++) {
+        if (entitiesEqual(activeCartridges[i], cartridgeToCheck)) {
+            return true;
+        }
+    }
+    return false;}
+
 function entitiesEqual(entityA, entityB) {
     if (!entityA || !entityB) {
         print("ONE OR BOTH OF THESE ENTITIES ARE UNDEFINED");
         return false;
     }
-    return JSON.stringify(entityA) === JSON.stringify(entityB);
+    var isEqual = JSON.stringify(entityA) === JSON.stringify(entityB) ? true : false;
+    return isEqual;
 }
 
 function cleanup() {

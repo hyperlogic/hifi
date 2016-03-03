@@ -4,7 +4,7 @@ var orientation = Camera.getOrientation();
 orientation = Quat.safeEulerAngles(orientation);
 orientation.x = 0;
 orientation = Quat.fromVec3Degrees(orientation);
-var cartridgeBasePosition = Vec3.sum(MyAvatar.getHeadPosition(), Vec3.multiply(1.1, Quat.getFront(orientation)));
+var cartridgeBasePosition = Vec3.sum(MyAvatar.getHeadPosition(), Vec3.multiply(1.2, Quat.getFront(orientation)));
 var cartridges = [];
 spawnCartridges();
 
