@@ -5,6 +5,8 @@
     SoundCartridge = function() {
         _this = this;
         _this.audioOptions = {loop: true};
+        _this.playingColor = {red: 0, green: 200, blue: 10};
+        _this.notPlayingColor = {red: 200, green: 0, blue: 0};
      
     };
 
@@ -19,12 +21,15 @@
                 //We already have injector so just restart
                 _this.injector.restart();
             }
+
+            Entities.editEntity(_this.entityID, {color: _this.playingColor});
         }, 
 
         stopSound: function() {
-            print("STOP SOUND!!!!!!!!!!!!!!")
+            print("EBL STOP SOUND!!!!!!!!!!!!!!")
             if (_this.injector) {
                 _this.injector.stop();
+                Entities.editEntity(_this.entityID, {color: _this.notPlayingColor});
             }
         },
 

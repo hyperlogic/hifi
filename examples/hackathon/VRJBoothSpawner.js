@@ -7,8 +7,8 @@ orientation = Quat.safeEulerAngles(orientation);
 orientation.x = 0;
 orientation = Quat.fromVec3Degrees(orientation);
 
-var SPHERE_RADIUS = 1;
-var UPDATE_TIME = 1000;
+var SPHERE_RADIUS = 1.5;
+var UPDATE_TIME = 300;
 
 var activeCartridges = [];
 
@@ -65,9 +65,7 @@ function cartridgeInActiveList(cartridgeToCheck) {
 
 function cartridgeIsInRange(cartridge) {
     var cartridgePosition = Entities.getEntityProperties(cartridge, "position").position;
-    var distance = Vec3.distance(cartridgePosition, SPHERE_POSITION);
-    print("sphere position" + JSON.stringify(SPHERE_POSITION));
-    print("EBL DISTANCE " + distance)
+    var distance = Vec3.distance(cartridgePosition, SPHERE_POSITION).toFixed(2);
     if (distance > SPHERE_RADIUS) {
         return false;
     }
