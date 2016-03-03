@@ -7,7 +7,7 @@ orientation = Quat.safeEulerAngles(orientation);
 orientation.x = 0;
 orientation = Quat.fromVec3Degrees(orientation);
 
-var SPHERE_RADIUS = 1.5;
+var SPHERE_RADIUS = 1;
 var UPDATE_TIME = 300;
 
 var activeCartridges = [];
@@ -25,7 +25,7 @@ var sphereOverlay = Overlays.addOverlay('sphere', {
     alpha: 0.2,
     solid: true,
     visible: true
-})
+});
 
 
 
@@ -80,13 +80,13 @@ function removeOutOfRangeCartridgesFromActiveList() {
         var activeCartridge = activeCartridges[i];
         if (!cartridgeIsInRange(activeCartridge)) {
             cartridgeIndicesToRemove.push(i);
+            Entities.callEntityMethod(activeCartridge, "stopSound");
         }
     }
 
     cartridgeIndicesToRemove.forEach(function(cartridgeIndex) {
            activeCartridges.splice(cartridgeIndex, 1);
             print("EBL SPLICE OUT OF RANGE CLIP!")
-            Entities.callEntityMethod(activeCartridge, "stopSound");
     });
 
 }
