@@ -8,10 +8,11 @@ orientation.x = 0;
 orientation = Quat.fromVec3Degrees(orientation);
 
 var SPHERE_RADIUS = 1;
-var UPDATE_TIME = 300;
+var CARTRIDGE_SEARCH_HZ = 300;
+var CARTRIDGE_PARAM_UPDATE_HZ = 50;
 
 var activeCartridges = [];
-
+var rightHandPosition, leftHandPosition;
 
 var SPHERE_POSITION = MyAvatar.position;
 var sphereOverlay = Overlays.addOverlay('sphere', {
@@ -28,12 +29,18 @@ var sphereOverlay = Overlays.addOverlay('sphere', {
 });
 
 
+function updateCartridgeParams() {
+    // go through our active list...
+    print("UPDATE ")
+}
 
-function update() {
+
+function cartridgeSearch() {
     // Get all entities in search sphere and for the ones that have soundURLs and are cartridges, call their entityMethod with appropriate data
     //DOing it with entity scripts makes it more scalable to multiuser since a friend can come grab cartriges from you
     // Folks can create thier own loops and share them amongst each other.
     // True multiuser DJing
+
     var entities = Entities.findEntities(SPHERE_POSITION, SPHERE_RADIUS);
     entities.forEach(function(entity) {
         var name = Entities.getEntityProperties(entity, "name").name;
@@ -44,6 +51,8 @@ function update() {
             if (!cartridgeInActiveList(entity)) {
                 Entities.callEntityMethod(entity, "playSound");
                 activeCartridges.push(entity);
+            } else {
+                // cartridge is 
             }
         }
 
@@ -105,5 +114,6 @@ function cleanup() {
 }
 
 
-Script.setInterval(update, UPDATE_TIME);
+Script.setInterval(cartridgeSearch, CARTRIDGE_SEARCH_HZ);
+Script.setInterval(updateCartridgeParams, CARTRIDGE_PARAM_UPDATE_HZ);
 Script.scriptEnding.connect(cleanup);
