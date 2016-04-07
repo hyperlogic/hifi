@@ -1560,10 +1560,59 @@ void Application::paintGL() {
             }
         } else if (_myCamera.getMode() == CAMERA_MODE_THIRD_PERSON) {
             if (isHMDMode()) {
-                auto hmdWorldMat = myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix();
-                _myCamera.setRotation(glm::normalize(glm::quat_cast(hmdWorldMat)));
-                _myCamera.setPosition(extractTranslation(hmdWorldMat) +
-                    myAvatar->getOrientation() * boomOffset);
+
+                if (!_thirdPersonHMDCameraEnabled) {
+
+                    // we've just entered third person mode.
+                    _thirdPersonHMDCameraEnabled = true;
+
+                    // save a snapshot of the current hmd (in sensor space)
+                    _thirdPersonCameraHMDInverse = glm::inverse(myAvatar->getHMDSensorMatrix());
+
+                    // also keep a reference of the world facing direction of the hmd.
+                    _thirdPersonCameraOrientationReference = glmExtractRotation(myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix());
+
+                    // calculate a starting camera position that is behind the current hmd, but is only offset horizontally.
+                    glm::vec3 offset = _thirdPersonCameraOrientationReference * Vectors::UNIT_Z;
+                    glm::vec3 horizontalOffset(offset.x, 0.0f, offset.z);
+                    if (glm::length(horizontalOffset) > EPSILON) {
+                        horizontalOffset = glm::normalize(horizontalOffset) * myAvatar->getBoomLength();
+                    } else {
+                        horizontalOffset = glm::vec3(0.0f, 0.0f, 1.0f);
+                    }
+                    _thirdPersonCameraPosition = extractTranslation(myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix()) + horizontalOffset;
+                }
+
+                // calculate a target position that is offset from the default eye position.
+                // the default eye position, is in world space and it's were the eyes are when the avatar is in it's default pose.  (i.e. without ik)
+                glm::vec3 origin = myAvatar->getDefaultEyePosition();
+                glm::vec3 origin2d = glm::vec3(origin.x, 0.0f, origin.z);
+                glm::vec3 current = _thirdPersonCameraPosition;
+                glm::vec3 current2d = glm::vec3(current.x, 0.0f, current.z);
+
+                glm::vec3 target(glm::vec3::_null);
+                if (glm::length(current2d - origin2d) > EPSILON) {
+                    target = myAvatar->getBoomLength() * glm::normalize(current2d - origin2d) + origin;
+                } else {
+                    target = myAvatar->getBoomLength() * glm::vec3(1.0f, 0.0f, 0.0f) + origin;
+                }
+
+                // smooth step toward our current position toward the target position.
+                const float THIRD_PERSON_HMD_CAMERA_TIMESCALE = 0.1f;
+                float deltaTime = diff / (float)USECS_PER_SECOND;
+                float tau = deltaTime / THIRD_PERSON_HMD_CAMERA_TIMESCALE;
+                _thirdPersonCameraPosition = tau * target + (1.0f - tau) * current;
+
+                // update our sensor to world matrix so that it moves with our smootly translating target position.
+                glm::mat4 worldMat = createMatFromQuatAndPos(_thirdPersonCameraOrientationReference, _thirdPersonCameraPosition);
+                glm::mat4 thirdPersonHMDCameraSensorToWorldMatrix = worldMat * _thirdPersonCameraHMDInverse;
+
+                // transform the current HMD into world space, using the sensorToWorldMatrix we've just computed.
+                glm::mat4 cameraMat = thirdPersonHMDCameraSensorToWorldMatrix * myAvatar->getHMDSensorMatrix();
+
+                _myCamera.setRotation(glmExtractRotation(cameraMat));
+                _myCamera.setPosition(extractTranslation(cameraMat));
+
             } else {
                 _myCamera.setRotation(myAvatar->getHead()->getOrientation());
                 if (Menu::getInstance()->isOptionChecked(MenuOption::CenterPlayerInView)) {
@@ -1619,6 +1668,11 @@ void Application::paintGL() {
                     _myCamera.setPosition(cameraEntity->getPosition());
                 }
             }
+        }
+
+        if (_thirdPersonHMDCameraEnabled && _myCamera.getMode() != CAMERA_MODE_THIRD_PERSON) {
+            qDebug() << "AJT: transition OUT of 3rd PERSON HMD";
+            _thirdPersonHMDCameraEnabled = false;
         }
         // Update camera position
         if (!isHMDMode()) {

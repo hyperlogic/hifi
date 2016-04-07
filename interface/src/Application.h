@@ -519,6 +519,11 @@ private:
 
     std::atomic<uint32_t> _processOctreeStatsCounter { 0 };
 
+    glm::mat4 _thirdPersonCameraHMDInverse;
+    glm::quat _thirdPersonCameraOrientationReference;
+    glm::vec3 _thirdPersonCameraPosition;
+    bool _thirdPersonHMDCameraEnabled { false };
+
     bool _keyboardDeviceHasFocus { true };
 };
 
