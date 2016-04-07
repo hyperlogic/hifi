@@ -1449,7 +1449,8 @@ void MyAvatar::updateOrientation(float deltaTime) {
     }
 
     // use head/HMD orientation to turn while flying
-    if (getCharacterController()->getState() == CharacterController::State::Hover) {
+    if (getCharacterController()->getState() == CharacterController::State::Hover &&
+        qApp->getCamera()->getMode() != CAMERA_MODE_THIRD_PERSON && !getSnapTurn()) {
 
         // This is the direction the user desires to fly in.
         glm::vec3 desiredFacing = getHead()->getCameraOrientation() * Vectors::UNIT_Z;
@@ -1627,7 +1628,11 @@ glm::vec3 MyAvatar::applyScriptedMotor(float deltaTime, const glm::vec3& localVe
 
 void MyAvatar::updatePosition(float deltaTime) {
     // rotate velocity into camera frame
+
     glm::quat rotation = getHead()->getCameraOrientation();
+    if (qApp->getCamera()->getMode() == CAMERA_MODE_THIRD_PERSON && qApp->isHMDMode()) {
+        rotation = qApp->getCamera()->getRotation();
+    }
     glm::vec3 localVelocity = glm::inverse(rotation) * _targetVelocity;
     bool isHovering = _characterController.getState() == CharacterController::State::Hover;
     glm::vec3 newLocalVelocity = applyKeyboardMotor(deltaTime, localVelocity, isHovering);
