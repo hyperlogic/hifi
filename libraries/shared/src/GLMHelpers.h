@@ -234,4 +234,7 @@ inline bool isNaN(const glm::quat& value) { return isNaN(value.w) || isNaN(value
 
 glm::mat4 orthoInverse(const glm::mat4& m);
 
+// creates a matrix that performs reflection about the given plane specified by point p and normal n.
+glm::mat4 createReflectionMatrix(const glm::vec3& p, const glm::vec3& n);
+
 #endif // hifi_GLMHelpers_h

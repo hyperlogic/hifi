@@ -438,6 +438,9 @@ private:
     float _rotateMirror;
     float _raiseMirror;
 
+    glm::mat4 _mirrorReflectMatrix;
+    float _mirrorReflectMatrixDirtyFlag { true };
+
     QSet<int> _keysPressed;
 
     bool _enableProcessOctreeThread;

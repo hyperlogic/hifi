@@ -471,3 +471,14 @@ glm::mat4 orthoInverse(const glm::mat4& m) {
     r[3][3] = 1.0f;
     return r;
 }
+
+// creates a matrix that performs reflection about the given plane specified by point p and normal n.
+glm::mat4 createReflectionMatrix(glm::vec3 p, glm::vec3 n) {
+    glm::vec3 xAxis = glm::reflect(Vectors::UNIT_X, n);
+    glm::vec3 yAxis = glm::reflect(Vectors::UNIT_Y, n);
+    glm::vec3 zAxis = glm::reflect(Vectors::UNIT_Z, n);
+    glm::vec3 trans = p - glm::reflect(p, n);
+    return glm::mat4(glm::vec4(xAxis, 0.0f), glm::vec4(yAxis, 0.0f),
+                     glm::vec4(zAxis, 0.0f), glm::vec4(trans, 1.0f));
+}
+

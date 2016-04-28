@@ -1602,6 +1602,27 @@ void Application::paintGL() {
             }
         } else if (_myCamera.getMode() == CAMERA_MODE_MIRROR) {
             if (isHMDMode()) {
+
+                if (_mirrorReflectMatrixDirtyFlag) {
+                    // rebuild the _mirrorReflectMatrix.
+                    glm::vec3 mirrorNormal = cancelOutRollAndPitch(glmExtractRotation(myAvatar->getHMDSensorMatrix())) * Vectors::UNIT_Z;
+                    glm::vec3 mirrorPos = extractTranslation(myAvatar->getHMDSensorMatrix()) - mirrorNormal * MIRROR_FULLSCREEN_DISTANCE * _scaleMirror;
+
+                    _mirrorReflectMatrix = createReflectionMatrix(mirrorPos, mirrorNormal);
+                    _mirrorReflectMatrixDirtyFlag = false;
+                }
+
+                glm::vec3 hmdPosInWorld = extractTranslation(myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix());
+                glm::mat4 orbitMat = (createMatFromQuatAndPos(glm::quat(), hmdPosInWorld) *
+                                      createMatFromQuatAndPos(glm::angleAxis(_rotateMirror, Vectors::UNIT_Y), glm::vec3()) *
+                                      createMatFromQuatAndPos(glm::quat(), -hmdPosInWorld));
+
+                glm::mat4 reflectedWorldHMDMat = orbitMat * myAvatar->getSensorToWorldMatrix() * _mirrorReflectMatrix * myAvatar->getHMDSensorMatrix();
+
+                _myCamera.setRotation(glmExtractRotation(reflectedWorldHMDMat));
+                _myCamera.setPosition(extractTranslation(reflectedWorldHMDMat));
+
+                /*
                 auto mirrorBodyOrientation = myAvatar->getWorldAlignedOrientation() * glm::quat(glm::vec3(0.0f, PI + _rotateMirror, 0.0f));
 
                 glm::quat hmdRotation = extractRotation(myAvatar->getHMDSensorMatrix());
@@ -1623,6 +1644,7 @@ void Application::paintGL() {
                     + glm::vec3(0, _raiseMirror * myAvatar->getUniformScale(), 0)
                    + mirrorBodyOrientation * glm::vec3(0.0f, 0.0f, 1.0f) * MIRROR_FULLSCREEN_DISTANCE * _scaleMirror
                    + mirrorBodyOrientation * hmdOffset);
+                */
             } else {
                 _myCamera.setRotation(myAvatar->getWorldAlignedOrientation()
                     * glm::quat(glm::vec3(0.0f, PI + _rotateMirror, 0.0f)));
@@ -2090,6 +2112,7 @@ void Application::keyPressEvent(QKeyEvent* event) {
                     } else {
                         _raiseMirror += 0.05f;
                     }
+                    _mirrorReflectMatrixDirtyFlag = true;
                 }
                 break;
 
@@ -2100,18 +2123,21 @@ void Application::keyPressEvent(QKeyEvent* event) {
                     } else {
                         _raiseMirror -= 0.05f;
                     }
+                    _mirrorReflectMatrixDirtyFlag = true;
                 }
                 break;
 
             case Qt::Key_Left:
                 if (_myCamera.getMode() == CAMERA_MODE_MIRROR) {
                     _rotateMirror += PI / 20.0f;
+                    _mirrorReflectMatrixDirtyFlag = true;
                 }
                 break;
 
             case Qt::Key_Right:
                 if (_myCamera.getMode() == CAMERA_MODE_MIRROR) {
                     _rotateMirror -= PI / 20.0f;
+                    _mirrorReflectMatrixDirtyFlag = true;
                 }
                 break;
 
@@ -3203,6 +3229,7 @@ void Application::cameraMenuChanged() {
             _myCamera.setMode(CAMERA_MODE_ENTITY);
         }
     }
+    _mirrorReflectMatrixDirtyFlag = true;
 }
 
 void Application::resetPhysicsReadyInformation() {
