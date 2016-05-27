@@ -1585,7 +1585,7 @@ void Application::paintGL() {
             if (isHMDMode()) {
                 mat4 camMat = myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix();
                 _myCamera.setPosition(extractTranslation(camMat));
-                _myCamera.setRotation(glm::quat_cast(camMat));
+                _myCamera.setRotation(glmExtractRotation(camMat));
             } else {
                 _myCamera.setPosition(myAvatar->getDefaultEyePosition());
                 _myCamera.setRotation(myAvatar->getHead()->getCameraOrientation());
@@ -1689,7 +1689,10 @@ void Application::paintGL() {
             mat4 eyeProjections[2];
             auto baseProjection = renderArgs.getViewFrustum().getProjection();
             auto hmdInterface = DependencyManager::get<HMDScriptingInterface>();
-            float IPDScale = hmdInterface->getIPDScale();
+
+            // AJT HACK:
+            float HACK_IPD_SCALE = getMyAvatar()->getTargetScale();
+            float IPDScale = hmdInterface->getIPDScale() * HACK_IPD_SCALE;
             mat4 headPose = displayPlugin->getHeadPose();
 
             // FIXME we probably don't need to set the projection matrix every frame,
