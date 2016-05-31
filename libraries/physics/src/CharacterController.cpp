@@ -205,11 +205,17 @@ void CharacterController::playerStep(btCollisionWorld* dynaWorld, btScalar dt) {
     if (_followTimeRemaining >= MINIMUM_TIME_REMAINING) {
         btTransform bodyTransform = _rigidBody->getWorldTransform();
 
+        qDebug() << "AJT: playerStep";
         btVector3 startPos = bodyTransform.getOrigin();
         btVector3 deltaPos = _followDesiredBodyTransform.getOrigin() - startPos;
         btVector3 vel = deltaPos / _followTimeRemaining;
         btVector3 linearDisplacement = clampLength(vel * dt, MAX_DISPLACEMENT);  // clamp displacement to prevent tunneling.
         btVector3 endPos = startPos + linearDisplacement;
+
+        qDebug() << "AJT:     startPos =" << startPos.x() << startPos.y() << startPos.z();
+        qDebug() << "AJT:     deltaPos =" << deltaPos.x() << deltaPos.y() << deltaPos.z();
+        qDebug() << "AJT:     vel =" << vel.x() << vel.y() << vel.z();
+        qDebug() << "AJT:     linearDisplacement =" << linearDisplacement.x() << linearDisplacement.y() << linearDisplacement.z();
 
         btQuaternion startRot = bodyTransform.getRotation();
         glm::vec2 currentFacing = getFacingDir2D(bulletToGLM(startRot));

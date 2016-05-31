@@ -499,6 +499,14 @@ void MyAvatar::updateSensorToWorldMatrix() {
     glm::mat4 desiredMat = createMatFromScaleQuatAndPos(glm::vec3(getTargetScale()), getOrientation(), getPosition());
     _sensorToWorldMatrix = desiredMat * glm::inverse(_bodySensorMatrix);
 
+
+    // ASSERT AJT:
+    glm::mat4 result = _sensorToWorldMatrix * _bodySensorMatrix;
+    AnimPose r(result);
+    AnimPose a(desiredMat);
+    qCDebug(interfaceapp) << "AJTXXX: a = " << a;
+    qCDebug(interfaceapp) << "AJTXXX: r = " << r;
+
     lateUpdatePalms();
 
     if (_enableDebugDrawSensorToWorldMatrix) {
@@ -1948,6 +1956,8 @@ void MyAvatar::lateUpdatePalms() {
 
 static const float FOLLOW_TIME = 0.5f;
 
+#define WANT_FOLLOW_DEBUG
+
 MyAvatar::FollowHelper::FollowHelper() {
     deactivate();
 }
@@ -1965,6 +1975,11 @@ void MyAvatar::FollowHelper::deactivate(FollowType type) {
 
 void MyAvatar::FollowHelper::activate(FollowType type) {
     assert(type >= 0 && type < NumFollowTypes);
+
+#ifdef WANT_FOLLOW_DEBUG
+    qCDebug(interfaceapp) << "AJT: activate! type =" << (int)type;
+#endif
+
     // TODO: Perhaps, the follow time should be proportional to the displacement.
     _timeRemaining[(int)type] = FOLLOW_TIME;
 }
@@ -2000,17 +2015,36 @@ void MyAvatar::FollowHelper::decrementTimeRemaining(float dt) {
 }
 
 bool MyAvatar::FollowHelper::shouldActivateRotation(const MyAvatar& myAvatar, const glm::mat4& desiredBodyMatrix, const glm::mat4& currentBodyMatrix) const {
+
+#ifdef WANT_FOLLOW_DEBUG
+    qCDebug(interfaceapp) << "AJT: shouldActivateRotation";
+#endif
+
     auto cameraMode = qApp->getCamera()->getMode();
     if (cameraMode == CAMERA_MODE_THIRD_PERSON) {
         return false;
     } else {
         const float FOLLOW_ROTATION_THRESHOLD = cosf(PI / 6.0f); // 30 degrees
+
         glm::vec2 bodyFacing = getFacingDir2D(currentBodyMatrix);
+
+#ifdef WANT_FOLLOW_DEBUG
+        qCDebug(interfaceapp) << "AJT:     bodyFacing =" << bodyFacing;
+        qCDebug(interfaceapp) << "AJT:     hmdMovingAvg =" << myAvatar.getHMDSensorFacingMovingAverage();
+        qCDebug(interfaceapp) << "AJT:     dot =" << glm::dot(myAvatar.getHMDSensorFacingMovingAverage(), bodyFacing);
+        qCDebug(interfaceapp) << "AJT:     angle =" << acosf(glm::dot(myAvatar.getHMDSensorFacingMovingAverage(), bodyFacing));
+        qCDebug(interfaceapp) << "AJT:     result =" << (glm::dot(myAvatar.getHMDSensorFacingMovingAverage(), bodyFacing) < FOLLOW_ROTATION_THRESHOLD);
+#endif
+
         return glm::dot(myAvatar.getHMDSensorFacingMovingAverage(), bodyFacing) < FOLLOW_ROTATION_THRESHOLD;
     }
 }
 
 bool MyAvatar::FollowHelper::shouldActivateHorizontal(const MyAvatar& myAvatar, const glm::mat4& desiredBodyMatrix, const glm::mat4& currentBodyMatrix) const {
+
+#ifdef WANT_FOLLOW_DEBUG
+    qCDebug(interfaceapp) << "AJT: shouldActivateHorizontal";
+#endif
 
     // -z axis of currentBodyMatrix in world space.
     glm::vec3 forward = glm::normalize(glm::vec3(-currentBodyMatrix[0][2], -currentBodyMatrix[1][2], -currentBodyMatrix[2][2]));
@@ -2024,6 +2058,30 @@ bool MyAvatar::FollowHelper::shouldActivateHorizontal(const MyAvatar& myAvatar, 
     const float MAX_LATERAL_LEAN = 0.3f;
     const float MAX_FORWARD_LEAN = 0.15f;
     const float MAX_BACKWARD_LEAN = 0.1f;
+
+#ifdef WANT_FOLLOW_DEBUG
+    qCDebug(interfaceapp) << "AJT:     forward =" << forward;
+    qCDebug(interfaceapp) << "AJT:     right =" << right;
+    qCDebug(interfaceapp) << "AJT:     offset =" << offset;
+    qCDebug(interfaceapp) << "AJT:     forwardLeanAmount =" << forwardLeanAmount;
+    qCDebug(interfaceapp) << "AJT:     lateralLeanAmount =" << lateralLeanAmount;
+
+    bool result = false;
+    if (forwardLeanAmount > 0 && forwardLeanAmount > MAX_FORWARD_LEAN) {
+        qCDebug(interfaceapp) << "AJT:     leaningForward!";
+        result = true;
+    } else if (forwardLeanAmount < 0 && forwardLeanAmount < -MAX_BACKWARD_LEAN) {
+        qCDebug(interfaceapp) << "AJT:     leaningBackward!";
+        result = true;
+    }
+
+    if (fabs(lateralLeanAmount) > MAX_LATERAL_LEAN) {
+        qCDebug(interfaceapp) << "AJT:     leaningLateral!";
+        result = true;
+    }
+
+    qCDebug(interfaceapp) << "AJT:     result =" << result;
+#endif
 
     if (forwardLeanAmount > 0 && forwardLeanAmount > MAX_FORWARD_LEAN) {
         return true;
@@ -2040,10 +2098,30 @@ bool MyAvatar::FollowHelper::shouldActivateVertical(const MyAvatar& myAvatar, co
     const float CYLINDER_BOTTOM = -1.5f;
 
     glm::vec3 offset = extractTranslation(desiredBodyMatrix) - extractTranslation(currentBodyMatrix);
+
+
+#ifdef WANT_FOLLOW_DEBUG
+    qCDebug(interfaceapp) << "AJT: shouldActivateVertical";
+    qCDebug(interfaceapp) << "AJT:     offset =" << offset;
+
+    bool result = (offset.y > CYLINDER_TOP) || (offset.y < CYLINDER_BOTTOM);
+
+    qCDebug(interfaceapp) << "AJT:     result =" << result;
+#endif
+
     return (offset.y > CYLINDER_TOP) || (offset.y < CYLINDER_BOTTOM);
 }
 
 void MyAvatar::FollowHelper::prePhysicsUpdate(MyAvatar& myAvatar, const glm::mat4& desiredBodyMatrix, const glm::mat4& currentBodyMatrix, bool hasDriveInput) {
+
+#ifdef WANT_FOLLOW_DEBUG
+    qCDebug(interfaceapp) << "AJT: FollowHelper::prePhysicsUpdate";
+    qCDebug(interfaceapp) << "AJT:     scale =" << myAvatar.getTargetScale();
+    qCDebug(interfaceapp) << "AJT:     hmdSensorMatrix =" << myAvatar.getHMDSensorMatrix();
+    qCDebug(interfaceapp) << "AJT:     desiredBodyMatrix =" << desiredBodyMatrix;
+    qCDebug(interfaceapp) << "AJT:     currentBodyMatrix =" << currentBodyMatrix;
+#endif
+
     _desiredBodyMatrix = desiredBodyMatrix;
     if (!isActive(Rotation) && shouldActivateRotation(myAvatar, desiredBodyMatrix, currentBodyMatrix)) {
         activate(Rotation);
@@ -2072,6 +2150,12 @@ void MyAvatar::FollowHelper::prePhysicsUpdate(MyAvatar& myAvatar, const glm::mat
         followWorldPose.trans.y = desiredTranslation.y;
     }
 
+#ifdef WANT_FOLLOW_DEBUG
+    qCDebug(interfaceapp) << "AJT:     desiredWorldPose =" << AnimPose(desiredWorldMatrix);
+    qCDebug(interfaceapp) << "AJT:     currentWorldPose =" << AnimPose(currentWorldMatrix);
+    qCDebug(interfaceapp) << "AJT:     followWorldPose =" << followWorldPose;
+#endif
+
     myAvatar.getCharacterController()->setFollowParameters(followWorldPose, getMaxTimeRemaining());
 }
 
@@ -2080,14 +2164,29 @@ glm::mat4 MyAvatar::FollowHelper::postPhysicsUpdate(const MyAvatar& myAvatar, co
         float dt = myAvatar.getCharacterController()->getFollowTime();
         decrementTimeRemaining(dt);
 
+
         // apply follow displacement to the body matrix.
         glm::vec3 worldLinearDisplacement = myAvatar.getCharacterController()->getFollowLinearDisplacement();
         glm::quat worldAngularDisplacement = myAvatar.getCharacterController()->getFollowAngularDisplacement();
-        glm::quat sensorToWorld = glmExtractRotation(myAvatar.getSensorToWorldMatrix());
-        glm::quat worldToSensor = glm::inverse(sensorToWorld);
 
-        glm::vec3 sensorLinearDisplacement = worldToSensor * worldLinearDisplacement;
-        glm::quat sensorAngularDisplacement = worldToSensor * worldAngularDisplacement * sensorToWorld;
+#ifdef WANT_FOLLOW_DEBUG
+        qCDebug(interfaceapp) << "AJT: follow postPhysicsUpdate";
+        qCDebug(interfaceapp) << "AJT:     worldLinearDisplacement =" << worldLinearDisplacement;
+        qCDebug(interfaceapp) << "AJT:     worldAngularDisplacement =" << worldAngularDisplacement;
+#endif
+
+        glm::mat4 worldToSensorMat = glm::inverse(myAvatar.getSensorToWorldMatrix());
+        glm::vec3 sensorLinearDisplacement = transformVectorFast(worldToSensorMat, worldLinearDisplacement);
+
+        glm::quat sensorToWorldQuat = glmExtractRotation(myAvatar.getSensorToWorldMatrix());
+        glm::quat worldToSensorQuat = glm::inverse(sensorToWorldQuat);
+        glm::quat sensorAngularDisplacement = worldToSensorQuat * worldAngularDisplacement * sensorToWorldQuat;
+
+
+#ifdef WANT_FOLLOW_DEBUG
+        qCDebug(interfaceapp) << "AJT:     sensorLinearDisplacement =" << sensorLinearDisplacement;
+        qCDebug(interfaceapp) << "AJT:     sensorAngularDisplacement =" << sensorAngularDisplacement;
+#endif
 
         glm::mat4 newBodyMat = createMatFromQuatAndPos(sensorAngularDisplacement * glmExtractRotation(currentBodyMatrix),
                                                        sensorLinearDisplacement + extractTranslation(currentBodyMatrix));

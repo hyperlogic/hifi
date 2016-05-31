@@ -102,7 +102,7 @@ public:
     const glm::mat4& getHMDSensorMatrix() const { return _hmdSensorMatrix; }
     const glm::vec3& getHMDSensorPosition() const { return _hmdSensorPosition; }
     const glm::quat& getHMDSensorOrientation() const { return _hmdSensorOrientation; }
-    const glm::vec2& getHMDSensorFacingMovingAverage() const { return _hmdSensorFacingMovingAverage; }
+    const glm::vec2& getHMDSensorFacingMovingAverage() const { return glm::normalize(_hmdSensorFacingMovingAverage); }
 
     // thread safe
     Q_INVOKABLE glm::mat4 getSensorToWorldMatrix() const;
