@@ -762,6 +762,8 @@ void MyAvatar::saveData() {
 
     settings.setValue("scale", _targetScale);
 
+    settings.setValue("userHeight", getUserHeight());
+
     settings.setValue("fullAvatarURL",
                       _fullAvatarURLFromPreferences == AvatarData::defaultFullAvatarModelUrl() ?
                       "" :
@@ -899,6 +901,8 @@ void MyAvatar::loadData() {
 
     _targetScale = loadSetting(settings, "scale", 1.0f);
     setScale(glm::vec3(_targetScale));
+
+    setUserHeight(loadSetting(settings, "userHeight", DEFAULT_USER_HEIGHT));  // OUTOFBODY_HACK: get this from display plugin?
 
     _prefOverrideAnimGraphUrl.set(QUrl(settings.value("animGraphURL", "").toString()));
     _fullAvatarURLFromPreferences = settings.value("fullAvatarURL", AvatarData::defaultFullAvatarModelUrl()).toUrl();
@@ -1960,6 +1964,14 @@ bool findAvatarAvatarPenetration(const glm::vec3 positionA, float radiusA, float
 
 glm::vec3 MyAvatar::getPreActionVelocity() const {
     return _characterController.getPreActionLinearVelocity();
+}
+
+float MyAvatar::getUserHeight() const {
+    return _userHeight.get();
+}
+
+void MyAvatar::setUserHeight(float value) {
+    _userHeight.set(value);
 }
 
 void MyAvatar::increaseSize() {

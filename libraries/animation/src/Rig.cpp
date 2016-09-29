@@ -511,7 +511,6 @@ void Rig::computeMotionAnimationState(float deltaTime, const glm::vec3& worldPos
     glm::vec3 front = worldRotation * IDENTITY_FRONT;
     glm::vec3 workingVelocity = worldVelocity;
 
-    // TODO: account for avatar scaling
     int eyeJoint = indexOfJoint("LeftEye");
     int toeJoint = indexOfJoint("LeftToeBase");
     const float AVATAR_EYE_HEIGHT = (eyeJoint >= 0 && toeJoint >= 0) ? getAbsoluteDefaultPose(eyeJoint).trans.y - getAbsoluteDefaultPose(toeJoint).trans.y : DEFAULT_AVATAR_EYE_HEIGHT;

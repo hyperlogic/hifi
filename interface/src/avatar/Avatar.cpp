@@ -1226,6 +1226,27 @@ glm::quat Avatar::getUncachedRightPalmRotation() const {
     return rightPalmRotation;
 }
 
+// OUTOFBODY_HACK:  move these constants to a common place.
+static const float DEFAULT_AVATAR_EYE_HEIGHT = 1.75f;
+static const float EYE_TO_TOP_OF_HEAD = 0.11f;  // 11 cm  https://en.wikipedia.org/wiki/Human_head#/media/File:HeadAnthropometry.JPG
+
+float Avatar::getAvatarHeight() const {
+    if (_skeletonModel && _skeletonModel->getRig()) {
+        auto rig = _skeletonModel->getRig();
+        int eyeJoint = rig->indexOfJoint("LeftEye");
+        int toeJoint = rig->indexOfJoint("LeftToeBase");
+        if (eyeJoint >= 0 && toeJoint >= 0) {
+            float eyeHeight = rig->getAbsoluteDefaultPose(eyeJoint).trans.y - rig->getAbsoluteDefaultPose(toeJoint).trans.y;
+            float heightRatio = eyeHeight / DEFAULT_AVATAR_EYE_HEIGHT;
+            return eyeHeight + heightRatio * EYE_TO_TOP_OF_HEAD;
+        } else {
+            return DEFAULT_AVATAR_EYE_HEIGHT + EYE_TO_TOP_OF_HEAD;
+        }
+    } else {
+        return DEFAULT_AVATAR_EYE_HEIGHT + EYE_TO_TOP_OF_HEAD;
+    }
+}
+
 void Avatar::setPosition(const glm::vec3& position) {
     AvatarData::setPosition(position);
     updateAttitude();
