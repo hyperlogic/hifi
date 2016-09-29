@@ -1794,9 +1794,12 @@ void Application::paintGL() {
         // or with changes from the face tracker
         if (_myCamera.getMode() == CAMERA_MODE_FIRST_PERSON) {
             if (isHMDMode()) {
-                mat4 camMat = myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix();
+                // OUTOFBODY_HACK: this scale factor will eventually be in the sensor to world matrix itself.
+                float heightRatio = myAvatar->getAvatarHeight() / myAvatar->getUserHeight();
+                mat4 scaleMat = createMatFromScaleQuatAndPos(vec3(heightRatio), quat(), vec3());
+                mat4 camMat = myAvatar->getSensorToWorldMatrix() * scaleMat * myAvatar->getHMDSensorMatrix();
                 _myCamera.setPosition(extractTranslation(camMat));
-                _myCamera.setOrientation(glm::quat_cast(camMat));
+                _myCamera.setOrientation(glmExtractRotation(camMat));
             } else {
                 _myCamera.setPosition(myAvatar->getDefaultEyePosition());
                 _myCamera.setOrientation(myAvatar->getHead()->getCameraOrientation());
@@ -1900,6 +1903,10 @@ void Application::paintGL() {
             auto baseProjection = renderArgs.getViewFrustum().getProjection();
             auto hmdInterface = DependencyManager::get<HMDScriptingInterface>();
             float IPDScale = hmdInterface->getIPDScale();
+
+            float heightRatio = getMyAvatar()->getAvatarHeight() / getMyAvatar()->getUserHeight();
+
+            IPDScale *= heightRatio;
 
             // FIXME we probably don't need to set the projection matrix every frame,
             // only when the display plugin changes (or in non-HMD modes when the user
