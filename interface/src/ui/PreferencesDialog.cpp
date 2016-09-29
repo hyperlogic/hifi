@@ -167,6 +167,16 @@ void setupPreferences() {
         preference->setPlaceholderText("default");
         preferences->addPreference(preference);
     }
+    {
+        auto getter = [=]()->float { return myAvatar->getUserHeight(); };
+        auto setter = [=](float value) { myAvatar->setUserHeight(value); };
+        auto preference = new SpinnerPreference(AVATAR_TUNING, "User height (meters)", getter, setter);
+        preference->setMin(0.01f);
+        preference->setMax(99.9f);
+        preference->setDecimals(2);
+        preference->setStep(0.1f);
+        preferences->addPreference(preference);
+    }
 
     static const QString AVATAR_CAMERA { "Avatar Camera" };
     {

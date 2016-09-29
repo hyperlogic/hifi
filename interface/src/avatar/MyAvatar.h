@@ -57,6 +57,7 @@ enum AudioListenerMode {
 Q_DECLARE_METATYPE(AudioListenerMode);
 
 const size_t DEBUG_LINE_LOOP_SIZE = 500;
+const float DEFAULT_USER_HEIGHT = 1.76f;  // OUTOFBODY_HACK: move this into a common place.
 
 class MyAvatar : public Avatar {
     Q_OBJECT
@@ -87,6 +88,7 @@ class MyAvatar : public Avatar {
 
     Q_PROPERTY(bool hmdLeanRecenterEnabled READ getHMDLeanRecenterEnabled WRITE setHMDLeanRecenterEnabled)
     Q_PROPERTY(bool avatarCollisionsEnabled READ getAvatarCollisionsEnabled WRITE setAvatarCollisionsEnabled)
+    Q_PROPERTY(bool userHeight READ getUserHeight WRITE setUserHeight)
 
 public:
     explicit MyAvatar(RigPointer rig);
@@ -294,6 +296,9 @@ public:
     void removeHoldAction(AvatarActionHold* holdAction);  // thread-safe
     void updateHoldActions(const AnimPose& prePhysicsPose, const AnimPose& postUpdatePose);
 
+    Q_INVOKABLE float getUserHeight() const;
+    Q_INVOKABLE void setUserHeight(float value);
+
 public slots:
     void increaseSize();
     void decreaseSize();
@@ -440,6 +445,7 @@ private:
     QUrl _fstAnimGraphOverrideUrl;
     bool _useSnapTurn { true };
     bool _clearOverlayWhenMoving { true };
+    ThreadSafeValueCache<float> _userHeight { DEFAULT_USER_HEIGHT };
 
     // working copies -- see AvatarData for thread-safe _sensorToWorldMatrixCache, used for outward facing access
     glm::mat4 _sensorToWorldMatrix { glm::mat4() };

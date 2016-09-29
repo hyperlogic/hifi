@@ -175,6 +175,8 @@ public:
     glm::vec3 getUncachedRightPalmPosition() const;
     glm::quat getUncachedRightPalmRotation() const;
 
+    float getAvatarHeight() const;  // height of avatar in meters.
+
 public slots:
 
     // FIXME - these should be migrated to use Pose data instead
