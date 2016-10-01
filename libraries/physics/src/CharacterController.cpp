@@ -254,6 +254,11 @@ const btScalar MIN_TARGET_SPEED = 0.001f;
 const btScalar MIN_TARGET_SPEED_SQUARED = MIN_TARGET_SPEED * MIN_TARGET_SPEED;
 
 void CharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar dt) {
+
+    qDebug() << "AJT: playerStep";
+    qDebug() << "AJT:     pre position " << bulletToGLM(_rigidBody->getWorldTransform().getOrigin());
+    qDebug() << "AJT:     pre velocity " << bulletToGLM(_rigidBody->getLinearVelocity());
+
     btVector3 velocity = _rigidBody->getLinearVelocity() - _parentVelocity;
     if (_following) {
         _followTimeAccumulator += dt;
@@ -295,7 +300,16 @@ void CharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar 
             const float VERTICAL_FOLLOW_TIMESCALE = (_state == State::Hover) ? HORIZONTAL_FOLLOW_TIMESCALE : 20.0f;
             glm::quat worldFrameRotation; // identity
             vel.setY(0.0f);  // don't allow any vertical component of the follow velocity to enter the _targetVelocity.
-            addMotor(bulletToGLM(vel), worldFrameRotation, HORIZONTAL_FOLLOW_TIMESCALE, VERTICAL_FOLLOW_TIMESCALE);
+
+            if (_followMotorIndex < 0) {
+                addMotor(bulletToGLM(vel), worldFrameRotation, HORIZONTAL_FOLLOW_TIMESCALE, VERTICAL_FOLLOW_TIMESCALE);
+                _followMotorIndex = static_cast<int32_t>(_motors.size()) - 1;
+            } else {
+                _motors[_followMotorIndex].velocity = vel;
+                _motors[_followMotorIndex].rotation = glmToBullet(worldFrameRotation);
+                _motors[_followMotorIndex].hTimescale = HORIZONTAL_FOLLOW_TIMESCALE;
+                _motors[_followMotorIndex].vTimescale = VERTICAL_FOLLOW_TIMESCALE;
+            }
         }
 
         // angular part uses incremental teleports
@@ -338,6 +352,10 @@ void CharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar 
         _rigidBody->setLinearVelocity(velocity + _parentVelocity);
         _ghost.setWorldTransform(_rigidBody->getWorldTransform());
     }
+
+    qDebug() << "AJT:     post position " << bulletToGLM(_rigidBody->getWorldTransform().getOrigin());
+    qDebug() << "AJT:     post velocity " << bulletToGLM(_rigidBody->getLinearVelocity());
+
 }
 
 void CharacterController::jump() {
@@ -422,7 +440,9 @@ void CharacterController::setLocalBoundingBox(const glm::vec3& minCorner, const 
     }
 
     // it's ok to change offset immediately -- there are no thread safety issues here
-    _shapeLocalOffset = minCorner + 0.5f * scale;
+    //_shapeLocalOffset = minCorner + 0.5f * scale;
+    // AJT_HACK_ DONT CHECK THIS IN
+    _shapeLocalOffset = glm::vec3(0.0f, 0.0f, 0.0f);
 }
 
 void CharacterController::setCollisionGroup(int16_t group) {
@@ -479,6 +499,11 @@ void CharacterController::setParentVelocity(const glm::vec3& velocity) {
 
 void CharacterController::setFollowParameters(const glm::mat4& desiredWorldBodyMatrix) {
     _followDesiredBodyTransform = glmToBullet(desiredWorldBodyMatrix) * btTransform(btQuaternion::getIdentity(), glmToBullet(_shapeLocalOffset));
+
+    qDebug() << "AJT: setFollowParameters";
+    qDebug() << "AJT:     desiredWorldBodyMatrix.pos =" << extractTranslation(desiredWorldBodyMatrix);
+    qDebug() << "AJT:     _following = " << _following;
+
     if (!_following) {
         _following = true;
         _followVelocity = btVector3(0.0f, 0.0f, 0.0f);
@@ -494,11 +519,18 @@ void CharacterController::setFollowParameters(const glm::mat4& desiredWorldBodyM
             // HACK: slam _followVelocity and _rigidBody velocity immediately
             _followVelocity = newFollowVelocity;
             _rigidBody->setLinearVelocity(_followVelocity);
+
+            qDebug() << "AJT:     FAST change slamming vel to = " << bulletToGLM(_followVelocity);
         } else {
             // use simple blending to filter noise from the velocity measurement
             const float blend = 0.2f;
             _followVelocity = (1.0f - blend) * _followVelocity + blend * newFollowVelocity;
+
+            qDebug() << "AJT:     pre _followVelocity = " << bulletToGLM(_followVelocity);
+            qDebug() << "AJT:     newFollowVelocity = " << bulletToGLM(newFollowVelocity);
         }
+
+        qDebug() << "AJT:     post _followVelocity = " << bulletToGLM(_followVelocity);
     }
     _previousFollowPosition = _followDesiredBodyTransform.getOrigin();
     _followTimeAccumulator = 0.0f;
@@ -534,6 +566,13 @@ void CharacterController::addMotor(const glm::vec3& velocity, const glm::quat& r
 void CharacterController::applyMotor(int index, btScalar dt, btVector3& worldVelocity, std::vector<btVector3>& velocities, std::vector<btScalar>& weights) {
     assert(index < (int)(_motors.size()));
     CharacterController::CharacterMotor& motor = _motors[index];
+
+    qDebug() << "AJT:     applyMotor";
+    qDebug() << "AJT:         velocity = " << bulletToGLM(motor.velocity);
+    qDebug() << "AJT:         rotation = " << bulletToGLM(motor.rotation);
+    qDebug() << "AJT:         hTimescale = " << motor.hTimescale;
+    qDebug() << "AJT:         vTimescale = " << motor.vTimescale;
+
     if (motor.hTimescale >= MAX_CHARACTER_MOTOR_TIMESCALE && motor.vTimescale >= MAX_CHARACTER_MOTOR_TIMESCALE) {
         // nothing to do
         return;
@@ -627,6 +666,10 @@ void CharacterController::applyMotor(int index, btScalar dt, btVector3& worldVel
 }
 
 void CharacterController::computeNewVelocity(btScalar dt, btVector3& velocity) {
+
+    qDebug() << "AJT: computeNewVelocity";
+    qDebug() << "AJT:     pre velocity = " << bulletToGLM(velocity);
+
     if (velocity.length2() < MIN_TARGET_SPEED_SQUARED) {
         velocity = btVector3(0.0f, 0.0f, 0.0f);
     }
@@ -658,12 +701,16 @@ void CharacterController::computeNewVelocity(btScalar dt, btVector3& velocity) {
         velocity = btVector3(0.0f, 0.0f, 0.0f);
     }
 
+    qDebug() << "AJT:     before thrust velocity = " << bulletToGLM(velocity);
+
     // 'thrust' is applied at the very end
     _targetVelocity += dt * _linearAcceleration;
     velocity += dt * _linearAcceleration;
     // Note the differences between these two variables:
     // _targetVelocity = ideal final velocity according to input
     // velocity = real final velocity after motors are applied to current velocity
+
+    qDebug() << "AJT:     after thrust velocity = " << bulletToGLM(velocity);
 }
 
 void CharacterController::computeNewVelocity(btScalar dt, glm::vec3& velocity) {
@@ -791,6 +838,8 @@ void CharacterController::preSimulation() {
 
     _previousFlags = _pendingFlags;
     _pendingFlags &= ~PENDING_FLAG_JUMP;
+
+    _followMotorIndex = -1;
 }
 
 void CharacterController::postSimulation() {

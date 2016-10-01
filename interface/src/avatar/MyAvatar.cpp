@@ -423,7 +423,8 @@ void MyAvatar::simulate(float deltaTime) {
     // update sensorToWorldMatrix for camera and hand controllers
     // before we perform rig animations and IK.
 
-    updateSensorToWorldMatrix(_enableVerticalComfortMode ? SensorToWorldUpdateMode::VerticalComfort : SensorToWorldUpdateMode::Vertical);
+    // AJT: EATMEDRINKME_HACK DISABLED UPDATE
+    //updateSensorToWorldMatrix(_enableVerticalComfortMode ? SensorToWorldUpdateMode::VerticalComfort : SensorToWorldUpdateMode::Vertical);
 
     {
         PerformanceTimer perfTimer("skeleton");
@@ -557,20 +558,28 @@ void MyAvatar::updateJointFromController(controller::Action poseKey, ThreadSafeV
 // update sensor to world matrix from current body position and hmd sensor.
 // This is so the correct camera can be used for rendering.
 void MyAvatar::updateSensorToWorldMatrix(SensorToWorldUpdateMode mode) {
+
+    float heightRatio = getAvatarHeight() / getUserHeight();
+    glm::vec3 bodyTrans = extractTranslation(_bodySensorMatrix);
+    glm::mat4 heightScaleMat = createMatFromScaleQuatAndPos(vec3(heightRatio), quat(), heightRatio * bodyTrans) * createMatFromQuatAndPos(quat(), -bodyTrans);
+
+    qDebug() << "AJT: heightRatio = " << heightRatio;
+
     if (mode == SensorToWorldUpdateMode::Full) {
         glm::mat4 bodyToWorld = createMatFromQuatAndPos(getOrientation(), getPosition());
-        setSensorToWorldMatrix(bodyToWorld * glm::inverse(_bodySensorMatrix));
+        setSensorToWorldMatrix(bodyToWorld * glm::inverse(_bodySensorMatrix) * heightScaleMat);
     } else if (mode == SensorToWorldUpdateMode::Vertical ||
                mode == SensorToWorldUpdateMode::VerticalComfort) {
         glm::mat4 bodyToWorld = createMatFromQuatAndPos(getOrientation(), getPosition());
         glm::mat4 newSensorToWorldMat = bodyToWorld * glm::inverse(_bodySensorMatrix);
-        glm::mat4 sensorToWorldMat = _sensorToWorldMatrix;
+        glm::vec3 invScale = 1.0f / extractScale(_sensorToWorldMatrix);
+        glm::mat4 sensorToWorldMat = _sensorToWorldMatrix * createMatFromScaleQuatAndPos(invScale, quat(), vec3());  // cancel out scale
         sensorToWorldMat[3][1] = newSensorToWorldMat[3][1];
         if (mode == SensorToWorldUpdateMode::VerticalComfort &&
             fabsf(_sensorToWorldMatrix[3][1] - newSensorToWorldMat[3][1]) > 0.1f) {
-            setSensorToWorldMatrix(sensorToWorldMat);
+            setSensorToWorldMatrix(sensorToWorldMat * heightScaleMat);
         } else if (mode == SensorToWorldUpdateMode::Vertical) {
-            setSensorToWorldMatrix(sensorToWorldMat);
+            setSensorToWorldMatrix(sensorToWorldMat * heightScaleMat);
         }
     }
 }
@@ -1370,11 +1379,25 @@ void MyAvatar::prepareForPhysicsSimulation(float deltaTime) {
 
     _characterController.setPositionAndOrientation(position, orientation);
     if (qApp->isHMDMode()) {
+
+        qDebug() << "AJT: prepareForPhysicsSimulation";
+        qDebug() << "AJT:     position = " << position;
+        qDebug() << "AJT:     _hmdSensorMatrix = " << AnimPose(_hmdSensorMatrix);
+        qDebug() << "AJT:     pre _bodySensorMatrix = " << AnimPose(_bodySensorMatrix);
+        glm::mat4 m = deriveBodyFromHMDSensor();
+        qDebug() << "AJT:     deriveBodyFromHMD = " << AnimPose(m);
+
         // update the _bodySensorMatrix based on leaning behavior of the avatar.
         _bodySensorMatrix = _follow.prePhysicsUpdate(*this, deriveBodyFromHMDSensor(), _bodySensorMatrix, hasDriveInput(), deltaTime);
 
+        qDebug() << "AJT:     post _bodySensorMatrix = " << AnimPose(_bodySensorMatrix);
+        qDebug() << "AJT:     _sensorToWorldMatrix = " << AnimPose(_sensorToWorldMatrix);
+
         // The avatar physics body always follows the _bodySensorMatrix.
         glm::mat4 worldBodyMatrix = _sensorToWorldMatrix * _bodySensorMatrix;
+
+        qDebug() << "AJT:     worldBodyMatrix = " << AnimPose(worldBodyMatrix);
+
         getCharacterController()->setFollowParameters(worldBodyMatrix);
     } else {
         _follow.deactivate();
@@ -1401,14 +1424,16 @@ void MyAvatar::harvestResultsFromPhysicsSimulation(float deltaTime) {
     if (_characterController.isEnabledAndReady()) {
         _characterController.getPositionAndOrientation(position, orientation);
     }
-    nextAttitude(position, orientation);
 
-    // compute new _bodyToSensorMatrix
-    //_bodySensorMatrix = deriveBodyFromHMDSensor();
+    nextAttitude(position, orientation);
 
     if (_characterController.isEnabledAndReady()) {
         setVelocity(_characterController.getLinearVelocity());
     }
+
+    qDebug() << "AJT: harvestResultsFromPhysicsSimulation";
+    qDebug() << "AJT:     position = " << position;
+    qDebug() << "AJT:     velocity = " << _characterController.getLinearVelocity();
 
     _follow.postPhysicsUpdate(*this);
 }
@@ -1717,6 +1742,8 @@ void MyAvatar::updateOrientation(float deltaTime) {
         totalBodyYaw += _driveKeys[STEP_YAW];
     }
 
+    // EATMEDRINKME_HACK: disabled this code, it's making me sick!
+    /*
     // use head/HMD orientation to turn while flying
     if (getCharacterController()->getState() == CharacterController::State::Hover) {
 
@@ -1746,6 +1773,7 @@ void MyAvatar::updateOrientation(float deltaTime) {
         // apply our delta, but scale it by the speed factor, so we turn faster when we are flying faster.
         totalBodyYaw += (speedFactor * deltaAngle * (180.0f / PI));
     }
+    */
 
 
     // update body orientation by movement inputs
@@ -2136,6 +2164,7 @@ glm::mat4 MyAvatar::deriveBodyFromHMDSensor() const {
     const glm::quat hmdOrientation = getHMDSensorOrientation();
     const glm::quat hmdOrientationYawOnly = cancelOutRollAndPitch(hmdOrientation);
 
+    // EATMEDRINKME_TODO: move these into AvatarConstants.h
     // 2 meter tall dude (in rig coordinates)
     const glm::vec3 DEFAULT_RIG_MIDDLE_EYE_POS(0.0f, 0.9f, 0.0f);
     const glm::vec3 DEFAULT_RIG_NECK_POS(0.0f, 0.70f, 0.0f);
@@ -2164,7 +2193,8 @@ glm::mat4 MyAvatar::deriveBodyFromHMDSensor() const {
     // Y_180 is necessary because rig is z forward and hmdOrientation is -z forward
     glm::vec3 eyeToNeck = hmdOrientation * Quaternions::Y_180 * (localNeck - localEyes);
     glm::vec3 neckToRoot = hmdOrientationYawOnly * Quaternions::Y_180 * -localNeck;
-    glm::vec3 bodyPos = hmdPosition + eyeToNeck + neckToRoot;
+    float invHeightRatio = getUserHeight() / getAvatarHeight();
+    glm::vec3 bodyPos = hmdPosition + invHeightRatio * (eyeToNeck + neckToRoot);
 
     return createMatFromQuatAndPos(hmdOrientationYawOnly, bodyPos);
 }

@@ -1794,10 +1794,7 @@ void Application::paintGL() {
         // or with changes from the face tracker
         if (_myCamera.getMode() == CAMERA_MODE_FIRST_PERSON) {
             if (isHMDMode()) {
-                // OUTOFBODY_HACK: this scale factor will eventually be in the sensor to world matrix itself.
-                float heightRatio = myAvatar->getAvatarHeight() / myAvatar->getUserHeight();
-                mat4 scaleMat = createMatFromScaleQuatAndPos(vec3(heightRatio), quat(), vec3());
-                mat4 camMat = myAvatar->getSensorToWorldMatrix() * scaleMat * myAvatar->getHMDSensorMatrix();
+                mat4 camMat = myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix();
                 _myCamera.setPosition(extractTranslation(camMat));
                 _myCamera.setOrientation(glmExtractRotation(camMat));
             } else {

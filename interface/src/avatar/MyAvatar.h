@@ -513,7 +513,7 @@ private:
     ThreadSafeValueCache<controller::Pose> _leftHandControllerPoseInSensorFrameCache { controller::Pose() };
     ThreadSafeValueCache<controller::Pose> _rightHandControllerPoseInSensorFrameCache { controller::Pose() };
 
-    bool _hmdLeanRecenterEnabled = true;
+    bool _hmdLeanRecenterEnabled = false;
     bool _moveKinematically { false }; // KINEMATIC_CONTROLLER_HACK
     float _canonicalScale { 1.0f };
 

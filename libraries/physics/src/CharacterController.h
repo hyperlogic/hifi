@@ -194,6 +194,8 @@ protected:
     bool _flyingAllowed { true };
     bool _moveKinematically { false }; // KINEMATIC_CONTROLLER_HACK
     int16_t _collisionGroup { BULLET_COLLISION_GROUP_MY_AVATAR };
+
+    int32_t _followMotorIndex { -1 };
 };
 
 #endif // hifi_CharacterController_h
