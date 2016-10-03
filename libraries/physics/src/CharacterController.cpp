@@ -828,6 +828,11 @@ void CharacterController::updateState() {
 }
 
 void CharacterController::preSimulation() {
+
+    qDebug() << "AJT: preSimulation";
+    qDebug() << "AJT:     body->gravity = " << bulletToGLM(_rigidBody->getGravity());
+    qDebug() << "AJT:     _gravity = " << _gravity;
+
     if (_dynamicsWorld) {
         // slam body transform and remember velocity
         _rigidBody->setWorldTransform(btTransform(btTransform(_rotation, _position)));
