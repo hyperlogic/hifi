@@ -116,7 +116,11 @@ void CharacterController::setDynamicsWorld(btDynamicsWorld* world) {
             _dynamicsWorld->addRigidBody(_rigidBody, _collisionGroup, BULLET_COLLISION_MASK_MY_AVATAR);
             _dynamicsWorld->addAction(this);
             // restore gravity settings because adding an object to the world overwrites its gravity setting
-            _rigidBody->setGravity(_gravity * _currentUp);
+            if (_state == State::Hover || _collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS) {
+                _rigidBody->setGravity(btVector3(0.0f, 0.0f, 0.0f));
+            } else {
+                _rigidBody->setGravity(_gravity * _currentUp);
+            }
             btCollisionShape* shape = _rigidBody->getCollisionShape();
             assert(shape && shape->getShapeType() == CAPSULE_SHAPE_PROXYTYPE);
             _ghost.setCharacterCapsule(static_cast<btCapsuleShape*>(shape)); // KINEMATIC_CONTROLLER_HACK
