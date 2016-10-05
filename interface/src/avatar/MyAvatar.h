@@ -449,6 +449,7 @@ private:
 
     // working copies -- see AvatarData for thread-safe _sensorToWorldMatrixCache, used for outward facing access
     glm::mat4 _sensorToWorldMatrix { glm::mat4() };
+    glm::mat4 _sensorToWorldHeightScaleMatrix { glm::mat4() };
 
     // cache of the current HMD sensor position and orientation
     // in sensor space.

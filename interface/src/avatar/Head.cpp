@@ -362,7 +362,7 @@ glm::quat Head::getCameraOrientation() const {
     if (qApp->isHMDMode()) {
         MyAvatar* myAvatar = dynamic_cast<MyAvatar*>(_owningAvatar);
         if (myAvatar) {
-            return glm::quat_cast(myAvatar->getSensorToWorldMatrix()) * myAvatar->getHMDSensorOrientation();
+            return glmExtractRotation(myAvatar->getSensorToWorldMatrix()) * myAvatar->getHMDSensorOrientation();
         } else {
             return getOrientation();
         }

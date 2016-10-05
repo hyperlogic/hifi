@@ -104,7 +104,8 @@ bool HMDScriptingInterface::getHUDLookAtPosition3D(glm::vec3& result) const {
 
 glm::mat4 HMDScriptingInterface::getWorldHMDMatrix() const {
     auto myAvatar = DependencyManager::get<AvatarManager>()->getMyAvatar();
-    return myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix();
+    glm::mat4 worldHMDMatrix = myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix();
+    return createMatFromQuatAndPos(glmExtractRotation(worldHMDMatrix), extractTranslation(worldHMDMatrix));
 }
 
 glm::vec3 HMDScriptingInterface::getPosition() const {
@@ -131,7 +132,7 @@ void HMDScriptingInterface::setPosition(const glm::vec3& position) {
 
 glm::quat HMDScriptingInterface::getOrientation() const {
     if (qApp->getActiveDisplayPlugin()->isHmd()) {
-        return glm::normalize(glm::quat_cast(getWorldHMDMatrix()));
+        return glmExtractRotation(getWorldHMDMatrix());
     }
     return glm::quat();
 }

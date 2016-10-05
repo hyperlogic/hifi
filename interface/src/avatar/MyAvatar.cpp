@@ -251,7 +251,7 @@ void MyAvatar::centerBody() {
     // transform this body into world space
     auto worldBodyMatrix = _sensorToWorldMatrix * newBodySensorMatrix;
     auto worldBodyPos = extractTranslation(worldBodyMatrix);
-    auto worldBodyRot = glm::normalize(glm::quat_cast(worldBodyMatrix));
+    auto worldBodyRot = glmExtractRotation(worldBodyMatrix);
 
     if (_characterController.getState() == CharacterController::State::Ground) {
         // the avatar's physical aspect thinks it is standing on something
@@ -306,7 +306,7 @@ void MyAvatar::reset(bool andRecenter, bool andReload, bool andHead) {
         // transform this body into world space
         auto worldBodyMatrix = _sensorToWorldMatrix * newBodySensorMatrix;
         auto worldBodyPos = extractTranslation(worldBodyMatrix);
-        auto worldBodyRot = glm::normalize(glm::quat_cast(worldBodyMatrix));
+        auto worldBodyRot = glmExtractRotation(worldBodyMatrix);
 
         // this will become our new position.
         setPosition(worldBodyPos);
@@ -594,23 +594,25 @@ void MyAvatar::updateSensorToWorldMatrix(SensorToWorldUpdateMode mode) {
     // apply hightRatio scale about the _bodySensorMatrix position.
     float heightRatio = getAvatarHeight() / getUserHeight();
     glm::vec3 bodyTrans = extractTranslation(_bodySensorMatrix);
-    glm::mat4 heightScaleMat = createMatFromScaleQuatAndPos(vec3(heightRatio), quat(), heightRatio * bodyTrans) * createMatFromQuatAndPos(quat(), -bodyTrans);
+    glm::mat4 heightScaleMatrix = createMatFromScaleQuatAndPos(vec3(heightRatio), quat(), heightRatio * bodyTrans) * createMatFromQuatAndPos(quat(), -bodyTrans);
 
     if (mode == SensorToWorldUpdateMode::Full) {
-        glm::mat4 bodyToWorld = createMatFromQuatAndPos(getOrientation(), getPosition());
-        setSensorToWorldMatrix(bodyToWorld * glm::inverse(_bodySensorMatrix) * heightScaleMat);
+        glm::mat4 bodyToWorld = createMatFromScaleQuatAndPos(glm::vec3(heightRatio), getOrientation(), getPosition());
+        setSensorToWorldMatrix(bodyToWorld * glm::inverse(_bodySensorMatrix));
+        _sensorToWorldHeightScaleMatrix = heightScaleMatrix;
     } else if (mode == SensorToWorldUpdateMode::Vertical ||
                mode == SensorToWorldUpdateMode::VerticalComfort) {
-        glm::mat4 bodyToWorld = createMatFromQuatAndPos(getOrientation(), getPosition());
+        glm::mat4 bodyToWorld = createMatFromScaleQuatAndPos(glm::vec3(heightRatio), getOrientation(), getPosition());
         glm::mat4 newSensorToWorldMat = bodyToWorld * glm::inverse(_bodySensorMatrix);
-        glm::vec3 invScale = 1.0f / extractScale(_sensorToWorldMatrix);
-        glm::mat4 sensorToWorldMat = _sensorToWorldMatrix * createMatFromScaleQuatAndPos(invScale, quat(), vec3());  // cancel out scale
+        glm::mat4 sensorToWorldMat = _sensorToWorldMatrix * glm::inverse(_sensorToWorldHeightScaleMatrix) * heightScaleMatrix;
         sensorToWorldMat[3][1] = newSensorToWorldMat[3][1];
         if (mode == SensorToWorldUpdateMode::VerticalComfort &&
             fabsf(_sensorToWorldMatrix[3][1] - newSensorToWorldMat[3][1]) > 0.1f) {
-            setSensorToWorldMatrix(sensorToWorldMat * heightScaleMat);
+            setSensorToWorldMatrix(sensorToWorldMat);
+            _sensorToWorldHeightScaleMatrix = heightScaleMatrix;
         } else if (mode == SensorToWorldUpdateMode::Vertical) {
-            setSensorToWorldMatrix(sensorToWorldMat * heightScaleMat);
+            setSensorToWorldMatrix(sensorToWorldMat);
+            _sensorToWorldHeightScaleMatrix = heightScaleMatrix;
         }
     }
 }
@@ -1413,7 +1415,10 @@ void MyAvatar::prepareForPhysicsSimulation(float deltaTime) {
 
         // The avatar physics body always follows the _bodySensorMatrix.
         glm::mat4 worldBodyMatrix = _sensorToWorldMatrix * _bodySensorMatrix;
-        getCharacterController()->setFollowParameters(worldBodyMatrix);
+
+        // cancel out the scale.
+        glm::mat4 worldBodyMatrixNoScale = createMatFromQuatAndPos(glmExtractRotation(worldBodyMatrix), extractTranslation(worldBodyMatrix));
+        getCharacterController()->setFollowParameters(worldBodyMatrixNoScale);
     } else {
         _follow.deactivate();
         getCharacterController()->disableFollow();
@@ -1756,8 +1761,6 @@ void MyAvatar::updateOrientation(float deltaTime) {
         totalBodyYaw += _driveKeys[STEP_YAW];
     }
 
-    // EATMEDRINKME_HACK: disabled this code, it's making me sick!
-    /*
     // use head/HMD orientation to turn while flying
     if (getCharacterController()->getState() == CharacterController::State::Hover) {
 
@@ -1787,7 +1790,6 @@ void MyAvatar::updateOrientation(float deltaTime) {
         // apply our delta, but scale it by the speed factor, so we turn faster when we are flying faster.
         totalBodyYaw += (speedFactor * deltaAngle * (180.0f / PI));
     }
-    */
 
     // update body orientation by movement inputs
     glm::quat deltaRotation = glm::quat(glm::radians(glm::vec3(0.0f, totalBodyYaw, 0.0f)));
@@ -1804,7 +1806,7 @@ void MyAvatar::updateOrientation(float deltaTime) {
                                 createMatFromQuatAndPos(deltaRotation, glm::vec3()) *
                                 createMatFromQuatAndPos(glm::quat(), -hmdOffset));
 
-        glm::quat orientation = glm::quat_cast(getSensorToWorldMatrix()) * getHMDSensorOrientation();
+        glm::quat orientation = glmExtractRotation(getSensorToWorldMatrix()) * getHMDSensorOrientation();
         glm::quat bodyOrientation = getWorldBodyOrientation();
         glm::quat localOrientation = glm::inverse(bodyOrientation) * orientation;
 
@@ -2183,7 +2185,7 @@ glm::vec3 MyAvatar::getWorldBodyPosition() const {
 }
 
 glm::quat MyAvatar::getWorldBodyOrientation() const {
-    return glm::quat_cast(_sensorToWorldMatrix * _bodySensorMatrix);
+    return glmExtractRotation(_sensorToWorldMatrix * _bodySensorMatrix);
 }
 
 // old school meat hook style

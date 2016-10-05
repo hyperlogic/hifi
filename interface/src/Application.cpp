@@ -1949,7 +1949,7 @@ void Application::paintGL() {
         } else if (_myCamera.getMode() == CAMERA_MODE_THIRD_PERSON) {
             if (isHMDMode()) {
                 auto hmdWorldMat = myAvatar->getSensorToWorldMatrix() * myAvatar->getHMDSensorMatrix();
-                _myCamera.setOrientation(glm::normalize(glm::quat_cast(hmdWorldMat)));
+                _myCamera.setOrientation(glmExtractRotation(hmdWorldMat));
                 _myCamera.setPosition(extractTranslation(hmdWorldMat) +
                     myAvatar->getOrientation() * boomOffset);
             } else {
