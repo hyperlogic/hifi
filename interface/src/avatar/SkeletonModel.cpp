@@ -126,12 +126,13 @@ void SkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
 
             hmdPositionInRigSpace = extractTranslation(rigHMDMat);
 
-            glm::vec3 capsuleStart = Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f);
-            glm::vec3 capsuleEnd = -Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f);
+            float heightRatio = myAvatar->getAvatarHeight() / myAvatar->getUserHeight();
+            glm::vec3 capsuleStart = Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f) * heightRatio;
+            glm::vec3 capsuleEnd = -Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f) * heightRatio;
 
             // truncate head IK target if it's out of body
             if (myAvatar->isOutOfBody()) {
-                truncatedHMDPositionInRigSpace = projectPointOntoCapsule(hmdPositionInRigSpace, capsuleStart, capsuleEnd, TRUNCATE_IK_CAPSULE_RADIUS);
+                truncatedHMDPositionInRigSpace = projectPointOntoCapsule(hmdPositionInRigSpace, capsuleStart, capsuleEnd, TRUNCATE_IK_CAPSULE_RADIUS * heightRatio);
             } else {
                 truncatedHMDPositionInRigSpace = hmdPositionInRigSpace;
             }
@@ -167,11 +168,14 @@ void SkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
         Rig::HandParameters handParams;
 
         // compute interp factor between in body and out of body hand positions.
-        glm::vec3 capsuleStart = Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f);
-        glm::vec3 capsuleEnd = -Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f);
-        float outOfBodyAlpha = distanceFromCapsule(hmdPositionInRigSpace, capsuleStart, capsuleEnd, TRUNCATE_IK_CAPSULE_RADIUS);
-        outOfBodyAlpha = (glm::clamp(outOfBodyAlpha, MIN_OUT_OF_BODY_DISTANCE, MAX_OUT_OF_BODY_DISTANCE) - MIN_OUT_OF_BODY_DISTANCE) /
-            (MAX_OUT_OF_BODY_DISTANCE - MIN_OUT_OF_BODY_DISTANCE);
+        float heightRatio = myAvatar->getAvatarHeight() / myAvatar->getUserHeight();
+        const float SCALED_MIN_OUT_OF_BODY_DISTANCE = MIN_OUT_OF_BODY_DISTANCE * heightRatio;
+        const float SCALED_MAX_OUT_OF_BODY_DISTANCE = MAX_OUT_OF_BODY_DISTANCE * heightRatio;
+        glm::vec3 capsuleStart = Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f) * heightRatio;
+        glm::vec3 capsuleEnd = -Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f) * heightRatio;
+        float outOfBodyAlpha = distanceFromCapsule(hmdPositionInRigSpace, capsuleStart, capsuleEnd, TRUNCATE_IK_CAPSULE_RADIUS * heightRatio);
+        outOfBodyAlpha = (glm::clamp(outOfBodyAlpha, SCALED_MIN_OUT_OF_BODY_DISTANCE, SCALED_MAX_OUT_OF_BODY_DISTANCE) - SCALED_MIN_OUT_OF_BODY_DISTANCE) /
+            (SCALED_MAX_OUT_OF_BODY_DISTANCE - SCALED_MIN_OUT_OF_BODY_DISTANCE);
 
         auto leftPose = myAvatar->getLeftHandControllerPoseInAvatarFrame();
         if (leftPose.isValid()) {

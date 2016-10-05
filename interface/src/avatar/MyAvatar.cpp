@@ -2404,12 +2404,13 @@ glm::mat4 MyAvatar::FollowHelper::prePhysicsUpdate(const MyAvatar& myAvatar, con
 }
 
 void MyAvatar::FollowHelper::postPhysicsUpdate(MyAvatar& myAvatar) {
+    float heightRatio = myAvatar.getAvatarHeight() / myAvatar.getUserHeight();
     glm::mat4 worldHMDMat = myAvatar.getSensorToWorldMatrix() * myAvatar.getHMDSensorMatrix();
     glm::vec3 worldHMDPosition = extractTranslation(worldHMDMat);
-    glm::vec3 capsuleStart = myAvatar.getPosition() + Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f);
-    glm::vec3 capsuleEnd = myAvatar.getPosition() - Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f);
-    _isOutOfBody = !pointIsInsideCapsule(worldHMDPosition, capsuleStart, capsuleEnd, TRUNCATE_IK_CAPSULE_RADIUS);
-    _outOfBodyDistance = distanceFromCapsule(worldHMDPosition, capsuleStart, capsuleEnd, TRUNCATE_IK_CAPSULE_RADIUS);
+    glm::vec3 capsuleStart = myAvatar.getPosition() + Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f) * heightRatio;
+    glm::vec3 capsuleEnd = myAvatar.getPosition() - Vectors::UNIT_Y * (TRUNCATE_IK_CAPSULE_LENGTH / 2.0f) * heightRatio;
+    _isOutOfBody = !pointIsInsideCapsule(worldHMDPosition, capsuleStart, capsuleEnd, TRUNCATE_IK_CAPSULE_RADIUS * heightRatio);
+    _outOfBodyDistance = distanceFromCapsule(worldHMDPosition, capsuleStart, capsuleEnd, TRUNCATE_IK_CAPSULE_RADIUS * heightRatio);
 }
 
 float MyAvatar::getAccelerationEnergy() {
