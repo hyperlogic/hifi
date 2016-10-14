@@ -1075,6 +1075,12 @@ function MyController(hand) {
         var controllerLocation = getControllerWorldLocation(this.handToController(), true);
         var worldHandPosition = controllerLocation.position;
 
+        if (controllerLocation.valid) {
+            this.grabPointSphereOn();
+        } else {
+            this.grabPointSphereOff();
+        }
+
         var candidateEntities = Entities.findEntities(worldHandPosition, MAX_EQUIP_HOTSPOT_RADIUS);
         entityPropertiesCache.addEntities(candidateEntities);
         var potentialEquipHotspot = this.chooseBestEquipHotspot(candidateEntities);
@@ -1097,11 +1103,9 @@ function MyController(hand) {
             if (!this.grabPointIntersectsEntity) {
                 Controller.triggerHapticPulse(1, 20, this.hand);
                 this.grabPointIntersectsEntity = true;
-                this.grabPointSphereOn();
             }
         } else {
             this.grabPointIntersectsEntity = false;
-            this.grabPointSphereOff();
         }
     };
 
@@ -1423,6 +1427,12 @@ function MyController(hand) {
 
         var controllerLocation = getControllerWorldLocation(this.handToController(), true);
         var handPosition = controllerLocation.position;
+
+        if (controllerLocation.valid) {
+            this.grabPointSphereOn();
+        } else {
+            this.grabPointSphereOff();
+        }
 
         var rayPickInfo = this.calcRayPickInfo(this.hand);
 
