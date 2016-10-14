@@ -2771,8 +2771,9 @@ var handleHandMessages = function(channel, message, sender) {
 Messages.messageReceived.connect(handleHandMessages);
 
 var BASIC_TIMER_INTERVAL = 20; // 20ms = 50hz good enough
-var updateIntervalTimer = Script.setInterval(function(){
-    update();
+var updateIntervalTimer = Script.setInterval(function() {
+    var MIN_DELTA_TIME = 0.01;
+    update(MIN_DELTA_TIME);
 }, BASIC_TIMER_INTERVAL);
 
 function cleanup() {
