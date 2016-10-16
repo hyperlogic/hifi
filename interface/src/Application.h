@@ -114,8 +114,9 @@ public:
     virtual QOpenGLContext* getPrimaryContext() override;
     virtual bool makeRenderingContextCurrent() override;
     virtual bool isForeground() const override;
-
     virtual DisplayPluginPointer getActiveDisplayPlugin() const override;
+    virtual render::ScenePointer getMainScene() const override;
+    virtual mat4 getSensorToWorldMatrix() const override;
 
     enum Event {
         Present = DisplayPlugin::Present,

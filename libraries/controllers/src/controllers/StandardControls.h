@@ -158,6 +158,8 @@ namespace controller {
         LEFT_HAND_PINKY2,
         LEFT_HAND_PINKY3,
         LEFT_HAND_PINKY4,
+        LEFT_HAND_RAW,
+        RIGHT_HAND_RAW,
         NUM_STANDARD_POSES
     };
 

@@ -91,6 +91,8 @@ public:
     virtual ui::Menu* getPrimaryMenu() override { return nullptr; }
     virtual bool isForeground() const override { return true; }
     virtual DisplayPluginPointer getActiveDisplayPlugin() const override { return DisplayPluginPointer(); }
+    virtual render::ScenePointer getMainScene() const override { return nullptr; }
+    virtual glm::mat4 getSensorToWorldMatrix() const override { return glm::mat4(); }
 };
 
 class MyControllerScriptingInterface : public controller::ScriptingInterface {

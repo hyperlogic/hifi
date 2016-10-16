@@ -17,12 +17,9 @@
 
 #include <GLMHelpers.h>
 
-#include <model/Geometry.h>
-#include <gpu/Texture.h>
 #include <controllers/InputDevice.h>
 #include <plugins/InputPlugin.h>
-#include <RenderArgs.h>
-#include <render/Scene.h>
+#include <MeshPartPayload.h>
 
 namespace vr {
     class IVRSystem;
@@ -31,6 +28,7 @@ namespace vr {
 class ViveControllerManager : public InputPlugin {
     Q_OBJECT
 public:
+
     // Plugin functions
     bool isSupported() const override;
     const QString& getName() const override { return NAME; }
@@ -42,10 +40,6 @@ public:
 
     void pluginFocusOutEvent() override { _inputDevice->focusOutEvent(); }
     void pluginUpdate(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) override;
-
-    void updateRendering(RenderArgs* args, render::ScenePointer scene, render::PendingChanges pendingChanges);
-
-    void setRenderControllers(bool renderControllers) { _renderControllers = renderControllers; }
 
 private:
     class InputDevice : public controller::InputDevice {
@@ -111,17 +105,20 @@ private:
         friend class ViveControllerManager;
     };
 
-    void renderHand(const controller::Pose& pose, gpu::Batch& batch, int sign);
+    bool loadMeshFromOpenVR(uint32_t deviceID, const char* modelName);
 
     bool _registeredWithInputMapper { false };
-    bool _modelLoaded { false };
-    model::Geometry _modelGeometry;
-    gpu::TexturePointer _texture;
 
-    int _leftHandRenderID { 0 };
-    int _rightHandRenderID { 0 };
+    class PayloadInfo {
+    public:
+        uint32_t deviceID;
+        render::ItemID itemID;
+        std::shared_ptr<MeshPartPayload> meshPartPayload;
+        std::shared_ptr<MeshPartPayload::Payload> meshPartPayloadPayload;
+        bool addedToScene { false };
+    };
+    std::vector<PayloadInfo> _payloadInfos;
 
-    bool _renderControllers { false };
     vr::IVRSystem* _system { nullptr };
     std::shared_ptr<InputDevice> _inputDevice { std::make_shared<InputDevice>(_system) };
 

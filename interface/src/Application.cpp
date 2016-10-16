@@ -4518,7 +4518,6 @@ void Application::displaySide(RenderArgs* renderArgs, Camera& theCamera, bool se
                     static_cast<int>(RenderArgs::RENDER_DEBUG_HULLS));
             }
             renderArgs->_debugFlags = renderDebugFlags;
-            //ViveControllerManager::getInstance().updateRendering(renderArgs, _main3DScene, pendingChanges);
         }
     }
 
@@ -5513,6 +5512,18 @@ DisplayPluginPointer Application::getActiveDisplayPlugin() const {
     return _displayPlugin;
 }
 
+render::ScenePointer Application::getMainScene() const {
+    return _main3DScene;
+}
+
+glm::mat4 Application::getSensorToWorldMatrix() const {
+    auto myAvatar = getMyAvatar();
+    if (myAvatar) {
+        return myAvatar->getSensorToWorldMatrix();
+    } else {
+        return glm::mat4();
+    }
+}
 
 static void addDisplayPluginToMenu(DisplayPluginPointer displayPlugin, bool active = false) {
     auto menu = Menu::getInstance();

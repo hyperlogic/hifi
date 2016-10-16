@@ -16,6 +16,10 @@
 #include <QtCore/QPair>
 #include <QtCore/QRect>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+
 #include <plugins/Forward.h>
 
 class QAction;
@@ -33,6 +37,11 @@ namespace gpu {
 
 namespace ui {
     class Menu;
+}
+
+namespace render {
+    class Scene;
+    typedef std::shared_ptr<Scene> ScenePointer;
 }
 
 class QActionGroup;
@@ -63,6 +72,8 @@ public:
     virtual QOpenGLContext* getPrimaryContext() = 0;
     virtual bool isForeground() const = 0;
     virtual DisplayPluginPointer getActiveDisplayPlugin() const = 0;
+    virtual render::ScenePointer getMainScene() const = 0;
+    virtual glm::mat4 getSensorToWorldMatrix() const = 0;
 
     /// settings interface
     bool getBoolSetting(const QString& settingName, bool defaultValue);

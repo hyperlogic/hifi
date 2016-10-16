@@ -11,6 +11,7 @@
 
 #include "ViveControllerManager.h"
 
+#include <QThread>
 #include <PerfStat.h>
 #include <PathUtils.h>
 #include <GeometryCache.h>
@@ -22,9 +23,7 @@
 #include <UserActivityLogger.h>
 #include <OffscreenUi.h>
 
-
 #include <controllers/UserInputMapper.h>
-
 #include <controllers/StandardControls.h>
 
 #include "OpenVrHelpers.h"
@@ -51,11 +50,6 @@ bool ViveControllerManager::isSupported() const {
 bool ViveControllerManager::activate() {
     InputPlugin::activate();
 
-    _container->addMenu(MENU_PATH);
-    _container->addMenuItem(PluginType::INPUT_PLUGIN, MENU_PATH, RENDER_CONTROLLERS,
-        [this] (bool clicked) { this->setRenderControllers(clicked); },
-        true, true);
-
     if (!_system) {
         _system = acquireOpenVrSystem();
     }
@@ -63,58 +57,17 @@ bool ViveControllerManager::activate() {
 
     enableOpenVrKeyboard(_container);
 
-    // OpenVR provides 3d mesh representations of the controllers
-    // Disabled controller rendering code
-    /*
-    auto renderModels = vr::VRRenderModels();
-
-    vr::RenderModel_t model;
-    if (!_system->LoadRenderModel(CONTROLLER_MODEL_STRING, &model)) {
-        qDebug() << QString("Unable to load render model %1\n").arg(CONTROLLER_MODEL_STRING);
-    } else {
-        model::Mesh* mesh = new model::Mesh();
-        model::MeshPointer meshPtr(mesh);
-        _modelGeometry.setMesh(meshPtr);
-
-        auto indexBuffer = new gpu::Buffer(3 * model.unTriangleCount * sizeof(uint16_t), (gpu::Byte*)model.rIndexData);
-        auto indexBufferPtr = gpu::BufferPointer(indexBuffer);
-        auto indexBufferView = new gpu::BufferView(indexBufferPtr, gpu::Element(gpu::SCALAR, gpu::UINT16, gpu::RAW));
-        mesh->setIndexBuffer(*indexBufferView);
-
-        auto vertexBuffer = new gpu::Buffer(model.unVertexCount * sizeof(vr::RenderModel_Vertex_t),
-            (gpu::Byte*)model.rVertexData);
-        auto vertexBufferPtr = gpu::BufferPointer(vertexBuffer);
-        auto vertexBufferView = new gpu::BufferView(vertexBufferPtr,
-            0,
-            vertexBufferPtr->getSize() - sizeof(float) * 3,
-            sizeof(vr::RenderModel_Vertex_t),
-            gpu::Element(gpu::VEC3, gpu::FLOAT, gpu::RAW));
-        mesh->setVertexBuffer(*vertexBufferView);
-        mesh->addAttribute(gpu::Stream::NORMAL,
-            gpu::BufferView(vertexBufferPtr,
-            sizeof(float) * 3,
-            vertexBufferPtr->getSize() - sizeof(float) * 3,
-            sizeof(vr::RenderModel_Vertex_t),
-            gpu::Element(gpu::VEC3, gpu::FLOAT, gpu::RAW)));
-        //mesh->addAttribute(gpu::Stream::TEXCOORD,
-        //    gpu::BufferView(vertexBufferPtr,
-        //    2 * sizeof(float) * 3,
-        //    vertexBufferPtr->getSize() - sizeof(float) * 2,
-        //    sizeof(vr::RenderModel_Vertex_t),
-        //    gpu::Element(gpu::VEC2, gpu::FLOAT, gpu::RAW)));
-
-        gpu::Element formatGPU = gpu::Element(gpu::VEC4, gpu::NUINT8, gpu::RGBA);
-        gpu::Element formatMip = gpu::Element(gpu::VEC4, gpu::NUINT8, gpu::RGBA);
-        _texture = gpu::TexturePointer(
-            gpu::Texture::create2D(formatGPU, model.diffuseTexture.unWidth, model.diffuseTexture.unHeight,
-            gpu::Sampler(gpu::Sampler::FILTER_MIN_MAG_MIP_LINEAR)));
-        _texture->assignStoredMip(0, formatMip, model.diffuseTexture.unWidth * model.diffuseTexture.unHeight * 4 * sizeof(uint8_t), model.diffuseTexture.rubTextureMapData);
-        _texture->autoGenerateMips(-1);
-
-        _modelLoaded = true;
-        _renderControllers = true;
-    }
-    */
+    for (vr::TrackedDeviceIndex_t i = vr::k_unTrackedDeviceIndex_Hmd + 1; i < vr::k_unMaxTrackedDeviceCount; ++i) {
+        if (_system->GetTrackedDeviceClass(i) == vr::TrackedDeviceClass_Controller) {
+            vr::TrackedPropertyError error;
+            uint32_t len = _system->GetStringTrackedDeviceProperty(i, vr::Prop_RenderModelName_String, NULL, 0, &error);
+            std::unique_ptr<char> str(new char[len + 1]);
+            len = _system->GetStringTrackedDeviceProperty(i, vr::Prop_RenderModelName_String, str.get(), len, &error);
+            if (!error) {
+                loadMeshFromOpenVR(i, str.get());
+            }
+        }
+	}
 
     // register with UserInputMapper
     auto userInputMapper = DependencyManager::get<controller::UserInputMapper>();
@@ -145,70 +98,6 @@ void ViveControllerManager::deactivate() {
     _registeredWithInputMapper = false;
 }
 
-void ViveControllerManager::updateRendering(RenderArgs* args, render::ScenePointer scene, render::PendingChanges pendingChanges) {
-    PerformanceTimer perfTimer("ViveControllerManager::updateRendering");
-
-    /*
-    if (_modelLoaded) {
-        //auto controllerPayload = new render::Payload<ViveControllerManager>(this);
-        //auto controllerPayloadPointer = ViveControllerManager::PayloadPointer(controllerPayload);
-        //if (_leftHandRenderID == 0) {
-        //    _leftHandRenderID = scene->allocateID();
-        //    pendingChanges.resetItem(_leftHandRenderID, controllerPayloadPointer);
-        //}
-        //pendingChanges.updateItem(_leftHandRenderID, );
-
-
-        controller::Pose leftHand = _inputDevice->_poseStateMap[controller::StandardPoseChannel::LEFT_HAND];
-        controller::Pose rightHand = _inputDevice->_poseStateMap[controller::StandardPoseChannel::RIGHT_HAND];
-
-        gpu::doInBatch(args->_context, [=](gpu::Batch& batch) {
-            auto geometryCache = DependencyManager::get<GeometryCache>();
-            geometryCache->useSimpleDrawPipeline(batch);
-            DependencyManager::get<DeferredLightingEffect>()->bindSimpleProgram(batch, true);
-
-            auto mesh = _modelGeometry.getMesh();
-            batch.setInputFormat(mesh->getVertexFormat());
-            //batch._glBindTexture(GL_TEXTURE_2D, _uexture);
-
-            if (leftHand.isValid()) {
-                renderHand(leftHand, batch, 1);
-            }
-            if (rightHand.isValid()) {
-                renderHand(rightHand, batch, -1);
-            }
-        });
-    }
-    */
-}
-
-void ViveControllerManager::renderHand(const controller::Pose& pose, gpu::Batch& batch, int sign) {
-    /*
-    auto userInputMapper = DependencyManager::get<controller::UserInputMapper>();
-    Transform transform(userInputMapper->getSensorToWorldMat());
-    transform.postTranslate(pose.getTranslation() + pose.getRotation() * glm::vec3(0, 0, CONTROLLER_LENGTH_OFFSET));
-
-    glm::quat rotation = pose.getRotation() * glm::angleAxis(PI, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::angleAxis(sign * PI_OVER_TWO, glm::vec3(0.0f, 0.0f, 1.0f));
-    transform.postRotate(rotation);
-
-    batch.setModelTransform(transform);
-
-    auto mesh = _modelGeometry.getMesh();
-    batch.setInputBuffer(gpu::Stream::POSITION, mesh->getVertexBuffer());
-    batch.setInputBuffer(gpu::Stream::NORMAL,
-        mesh->getVertexBuffer()._buffer,
-        sizeof(float) * 3,
-        mesh->getVertexBuffer()._stride);
-    //batch.setInputBuffer(gpu::Stream::TEXCOORD,
-    //    mesh->getVertexBuffer()._buffer,
-    //    2 * 3 * sizeof(float),
-    //    mesh->getVertexBuffer()._stride);
-    batch.setIndexBuffer(gpu::UINT16, mesh->getIndexBuffer()._buffer, 0);
-    batch.drawIndexed(gpu::TRIANGLES, mesh->getNumIndices(), 0);
-    */
-}
-
-
 void ViveControllerManager::pluginUpdate(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) {
     auto userInputMapper = DependencyManager::get<controller::UserInputMapper>();
     handleOpenVrEvents();
@@ -232,6 +121,32 @@ void ViveControllerManager::pluginUpdate(float deltaTime, const controller::Inpu
         userInputMapper->registerDevice(_inputDevice);
         _registeredWithInputMapper = true;
     }
+
+    Transform sensorToWorldTransform(inputCalibrationData.sensorToWorldMat);
+    auto leftHandDeviceIndex = _system->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_LeftHand);
+    auto rightHandDeviceIndex = _system->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_RightHand);
+
+    render::PendingChanges pendingChanges;
+    for (auto& info : _payloadInfos) {
+        if (!info.addedToScene) {
+            pendingChanges.resetItem(info.itemID, info.meshPartPayloadPayload);
+        }
+
+        if (info.deviceID == leftHandDeviceIndex || info.deviceID == rightHandDeviceIndex) {
+            bool isLeftHand = info.deviceID == leftHandDeviceIndex;
+            auto poseIter = _inputDevice->_poseStateMap.find(isLeftHand ? controller::LEFT_HAND_RAW : controller::RIGHT_HAND_RAW);
+            if (poseIter != _inputDevice->_poseStateMap.end()) {
+                controller::Pose& rawPose = poseIter->second;
+                mat4 rawMatrix = createMatFromQuatAndPos(rawPose.rotation, rawPose.translation);
+                pendingChanges.updateItem<MeshPartPayload>(info.itemID, [this, rawMatrix](MeshPartPayload& data) {
+                    mat4 fullMat = _container->getSensorToWorldMatrix() * rawMatrix;
+                    Transform fullTransform(fullMat);
+                    data.updateTransform(fullTransform, Transform());
+                });
+            }
+        }
+    }
+    _container->getMainScene()->enqueuePendingChanges(pendingChanges);
 }
 
 void ViveControllerManager::InputDevice::update(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) {
@@ -390,6 +305,9 @@ void ViveControllerManager::InputDevice::handleButtonEvent(float deltaTime, uint
 void ViveControllerManager::InputDevice::handlePoseEvent(float deltaTime, const controller::InputCalibrationData& inputCalibrationData,
                                                          const mat4& mat, const vec3& linearVelocity,
                                                          const vec3& angularVelocity, bool isLeftHand) {
+    auto rawPose = controller::Pose(extractTranslation(mat), glmExtractRotation(mat), linearVelocity, angularVelocity);
+    _poseStateMap[isLeftHand ? controller::LEFT_HAND_RAW : controller::RIGHT_HAND_RAW] = rawPose;
+
     auto pose = openVrControllerPoseToHandPose(isLeftHand, mat, linearVelocity, angularVelocity);
 
     // transform into avatar frame
@@ -498,4 +416,135 @@ controller::Input::NamedVector ViveControllerManager::InputDevice::getAvailableI
 QString ViveControllerManager::InputDevice::getDefaultMappingConfig() const {
     static const QString MAPPING_JSON = PathUtils::resourcesPath() + "/controllers/vive.json";
     return MAPPING_JSON;
+}
+
+static model::MeshPointer buildModelMeshFromOpenVRModel(vr::RenderModel_t* model) {
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texCoords;
+    positions.reserve(model->unVertexCount);
+    normals.reserve(model->unVertexCount);
+    texCoords.reserve(model->unVertexCount);
+    for (uint32_t i = 0; i < model->unVertexCount; ++i) {
+        positions.push_back(glm::vec3(model->rVertexData[i].vPosition.v[0],
+                                      model->rVertexData[i].vPosition.v[1],
+                                      model->rVertexData[i].vPosition.v[2]));
+        normals.push_back(glm::vec3(model->rVertexData[i].vNormal.v[0],
+                                    model->rVertexData[i].vNormal.v[1],
+                                    model->rVertexData[i].vNormal.v[2]));
+        texCoords.push_back(glm::vec2(model->rVertexData[i].rfTextureCoord[0],
+                                      model->rVertexData[i].rfTextureCoord[1]));
+    }
+
+    model::MeshPointer mesh(new model::Mesh());
+
+    auto vb = std::make_shared<gpu::Buffer>();
+    vb->setData(positions.size() * sizeof(glm::vec3), (const gpu::Byte*) &positions[0]);
+    gpu::BufferView vbv(vb, gpu::Element(gpu::VEC3, gpu::FLOAT, gpu::XYZ));
+    mesh->setVertexBuffer(vbv);
+
+    size_t normalsSize = normals.size() * sizeof(glm::vec3);
+    size_t texCoordsSize = texCoords.size() * sizeof(glm::vec2);
+
+    size_t normalsOffset = 0;
+    size_t texCoordsOffset = normalsOffset + normalsSize;
+    size_t totalAttributesSize = texCoordsOffset + texCoordsSize;
+
+    auto attribBuffer = std::make_shared<gpu::Buffer>();
+    attribBuffer->resize(totalAttributesSize);
+    attribBuffer->setSubData(normalsOffset, normalsSize, (gpu::Byte*) &normals[0]);
+    attribBuffer->setSubData(texCoordsOffset, texCoordsSize, (gpu::Byte*) &texCoords[0]);
+
+    mesh->addAttribute(gpu::Stream::NORMAL, model::BufferView(attribBuffer, normalsOffset, normalsSize,
+                                                              gpu::Element(gpu::VEC3, gpu::FLOAT, gpu::XYZ)));
+    mesh->addAttribute(gpu::Stream::TEXCOORD, model::BufferView(attribBuffer, texCoordsOffset, texCoordsSize,
+                                                                gpu::Element(gpu::VEC2, gpu::FLOAT, gpu::UV)));
+
+    const size_t NUM_INDICES_PER_TRIANGLE = 3;
+    size_t totalIndices = NUM_INDICES_PER_TRIANGLE * model->unTriangleCount;
+
+    std::vector<model::Index> indices;
+    indices.reserve(totalIndices);
+    for (size_t i = 0; i < totalIndices; i++) {
+        indices.push_back((model::Index)model->rIndexData[i]);
+    }
+
+    auto indexBuffer = std::make_shared<gpu::Buffer>();
+    indexBuffer->resize(totalIndices * sizeof(model::Index));
+    indexBuffer->setSubData(0, totalIndices * sizeof(uint32_t), (gpu::Byte*) &indices[0]);
+    gpu::BufferView indexBufferView(indexBuffer, gpu::Element(gpu::SCALAR, gpu::UINT32, gpu::XYZ));
+    mesh->setIndexBuffer(indexBufferView);
+    std::vector<model::Mesh::Part> parts;
+    parts.push_back(model::Mesh::Part(0, (model::Index)totalIndices, 0, model::Mesh::TRIANGLES));
+    if (parts.size()) {
+        auto pb = std::make_shared<gpu::Buffer>();
+        pb->setData(parts.size() * sizeof(model::Mesh::Part), (const gpu::Byte*) &parts[0]);
+        gpu::BufferView pbv(pb, gpu::Element(gpu::VEC4, gpu::UINT32, gpu::XYZW));
+        mesh->setPartBuffer(pbv);
+    }
+    mesh->evalPartBound(0);
+
+    return mesh;
+}
+
+bool ViveControllerManager::loadMeshFromOpenVR(uint32_t deviceID, const char* modelName) {
+
+    vr::RenderModel_t* model;
+    vr::EVRRenderModelError error;
+
+    // AJT: HACK make this truely async
+    while (1) {
+        error = vr::VRRenderModels()->LoadRenderModel_Async(modelName, &model);
+        if (error != vr::VRRenderModelError_Loading) {
+            break;
+        }
+        QThread::msleep(1);
+    }
+
+    if (error != vr::VRRenderModelError_None) {
+        qWarning() << "ViveControllerManager: error loading model =" << modelName << "error =" << error;
+        return false;
+    }
+
+    vr::RenderModel_TextureMap_t* texture;
+
+    // AJT: HACK make this truely async
+    while (1) {
+        error = vr::VRRenderModels()->LoadTexture_Async(model->diffuseTextureId, &texture);
+        if (error != vr::VRRenderModelError_Loading) {
+            break;
+        }
+        QThread::msleep(1);
+    }
+
+    if (error != vr::VRRenderModelError_None) {
+        qWarning() << "ViveControllerManager: error loading texture for model =" << modelName << "error =" << error;
+        vr::VRRenderModels()->FreeRenderModel(model);
+        return false;
+    }
+
+    auto material = std::make_shared<model::Material>();
+    material->setEmissive(glm::vec3(0.0f));
+    material->setOpacity(1.0f);
+    material->setUnlit(false);
+    material->setAlbedo(glm::vec3(0.5f));
+    material->setFresnel(glm::vec3(0.03f));
+    material->setMetallic(0.0f);
+    material->setRoughness(1.0f);
+    material->setScattering(0.0f);
+
+    auto mesh = buildModelMeshFromOpenVRModel(model);
+
+    auto meshPartPayload = std::make_shared<MeshPartPayload>(mesh, 0, material);
+    PayloadInfo info;
+    info.deviceID = deviceID;
+    info.itemID = _container->getMainScene()->allocateID();
+    info.meshPartPayload = meshPartPayload;
+    info.meshPartPayloadPayload = std::make_shared<MeshPartPayload::Payload>(meshPartPayload);
+    _payloadInfos.push_back(info);
+
+    vr::VRRenderModels()->FreeRenderModel(model);
+    vr::VRRenderModels()->FreeTexture(texture);
+
+    return true;
 }
