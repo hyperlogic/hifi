@@ -552,6 +552,28 @@ Menu::Menu() {
     addCheckableActionToQMenuAndActionHash(handOptionsMenu, MenuOption::LowVelocityFilter, 0, true,
         qApp, SLOT(setLowVelocityFilter(bool)));
 
+    auto showHandControllersAction = addActionToQMenuAndActionHash(handOptionsMenu, "Show Hand Controllers");
+    connect(showHandControllersAction, &QAction::triggered, [] {
+        auto avatarManager = DependencyManager::get<AvatarManager>();
+        if (avatarManager) {
+            auto myAvatar = avatarManager->getMyAvatar();
+            if (myAvatar) {
+                myAvatar->requestShowHandControllers();
+            }
+        }
+    });
+
+    auto hideHandControllersAction = addActionToQMenuAndActionHash(handOptionsMenu, "Hide Hand Controllers");
+    connect(hideHandControllersAction, &QAction::triggered, [] {
+        auto avatarManager = DependencyManager::get<AvatarManager>();
+        if (avatarManager) {
+            auto myAvatar = avatarManager->getMyAvatar();
+            if (myAvatar) {
+                myAvatar->requestHideHandControllers();
+            }
+        }
+    });
+
     MenuWrapper* leapOptionsMenu = handOptionsMenu->addMenu("Leap Motion");
     addCheckableActionToQMenuAndActionHash(leapOptionsMenu, MenuOption::LeapMotionOnHMD, 0, false);
 
