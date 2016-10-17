@@ -174,6 +174,7 @@ function goAway(fromStartup) {
     if (!wasMuted) {
         AudioDevice.toggleMute();
     }
+    MyAvatar.requestShowHandControllers();
     MyAvatar.setEnableMeshVisible(false);  // just for our own display, without changing point of view
     playAwayAnimation(); // animation is still seen by others
     showOverlay();
@@ -219,6 +220,7 @@ function goActive() {
     if (!wasMuted) {
         AudioDevice.toggleMute();
     }
+    MyAvatar.requestHideHandControllers();
     MyAvatar.setEnableMeshVisible(true); // IWBNI we respected Developer->Avatar->Draw Mesh setting.
     stopAwayAnimation();
 

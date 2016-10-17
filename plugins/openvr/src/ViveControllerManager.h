@@ -25,7 +25,7 @@ namespace vr {
     class IVRSystem;
 }
 
-class ViveControllerManager : public InputPlugin {
+class ViveControllerManager : public InputPlugin, public std::enable_shared_from_this<ViveControllerManager> {
     Q_OBJECT
 public:
 
@@ -105,7 +105,7 @@ private:
         friend class ViveControllerManager;
     };
 
-    bool loadMeshFromOpenVR(uint32_t deviceID, const char* modelName);
+    bool loadMeshFromOpenVR(uint32_t deviceID);
 
     bool _registeredWithInputMapper { false };
 

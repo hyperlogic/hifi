@@ -19,6 +19,7 @@ struct InputCalibrationData {
     glm::mat4 sensorToWorldMat;
     glm::mat4 avatarMat;
     glm::mat4 hmdSensorMat;
+    bool shouldShowHandControllers;
 };
 
 enum class ChannelType {

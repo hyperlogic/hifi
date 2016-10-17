@@ -2305,3 +2305,15 @@ void MyAvatar::updateHoldActions(const AnimPose& prePhysicsPose, const AnimPose&
         });
     }
 }
+
+void MyAvatar::requestHideHandControllers() {
+    _handControllerDisplayCount--;
+}
+
+void MyAvatar::requestShowHandControllers() {
+    _handControllerDisplayCount++;
+}
+
+bool MyAvatar::shouldShowHandControllers() const {
+    return _handControllerDisplayCount > 0;
+}

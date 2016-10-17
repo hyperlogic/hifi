@@ -33,14 +33,6 @@ extern PoseData _nextSimPoseData;
 vr::IVRSystem* acquireOpenVrSystem();
 void releaseOpenVrSystem();
 
-
-static const char* CONTROLLER_MODEL_STRING = "vr_controller_05_wireless_b";
-
-static const QString MENU_PARENT = "Avatar";
-static const QString MENU_NAME = "Vive Controllers";
-static const QString MENU_PATH = MENU_PARENT + ">" + MENU_NAME;
-static const QString RENDER_CONTROLLERS = "Render Hand Controllers";
-
 const QString ViveControllerManager::NAME = "OpenVR";
 
 bool ViveControllerManager::isSupported() const {
@@ -57,18 +49,6 @@ bool ViveControllerManager::activate() {
 
     enableOpenVrKeyboard(_container);
 
-    for (vr::TrackedDeviceIndex_t i = vr::k_unTrackedDeviceIndex_Hmd + 1; i < vr::k_unMaxTrackedDeviceCount; ++i) {
-        if (_system->GetTrackedDeviceClass(i) == vr::TrackedDeviceClass_Controller) {
-            vr::TrackedPropertyError error;
-            uint32_t len = _system->GetStringTrackedDeviceProperty(i, vr::Prop_RenderModelName_String, NULL, 0, &error);
-            std::unique_ptr<char> str(new char[len + 1]);
-            len = _system->GetStringTrackedDeviceProperty(i, vr::Prop_RenderModelName_String, str.get(), len, &error);
-            if (!error) {
-                loadMeshFromOpenVR(i, str.get());
-            }
-        }
-	}
-
     // register with UserInputMapper
     auto userInputMapper = DependencyManager::get<controller::UserInputMapper>();
     userInputMapper->registerDevice(_inputDevice);
@@ -81,8 +61,15 @@ void ViveControllerManager::deactivate() {
 
     disableOpenVrKeyboard();
 
-    _container->removeMenuItem(MENU_NAME, RENDER_CONTROLLERS);
-    _container->removeMenu(MENU_PATH);
+    render::PendingChanges pendingChanges;
+    for (auto& info : _payloadInfos) {
+        // remove from scene if necessary
+        if (info.addedToScene) {
+            pendingChanges.removeItem(info.itemID);
+            info.addedToScene = false;
+        }
+    }
+    _container->getMainScene()->enqueuePendingChanges(pendingChanges);
 
     if (_system) {
         _container->makeRenderingContextCurrent();
@@ -126,23 +113,58 @@ void ViveControllerManager::pluginUpdate(float deltaTime, const controller::Inpu
     auto leftHandDeviceIndex = _system->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_LeftHand);
     auto rightHandDeviceIndex = _system->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_RightHand);
 
+    if (inputCalibrationData.shouldShowHandControllers) {
+        bool foundLeftHandDevice = false;
+        bool foundRightHandDevice = false;
+        for (auto& info : _payloadInfos) {
+            if (info.deviceID == leftHandDeviceIndex) {
+                foundLeftHandDevice = true;
+            }
+            if (info.deviceID == rightHandDeviceIndex) {
+                foundRightHandDevice = true;
+            }
+        }
+        if (!foundLeftHandDevice) {
+            loadMeshFromOpenVR(leftHandDeviceIndex);
+        }
+        if (!foundRightHandDevice) {
+            loadMeshFromOpenVR(rightHandDeviceIndex);
+        }
+    }
+
     render::PendingChanges pendingChanges;
     for (auto& info : _payloadInfos) {
-        if (!info.addedToScene) {
+
+        // add to scene if necessary
+        if (inputCalibrationData.shouldShowHandControllers && !info.addedToScene) {
             pendingChanges.resetItem(info.itemID, info.meshPartPayloadPayload);
+            info.addedToScene = true;
         }
 
-        if (info.deviceID == leftHandDeviceIndex || info.deviceID == rightHandDeviceIndex) {
-            bool isLeftHand = info.deviceID == leftHandDeviceIndex;
-            auto poseIter = _inputDevice->_poseStateMap.find(isLeftHand ? controller::LEFT_HAND_RAW : controller::RIGHT_HAND_RAW);
-            if (poseIter != _inputDevice->_poseStateMap.end()) {
-                controller::Pose& rawPose = poseIter->second;
-                mat4 rawMatrix = createMatFromQuatAndPos(rawPose.rotation, rawPose.translation);
-                pendingChanges.updateItem<MeshPartPayload>(info.itemID, [this, rawMatrix](MeshPartPayload& data) {
-                    mat4 fullMat = _container->getSensorToWorldMatrix() * rawMatrix;
-                    Transform fullTransform(fullMat);
-                    data.updateTransform(fullTransform, Transform());
-                });
+        // remove from scene if necessary
+        if (!inputCalibrationData.shouldShowHandControllers && info.addedToScene) {
+            pendingChanges.removeItem(info.itemID);
+            info.addedToScene = false;
+        }
+
+        if (inputCalibrationData.shouldShowHandControllers) {
+            if (info.deviceID == leftHandDeviceIndex || info.deviceID == rightHandDeviceIndex) {
+                bool isLeftHand = info.deviceID == leftHandDeviceIndex;
+                auto poseIter = _inputDevice->_poseStateMap.find(isLeftHand ? controller::LEFT_HAND_RAW : controller::RIGHT_HAND_RAW);
+                std::weak_ptr<ViveControllerManager> weakSelf = shared_from_this();
+                if (poseIter != _inputDevice->_poseStateMap.end()) {
+                    controller::Pose& rawPose = poseIter->second;
+                    mat4 rawMatrix = createMatFromQuatAndPos(rawPose.rotation, rawPose.translation);
+                    pendingChanges.updateItem<MeshPartPayload>(info.itemID, [weakSelf, rawMatrix](MeshPartPayload& data) {
+                        auto self = weakSelf.lock();
+                        if (!self) {
+                            return;
+                        }
+                        mat4 fullMat = self->_container->getSensorToWorldMatrix() * rawMatrix;
+                        Transform fullTransform(fullMat);
+                        data.updateTransform(fullTransform, Transform());
+                    });
+                }
             }
         }
     }
@@ -487,22 +509,30 @@ static model::MeshPointer buildModelMeshFromOpenVRModel(vr::RenderModel_t* model
     return mesh;
 }
 
-bool ViveControllerManager::loadMeshFromOpenVR(uint32_t deviceID, const char* modelName) {
+bool ViveControllerManager::loadMeshFromOpenVR(uint32_t deviceID) {
+
+    vr::TrackedPropertyError propError;
+    uint32_t len = _system->GetStringTrackedDeviceProperty(deviceID, vr::Prop_RenderModelName_String, NULL, 0, &propError);
+    std::unique_ptr<char> modelName(new char[len + 1]);
+    len = _system->GetStringTrackedDeviceProperty(deviceID, vr::Prop_RenderModelName_String, modelName.get(), len, &propError);
+    if (propError) {
+        return false;
+    }
 
     vr::RenderModel_t* model;
-    vr::EVRRenderModelError error;
+    vr::EVRRenderModelError modelError;
 
     // AJT: HACK make this truely async
     while (1) {
-        error = vr::VRRenderModels()->LoadRenderModel_Async(modelName, &model);
-        if (error != vr::VRRenderModelError_Loading) {
+        modelError = vr::VRRenderModels()->LoadRenderModel_Async(modelName.get(), &model);
+        if (modelError != vr::VRRenderModelError_Loading) {
             break;
         }
         QThread::msleep(1);
     }
 
-    if (error != vr::VRRenderModelError_None) {
-        qWarning() << "ViveControllerManager: error loading model =" << modelName << "error =" << error;
+    if (modelError != vr::VRRenderModelError_None) {
+        qWarning() << "ViveControllerManager: error loading model =" << modelName.get() << "error =" << modelError;
         return false;
     }
 
@@ -510,15 +540,15 @@ bool ViveControllerManager::loadMeshFromOpenVR(uint32_t deviceID, const char* mo
 
     // AJT: HACK make this truely async
     while (1) {
-        error = vr::VRRenderModels()->LoadTexture_Async(model->diffuseTextureId, &texture);
-        if (error != vr::VRRenderModelError_Loading) {
+        modelError = vr::VRRenderModels()->LoadTexture_Async(model->diffuseTextureId, &texture);
+        if (modelError != vr::VRRenderModelError_Loading) {
             break;
         }
         QThread::msleep(1);
     }
 
-    if (error != vr::VRRenderModelError_None) {
-        qWarning() << "ViveControllerManager: error loading texture for model =" << modelName << "error =" << error;
+    if (modelError != vr::VRRenderModelError_None) {
+        qWarning() << "ViveControllerManager: error loading texture for model =" << modelName.get() << "error =" << modelError;
         vr::VRRenderModels()->FreeRenderModel(model);
         return false;
     }

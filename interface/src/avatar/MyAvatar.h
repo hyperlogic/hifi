@@ -282,6 +282,10 @@ public:
     void removeHoldAction(AvatarActionHold* holdAction);  // thread-safe
     void updateHoldActions(const AnimPose& prePhysicsPose, const AnimPose& postUpdatePose);
 
+    Q_INVOKABLE void requestHideHandControllers();
+    Q_INVOKABLE void requestShowHandControllers();
+    bool shouldShowHandControllers() const;
+
 public slots:
     void increaseSize();
     void decreaseSize();
@@ -496,6 +500,8 @@ private:
     AnimPose _prePhysicsRoomPose;
     std::mutex _holdActionsMutex;
     std::vector<AvatarActionHold*> _holdActions;
+
+    std::atomic<int> _handControllerDisplayCount { 0 };
 
     float AVATAR_MOVEMENT_ENERGY_CONSTANT { 0.001f };
     float AUDIO_ENERGY_CONSTANT { 0.000001f };

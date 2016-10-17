@@ -3819,7 +3819,8 @@ void Application::update(float deltaTime) {
     controller::InputCalibrationData calibrationData = {
         myAvatar->getSensorToWorldMatrix(),
         createMatFromQuatAndPos(myAvatar->getOrientation(), myAvatar->getPosition()),
-        myAvatar->getHMDSensorMatrix()
+        myAvatar->getHMDSensorMatrix(),
+        myAvatar->shouldShowHandControllers()
     };
 
     InputPluginPointer keyboardMousePlugin;
