@@ -523,6 +523,14 @@ bool ViveControllerManager::loadMeshFromOpenVR(uint32_t deviceID, const char* mo
         return false;
     }
 
+    auto gpuTexture = gpu::TexturePointer(gpu::Texture::create2D(gpu::Element::COLOR_SRGBA_32, texture->unWidth, texture->unHeight));
+    gpuTexture->setSource("ViveControllerManager::loadMeshFromOpenVR");
+    gpuTexture->assignStoredMip(0, gpuTexture->getTexelFormat(), sizeof(uint32_t) * texture->unWidth * texture->unHeight, texture->rubTextureMapData);
+    auto gpuTextureSource = std::make_shared<gpu::TextureSource>();
+    gpuTextureSource->resetTexture(gpuTexture);
+    auto gpuTextureMap = std::make_shared<model::TextureMap>();
+    gpuTextureMap->setTextureSource(gpuTextureSource);
+
     auto material = std::make_shared<model::Material>();
     material->setEmissive(glm::vec3(0.0f));
     material->setOpacity(1.0f);
@@ -532,6 +540,8 @@ bool ViveControllerManager::loadMeshFromOpenVR(uint32_t deviceID, const char* mo
     material->setMetallic(0.0f);
     material->setRoughness(1.0f);
     material->setScattering(0.0f);
+    material->setTextureMap(model::MaterialKey::ALBEDO_MAP, gpuTextureMap);
+    material->setTextureMap(model::MaterialKey::EMISSIVE_MAP, gpuTextureMap);
 
     auto mesh = buildModelMeshFromOpenVRModel(model);
 
