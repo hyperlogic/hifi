@@ -1,6 +1,6 @@
 //
 //  main.cpp
-//  tests/gpu-test/src
+//  tests/controllers/src
 //
 //  Copyright 2015 High Fidelity, Inc.
 //
@@ -118,7 +118,8 @@ int main(int argc, char** argv) {
         InputCalibrationData calibrationData = {
             glm::mat4(),
             glm::mat4(),
-            glm::mat4()
+            glm::mat4(),
+            false
         };
 
         foreach(auto inputPlugin, PluginManager::getInstance()->getInputPlugins()) {
@@ -134,7 +135,8 @@ int main(int argc, char** argv) {
         InputCalibrationData calibrationData = {
             glm::mat4(),
             glm::mat4(),
-            glm::mat4()
+            glm::mat4(),
+            false
         };
 
         DependencyManager::set<controller::UserInputMapper>();
