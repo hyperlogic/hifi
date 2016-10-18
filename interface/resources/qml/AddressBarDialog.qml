@@ -23,18 +23,21 @@ Window {
     HifiConstants { id: hifi }
 
     objectName: "AddressBarDialog"
-    frame: HiddenFrame {}
-    hideBackground: true
+    title: "Go To"
 
     shown: false
     destroyOnHidden: false
     resizable: false
+    pinnable: false;
     scale: 1.25  // Make this dialog a little larger than normal
 
     width: addressBarDialog.implicitWidth
     height: addressBarDialog.implicitHeight
 
-    onShownChanged: addressBarDialog.observeShownChanged(shown);
+    onShownChanged: {
+        addressBarDialog.keyboardEnabled = HMD.active;
+        addressBarDialog.observeShownChanged(shown);
+    }
     Component.onCompleted: {
         root.parentChanged.connect(center);
         center();
@@ -70,11 +73,13 @@ Window {
     AddressBarDialog {
         id: addressBarDialog
 
+        property bool keyboardEnabled: false
         property bool keyboardRaised: false
         property bool punctuationMode: false
 
         implicitWidth: backgroundImage.width
-        implicitHeight: backgroundImage.height + (keyboardRaised ? 200 : 0)
+        implicitHeight: backgroundImage.height + (keyboardEnabled ? keyboard.raisedHeight + 2 * hifi.layout.spacing : 0)
+                        + cardHeight - 36 // Fudge to reduce bottom margin.
 
         // The buttons have their button state changed on hover, so we have to manually fix them up here
         onBackEnabledChanged: backArrow.buttonState = addressBarDialog.backEnabled ? 1 : 0;
@@ -93,8 +98,7 @@ Window {
             spacing: hifi.layout.spacing;
             clip: true;
             anchors {
-                bottom: backgroundImage.top;
-                bottomMargin: 2 * hifi.layout.spacing;
+                top: parent.top
                 horizontalCenter: backgroundImage.horizontalCenter
             }
             model: suggestions;
@@ -134,6 +138,10 @@ Window {
             source: "../images/address-bar.svg"
             width: 576 * root.scale
             height: 80 * root.scale
+            anchors {
+                top: scroll.bottom
+            }
+
             property int inputAreaHeight: 56.0 * root.scale  // Height of the background's input area
             property int inputAreaStep: (height - inputAreaHeight) / 2
 
@@ -276,33 +284,15 @@ Window {
             }
         }
 
-        // virtual keyboard, letters
         HifiControls.Keyboard {
-            id: keyboard1
-            y: parent.keyboardRaised ? parent.height : 0
-            height: parent.keyboardRaised ? 200 : 0
-            visible: parent.keyboardRaised && !parent.punctuationMode
-            enabled: parent.keyboardRaised && !parent.punctuationMode
-            anchors.right: parent.right
-            anchors.rightMargin: 0
-            anchors.left: parent.left
-            anchors.leftMargin: 0
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 0
-        }
-
-        HifiControls.KeyboardPunctuation {
-            id: keyboard2
-            y: parent.keyboardRaised ? parent.height : 0
-            height: parent.keyboardRaised ? 200 : 0
-            visible: parent.keyboardRaised && parent.punctuationMode
-            enabled: parent.keyboardRaised && parent.punctuationMode
-            anchors.right: parent.right
-            anchors.rightMargin: 0
-            anchors.left: parent.left
-            anchors.leftMargin: 0
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 0
+            id: keyboard
+            raised: parent.keyboardEnabled  // Ignore keyboardRaised; keep keyboard raised if enabled (i.e., in HMD).
+            numeric: parent.punctuationMode
+            anchors {
+                top: backgroundImage.bottom
+                left: parent.left
+                right: parent.right
+            }
         }
     }
 
