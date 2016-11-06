@@ -24,15 +24,29 @@ out vec4 _color;
 out vec2 _texCoord0;
 out vec4 _position;
 
+//PROCEDURAL_COMMON_BLOCK
+
+//PROCEDURAL_BLOCK
+
 void main(void) {
-    _color = colorToLinearRGBA(inColor);
-    _texCoord0 = inTexCoord0.st;
-    _position = inPosition;
-    _modelNormal = inNormal.xyz;
+
+    vec4 position = inPosition;
+    vec4 color = inColor;
+    vec2 texCoord0 = inTexCoord0.st;
+    vec3 modelNormal = inNormal.xyz;
+
+#ifdef PROCEDURAL
+    getProceduralVertex(position, color, texCoord0, modelNormal);
+#endif
+
+    _color = colorToLinearRGBA(color);
+    _position = position;
+    _texCoord0 = texCoord0;
+    _modelNormal = modelNormal;
 
     // standard transform
     TransformCamera cam = getTransformCamera();
     TransformObject obj = getTransformObject();
-    <$transformModelToClipPos(cam, obj, inPosition, gl_Position)$>
-    <$transformModelToWorldDir(cam, obj, inNormal.xyz, _normal)$>
+    <$transformModelToClipPos(cam, obj, position, gl_Position)$>
+    <$transformModelToWorldDir(cam, obj, modelNormal.xyz, _normal)$>
 }

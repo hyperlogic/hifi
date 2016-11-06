@@ -1,0 +1,9 @@
+#ifdef PROCEDURAL_V1
+vec4 getProceduralColor() {
+    return vec4(0.7, 0.7, 0.7, 1.0);
+}
+#else
+float getProceduralColors(inout vec3 diffuse, inout vec3 specular, inout float shininess) {
+    return 0.0;
+}
+#endif

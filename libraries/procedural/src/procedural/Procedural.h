@@ -33,8 +33,8 @@ struct Procedural {
 public:
     static QJsonValue getProceduralData(const QString& proceduralJson);
 
-    Procedural();
-    Procedural(const QString& userDataJson);
+    Procedural(const QString& vertexShaderTemplate, const QString& fragmentShaderTemplate);
+    Procedural(const QString& userDataJson, const QString& vertexShaderTemplate, const QString& fragmentShaderTemplate);
     void parse(const QString& userDataJson);
 
     bool ready();
@@ -50,8 +50,8 @@ public:
 
     uint8_t _version { 1 };
 
-    std::string _vertexSource;
-    std::string _fragmentSource;
+    QString _vertexShaderTemplate;
+    QString _fragmentShaderTemplate;
 
     gpu::StatePointer _opaqueState { std::make_shared<gpu::State>() };
     gpu::StatePointer _transparentState { std::make_shared<gpu::State>() };
@@ -76,15 +76,22 @@ protected:
     // Rendering object descriptions, from userData
     QJsonObject _proceduralData;
     std::mutex _proceduralDataMutex;
-    QString _shaderSource;
-    QString _shaderPath;
-    QUrl _shaderUrl;
-    quint64 _shaderModified { 0 };
-    NetworkShaderPointer _networkShader;
+
+    struct ShaderInfo {
+        QString source;
+        QString path;
+        QUrl url;
+        quint64 modified { 0 };
+        NetworkShaderPointer networkShader;
+        bool dirty { true };
+    };
+
+    ShaderInfo _fragmentShaderInfo;
+    ShaderInfo _vertexShaderInfo;
+
     QJsonObject _parsedUniforms;
     QJsonArray _parsedChannels;
     std::atomic_bool _proceduralDataDirty;
-    bool _shaderDirty { true };
     bool _uniformsDirty { true };
     bool _channelsDirty { true };
 
@@ -107,12 +114,15 @@ private:
     // This should only be called from the render thread, as it shares data with Procedural::prepare
     void parse(const QJsonObject&);
     bool parseVersion(const QJsonValue& version);
-    bool parseShader(const QUrl& shaderPath);
+    bool parseShader(const QUrl& shaderPath, ShaderInfo& shaderInfo) const;
+    bool parseVertexShader(const QUrl& shaderPath);
     bool parseUniforms(const QJsonObject& uniforms);
     bool parseTextures(const QJsonArray& channels);
 
     void setupUniforms();
     void setupChannels(bool shouldCreate);
+
+    void prepareShader(ShaderInfo& shaderInfo) const;
 
     quint64 _fadeStartTime;
     bool _hasStartedFade { false };

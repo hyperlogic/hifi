@@ -88,9 +88,7 @@ void RenderableShapeEntityItem::render(RenderArgs* args) {
     checkFading();
 
     if (!_procedural) {
-        _procedural.reset(new Procedural(getUserData()));
-        _procedural->_vertexSource = simple_vert;
-        _procedural->_fragmentSource = simple_frag;
+        _procedural.reset(new Procedural(getUserData(), simple_vert, simple_frag));
         _procedural->_opaqueState->setCullMode(gpu::State::CULL_NONE);
         _procedural->_opaqueState->setDepthTest(true, true, gpu::LESS_EQUAL);
         _procedural->_opaqueState->setBlendFunction(false,

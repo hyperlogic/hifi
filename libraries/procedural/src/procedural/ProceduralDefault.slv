@@ -1,0 +1,5 @@
+// position and normal are in model coordinates
+// color is SRGB
+void getProceduralVertex(inout vec4 position, inout vec4 color, inout vec2 texCoord0, inout vec3 normal) {
+    // no-op
+}

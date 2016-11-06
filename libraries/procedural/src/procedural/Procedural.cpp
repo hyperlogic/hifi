@@ -21,9 +21,13 @@
 
 #include "ProceduralCommon_frag.h"
 
+#include "ProceduralDefault_vert.h"
+#include "ProceduralDefault_frag.h"
+
 // Userdata parsing constants
 static const QString PROCEDURAL_USER_DATA_KEY = "ProceduralEntity";
-static const QString URL_KEY = "shaderUrl";
+static const QString FRAGMENT_URL_KEY = "shaderUrl";
+static const QString VERTEX_URL_KEY = "vertexShaderUrl";
 static const QString VERSION_KEY = "version";
 static const QString UNIFORMS_KEY = "uniforms";
 static const QString CHANNELS_KEY = "channels";
@@ -63,7 +67,9 @@ QJsonValue Procedural::getProceduralData(const QString& proceduralJson) {
     return doc.object()[PROCEDURAL_USER_DATA_KEY];
 }
 
-Procedural::Procedural() {
+Procedural::Procedural(const QString& vertexShaderTemplate, const QString& fragmentShaderTemplate) :
+    _vertexShaderTemplate(vertexShaderTemplate),
+    _fragmentShaderTemplate(fragmentShaderTemplate) {
     _transparentState->setCullMode(gpu::State::CULL_NONE);
     _transparentState->setDepthTest(true, true, gpu::LESS_EQUAL);
     _transparentState->setBlendFunction(true,
@@ -73,7 +79,8 @@ Procedural::Procedural() {
     _proceduralDataDirty = false;
 }
 
-Procedural::Procedural(const QString& userDataJson) : Procedural() {
+Procedural::Procedural(const QString& userDataJson, const QString& vertexShaderTemplate, const QString& fragmentShaderTemplate) :
+    Procedural(vertexShaderTemplate, fragmentShaderTemplate) {
     parse(userDataJson);
     _proceduralDataDirty = true;
 }
@@ -100,37 +107,33 @@ bool Procedural::parseVersion(const QJsonValue& version) {
     return (_version == 1 || _version == 2);
 }
 
-bool Procedural::parseShader(const QUrl& shaderPath) {
+bool Procedural::parseShader(const QUrl& shaderPath, ShaderInfo& shaderInfo) const {
     auto shaderUrl = ResourceManager::normalizeURL(shaderPath);
 
     if (!shaderUrl.isValid()) {
         if (!shaderUrl.isEmpty()) {
             qWarning() << "Invalid shader URL: " << shaderUrl;
         }
-        _networkShader.reset();
+        shaderInfo.networkShader.reset();
         return false;
     }
 
     // If the URL hasn't changed, don't mark the shader as dirty
-    if (_shaderUrl == shaderUrl) {
+    if (shaderInfo.url == shaderUrl) {
         return true;
     }
 
-    _shaderUrl = shaderUrl;
-    _shaderDirty = true;
+    shaderInfo.url = shaderUrl;
+    shaderInfo.dirty = true;
 
-    if (_shaderUrl.isLocalFile()) {
-        _shaderPath = _shaderUrl.toLocalFile();
-#if WANT_DEBUG
-        qDebug() << "Shader path: " << _shaderPath;
-#endif
-        if (!QFile(_shaderPath).exists()) {
-            _networkShader.reset();
-            return false;;
+    if (shaderInfo.url.isLocalFile()) {
+        shaderInfo.path = shaderInfo.url.toLocalFile();
+        if (!QFile(shaderInfo.path).exists()) {
+            shaderInfo.networkShader.reset();
+            return false;
         }
     } else {
-        qDebug() << "Shader url: " << _shaderUrl;
-        _networkShader = ShaderCache::instance().getShader(_shaderUrl);
+        shaderInfo.networkShader = ShaderCache::instance().getShader(shaderInfo.url);
     }
 
     return true;
@@ -171,7 +174,8 @@ void Procedural::parse(const QJsonObject& proceduralData) {
     _enabled = false;
 
     auto version = proceduralData[VERSION_KEY];
-    auto shaderUrl = proceduralData[URL_KEY].toString();
+    auto fragmentShaderUrl = proceduralData[FRAGMENT_URL_KEY].toString();
+    auto vertexShaderUrl = proceduralData[VERTEX_URL_KEY].toString();
     auto uniforms = proceduralData[UNIFORMS_KEY].toObject();
     auto channels = proceduralData[CHANNELS_KEY].toArray();
 
@@ -179,7 +183,8 @@ void Procedural::parse(const QJsonObject& proceduralData) {
 
     // Run through parsing regardless of validity to clear old cached resources
     isValid = parseVersion(version) && isValid;
-    isValid = parseShader(shaderUrl) && isValid;
+    isValid = parseShader(fragmentShaderUrl, _fragmentShaderInfo) && isValid;
+    isValid = parseShader(vertexShaderUrl, _vertexShaderInfo) && isValid;
     isValid = parseUniforms(uniforms) && isValid;
     isValid = parseTextures(channels) && isValid;
 
@@ -209,9 +214,11 @@ bool Procedural::ready() {
     }
 
     // Do we have a network or local shader, and if so, is it loaded?
-    if (_shaderPath.isEmpty() && (!_networkShader || !_networkShader->isLoaded())) {
+    if (_fragmentShaderInfo.path.isEmpty() && (!_fragmentShaderInfo.networkShader || !_fragmentShaderInfo.networkShader->isLoaded())) {
         return false;
     }
+
+    // AJT: TODO: at the momnet, vertexShader is always ready, as it will use the default shader source.
 
     // Do we have textures, and if so, are they loaded?
     for (size_t i = 0; i < MAX_PROCEDURAL_TEXTURE_CHANNELS; ++i) {
@@ -228,52 +235,71 @@ bool Procedural::ready() {
     return true;
 }
 
+void Procedural::prepareShader(ShaderInfo& shaderInfo) const {
+    if (shaderInfo.url.isLocalFile()) {
+        auto lastModified = (quint64)QFileInfo(shaderInfo.path).lastModified().toMSecsSinceEpoch();
+        if (lastModified > shaderInfo.modified) {
+            QFile file(shaderInfo.path);
+            file.open(QIODevice::ReadOnly);
+            shaderInfo.source = QTextStream(&file).readAll();
+            shaderInfo.dirty = true;
+            shaderInfo.modified = lastModified;
+        }
+    } else if (shaderInfo.networkShader && shaderInfo.networkShader->isLoaded()) {
+        shaderInfo.source = shaderInfo.networkShader->_source;
+    }
+}
+
+static std::string buildSourceFromTemplate(const QString& shaderTemplate, int version, const QString& proceduralBlock) {
+
+    // search and replace PROCEDURAL_COMMON_BLOCK comment, with common shader code.
+    std::string source = shaderTemplate.toStdString();
+    size_t replaceIndex = source.find(PROCEDURAL_COMMON_BLOCK);
+    if (replaceIndex != std::string::npos) {
+        source.replace(replaceIndex, PROCEDURAL_COMMON_BLOCK.size(), ProceduralCommon_frag);
+    }
+
+    // search and replace PROCEDURAL_VERSION comment with actual version define
+    replaceIndex = source.find(PROCEDURAL_VERSION);
+    if (replaceIndex != std::string::npos) {
+        if (version == 1) {
+            source.replace(replaceIndex, PROCEDURAL_VERSION.size(), "#define PROCEDURAL_V1 1");
+        } else if (version == 2) {
+            source.replace(replaceIndex, PROCEDURAL_VERSION.size(), "#define PROCEDURAL_V2 1");
+        }
+    }
+
+    // search and replace PROCEDURAL_BLOCK with code provided by user.
+    replaceIndex = source.find(PROCEDURAL_BLOCK);
+    if (replaceIndex != std::string::npos) {
+        source.replace(replaceIndex, PROCEDURAL_BLOCK.size(), proceduralBlock.toLocal8Bit().data());
+    }
+
+#if WANT_DEBUG
+    qDebug() << "buildSourceFromTemplate = " << source.c_str();
+#endif
+
+    return source;
+}
+
 void Procedural::prepare(gpu::Batch& batch, const glm::vec3& position, const glm::vec3& size, const glm::quat& orientation) {
     _entityDimensions = size;
     _entityPosition = position;
     _entityOrientation = glm::mat3_cast(orientation);
-    if (_shaderUrl.isLocalFile()) {
-        auto lastModified = (quint64)QFileInfo(_shaderPath).lastModified().toMSecsSinceEpoch();
-        if (lastModified > _shaderModified) {
-            QFile file(_shaderPath);
-            file.open(QIODevice::ReadOnly);
-            _shaderSource = QTextStream(&file).readAll();
-            _shaderDirty = true;
-            _shaderModified = lastModified;
-        }
-    } else if (_networkShader && _networkShader->isLoaded()) {
-        _shaderSource = _networkShader->_source;
-    }
 
-    if (!_opaquePipeline || !_transparentPipeline || _shaderDirty) {
-        if (!_vertexShader) {
-            _vertexShader = gpu::Shader::createVertex(_vertexSource);
-        }
+    prepareShader(_fragmentShaderInfo);
+    prepareShader(_vertexShaderInfo);
 
-        // Build the fragment shader
-        std::string fragmentShaderSource = _fragmentSource;
-        size_t replaceIndex = fragmentShaderSource.find(PROCEDURAL_COMMON_BLOCK);
-        if (replaceIndex != std::string::npos) {
-            fragmentShaderSource.replace(replaceIndex, PROCEDURAL_COMMON_BLOCK.size(), ProceduralCommon_frag);
-        }
+    if (!_opaquePipeline || !_transparentPipeline || _fragmentShaderInfo.dirty || _vertexShaderInfo.dirty) {
 
-        replaceIndex = fragmentShaderSource.find(PROCEDURAL_VERSION);
-        if (replaceIndex != std::string::npos) {
-            if (_version == 1) {
-                fragmentShaderSource.replace(replaceIndex, PROCEDURAL_VERSION.size(), "#define PROCEDURAL_V1 1");
-            } else if (_version == 2) {
-                fragmentShaderSource.replace(replaceIndex, PROCEDURAL_VERSION.size(), "#define PROCEDURAL_V2 1");
-            }
-        }
-        replaceIndex = fragmentShaderSource.find(PROCEDURAL_BLOCK);
-        if (replaceIndex != std::string::npos) {
-            fragmentShaderSource.replace(replaceIndex, PROCEDURAL_BLOCK.size(), _shaderSource.toLocal8Bit().data());
-        }
+        QString vertexProceduralBlock = _vertexShaderInfo.source.isEmpty() ? ProceduralDefault_vert : _vertexShaderInfo.source;
+        std::string vertexShaderSource = buildSourceFromTemplate(_vertexShaderTemplate, _version, vertexProceduralBlock);
+        _vertexShader = gpu::Shader::createVertex(vertexShaderSource);
 
-        // Leave this here for debugging
-        // qDebug() << "FragmentShader:\n" << fragmentShaderSource.c_str();
-
+        QString fragmentProceduralBlock = _fragmentShaderInfo.source.isEmpty() ? ProceduralDefault_frag : _fragmentShaderInfo.source;
+        std::string fragmentShaderSource = buildSourceFromTemplate(_fragmentShaderTemplate, _version, fragmentProceduralBlock);
         _fragmentShader = gpu::Shader::createPixel(fragmentShaderSource);
+
         _shader = gpu::Shader::createProgram(_vertexShader, _fragmentShader);
 
         gpu::Shader::BindingSet slotBindings;
@@ -295,15 +321,18 @@ void Procedural::prepare(gpu::Batch& batch, const glm::vec3& position, const glm
 
     batch.setPipeline(isFading() ? _transparentPipeline : _opaquePipeline);
 
-    if (_shaderDirty || _uniformsDirty) {
+    if (_vertexShaderInfo.dirty || _fragmentShaderInfo.dirty || _uniformsDirty) {
         setupUniforms();
     }
 
-    if (_shaderDirty || _uniformsDirty || _channelsDirty) {
-        setupChannels(_shaderDirty || _uniformsDirty);
+    if (_vertexShaderInfo.dirty || _fragmentShaderInfo.dirty || _uniformsDirty || _channelsDirty) {
+        setupChannels(_vertexShaderInfo.dirty || _fragmentShaderInfo.dirty || _uniformsDirty);
     }
 
-    _shaderDirty = _uniformsDirty = _channelsDirty = false;
+    _uniformsDirty = false;
+    _channelsDirty = false;
+    _fragmentShaderInfo.dirty = false;
+    _vertexShaderInfo.dirty = false;
 
     for (auto lambda : _uniforms) {
         lambda(batch);
@@ -315,7 +344,7 @@ void Procedural::prepare(gpu::Batch& batch, const glm::vec3& position, const glm
         gpu::Sampler::Desc desc;
         desc._filter = gpu::Sampler::FILTER_MIN_MAG_MIP_LINEAR;
     });
-    
+
     for (size_t i = 0; i < MAX_PROCEDURAL_TEXTURE_CHANNELS; ++i) {
         if (_channels[i] && _channels[i]->isLoaded()) {
             auto gpuTexture = _channels[i]->getGPUTexture();
@@ -330,7 +359,7 @@ void Procedural::prepare(gpu::Batch& batch, const glm::vec3& position, const glm
 
 void Procedural::setupUniforms() {
     _uniforms.clear();
-    // Set any userdata specified uniforms 
+    // Set any userdata specified uniforms
     foreach(QString key, _parsedUniforms.keys()) {
         std::string uniformName = key.toLocal8Bit().data();
         int32_t slot = _shader->getUniforms().findLocation(uniformName);
