@@ -14,8 +14,6 @@
 
 <@include DeferredBufferWrite.slh@>
 <@include model/Material.slh@>
-<@include gpu/Transform.slh@>
-<$declareStandardCameraTransform()$>
 
 // the interpolated normal
 in vec3 _normal;

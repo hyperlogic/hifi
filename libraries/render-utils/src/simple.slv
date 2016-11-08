@@ -14,8 +14,6 @@
 
 <@include gpu/Inputs.slh@>
 <@include gpu/Color.slh@>
-<@include gpu/Transform.slh@>
-<$declareStandardTransform()$>
 
 // the interpolated normal
 out vec3 _normal;
@@ -25,6 +23,9 @@ out vec2 _texCoord0;
 out vec4 _position;
 
 //PROCEDURAL_COMMON_BLOCK
+
+<@include gpu/Transform.slh@>
+<$declareStandardObjectTransform()$>
 
 //PROCEDURAL_BLOCK
 
