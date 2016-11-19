@@ -517,6 +517,9 @@ glm::vec3 transformVectorFull(const glm::mat4& m, const glm::vec3& v) {
     return glm::inverse(glm::transpose(rot)) * v;
 }
 
+#define ASSERT(cnd) if (!(cnd)) { int* ptr = NULL; *ptr = 0xbadf00d; }
+
+/*
 void generateBasisVectors(const glm::vec3& primaryAxis, const glm::vec3& secondaryAxis,
                           glm::vec3& uAxisOut, glm::vec3& vAxisOut, glm::vec3& wAxisOut) {
 
@@ -542,6 +545,56 @@ void generateBasisVectors(const glm::vec3& primaryAxis, const glm::vec3& seconda
 
     wAxisOut = glm::normalize(glm::cross(uAxisOut, secondaryAxis));
     vAxisOut = glm::cross(wAxisOut, uAxisOut);
+}
+*/
+
+void generateBasisVectors(const glm::vec3& primaryAxis, const glm::vec3& secondaryAxis,
+                          glm::vec3& uAxisOut, glm::vec3& vAxisOut, glm::vec3& wAxisOut) {
+
+    ASSERT(fabsf(glm::length2(primaryAxis) - 1.0f) < 1.0e-4f);
+    ASSERT(fabsf(glm::length2(secondaryAxis) - 1.0f) < 1.0e-4f);
+
+    uAxisOut = primaryAxis;
+    wAxisOut = glm::cross(uAxisOut, secondaryAxis);
+
+    if (fabs(glm::dot(uAxisOut, secondaryAxis)) < 0.999f && glm::length(wAxisOut) > 0.0f) {
+        wAxisOut = glm::normalize(wAxisOut);
+    } else {
+        wAxisOut = glm::normalize(glm::cross(uAxisOut, glm::vec3(0, 1, 0)));
+    }
+    vAxisOut = glm::cross(wAxisOut, uAxisOut);
+
+    ASSERT(!isNaN(wAxisOut.x) && !isNaN(wAxisOut.y) && !isNaN(wAxisOut.z) &&
+           !isNaN(vAxisOut.x) && !isNaN(vAxisOut.y) && !isNaN(vAxisOut.z));
+}
+
+void generateBasisVectors(const glm::vec3& primaryAxis, glm::vec3& uAxisOut, glm::vec3& vAxisOut, glm::vec3& wAxisOut) {
+    const float MIN_LENGTH_SQUARED = 1.0e-6f;
+    if (glm::length2(primaryAxis) > MIN_LENGTH_SQUARED) {
+        uAxisOut = glm::normalize(primaryAxis);
+
+        const int NUM_AXES = 3;
+        const glm::vec3 AXES[NUM_AXES] = { Vectors::UNIT_X, Vectors::UNIT_Y, Vectors::UNIT_Z };
+        int bestAxisIndex;
+        float minDot = FLT_MAX;
+        for (int i = 0; i < NUM_AXES; i++) {
+            float dot = fabs(glm::dot(AXES[i], primaryAxis));
+            if (dot < minDot) {
+                minDot = dot;
+                bestAxisIndex = i;
+            }
+        }
+
+        wAxisOut = glm::normalize(glm::cross(uAxisOut, AXES[bestAxisIndex]));
+        vAxisOut = glm::cross(wAxisOut, uAxisOut);
+    } else {
+        uAxisOut = Vectors::UNIT_X;
+        vAxisOut = Vectors::UNIT_Y;
+        wAxisOut = Vectors::UNIT_Z;
+    }
+
+    ASSERT(!isNaN(wAxisOut.x) && !isNaN(wAxisOut.y) && !isNaN(wAxisOut.z) &&
+           !isNaN(vAxisOut.x) && !isNaN(vAxisOut.y) && !isNaN(vAxisOut.z));
 }
 
 glm::vec2 getFacingDir2D(const glm::quat& rot) {

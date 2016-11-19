@@ -86,6 +86,28 @@ Rig::CharacterControllerState convertCharacterControllerState(CharacterControlle
     };
 }
 
+static glm::quat limitSwingRotation(glm::quat rotation, glm::vec3 direction, float maxSwingAngle) {
+    assert(glm::length(direction) > 0.99f);
+
+    glm::quat swing, twist;
+    swingTwistDecomposition(rotation, direction, swing, twist);
+
+    qDebug() << "AJT: swingTwistDecomposition(" << rotation << "," << direction << ")";
+    qDebug() << "AJT:     result = " << swing << "," << twist << ")";
+
+    glm::vec3 swungDirection = swing * direction;
+
+    glm::vec3 swingAxis = glm::axis(swing);
+    float axisLength = glm::length(swingAxis);
+    if (axisLength > EPSILON && glm::dot(swungDirection, direction) < cosf(maxSwingAngle)) {
+        glm::vec3 rotatedDirection = rotation * direction;
+        glm::vec3 right = glm::cross(direction, swingAxis);
+        float sign = copysignf(1.0f, -glm::dot(rotatedDirection, right));
+        swing = glm::angleAxis(sign * maxSwingAngle, swingAxis / axisLength);
+    }
+
+    return swing * twist;
+}
 
 // Called within Model::simulate call, below.
 void SkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
@@ -117,8 +139,18 @@ void SkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
             glm::mat4 rigHMDMat = worldToRig * worldHMDMat;
 
             headParams.rigHeadPosition = extractTranslation(rigHMDMat);
-            headParams.rigHeadOrientation = extractRotation(rigHMDMat);
-            headParams.worldHeadOrientation = extractRotation(worldHMDMat);
+
+            if (qApp->getCamera()->getMode() == CAMERA_MODE_FIRST_PERSON) {
+                headParams.rigHeadOrientation = extractRotation(rigHMDMat);
+                headParams.worldHeadOrientation = extractRotation(worldHMDMat);
+            } else {
+                // limit the head swing
+                const float HEAD_SWING_LIMIT = PI / 3.0f;
+                auto rigHMDRotation = limitSwingRotation(Quaternions::Y_180 * extractRotation(rigHMDMat), Vectors::UNIT_Z, HEAD_SWING_LIMIT);
+                headParams.rigHeadOrientation = Quaternions::Y_180 * rigHMDRotation;
+                headParams.worldHeadOrientation = extractRotation(worldHMDMat);
+            }
+
         } else {
             headParams.isInHMD = false;
 

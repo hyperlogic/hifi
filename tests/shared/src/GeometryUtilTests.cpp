@@ -23,6 +23,8 @@
 
 QTEST_MAIN(GeometryUtilTests)
 
+#define ASSERT(cnd) if (!(cnd)) { int* ptr = NULL; *ptr = 0xbadf00d; }
+
 static void testSphereVsCone(const glm::vec3 coneNormal, const glm::vec3 coneBiNormal, float coneAngle, float sphereRadius, float sphereDistance) {
 
     glm::vec3 u, v, w;
@@ -38,6 +40,9 @@ static void testSphereVsCone(const glm::vec3 coneNormal, const glm::vec3 coneBiN
     glm::vec3 sphereOffset = glm::angleAxis(PI / 2.0f, w) * coneEdge;
     sphereCenter += sphereOffset * sphereRadius;
     result = coneSphereAngle(coneCenter, u, sphereCenter, sphereRadius);
+
+    ASSERT(!isnan(result));
+
     QCOMPARE(isnan(result), false);
     QCOMPARE_WITH_ABS_ERROR(result, coneAngle, 0.001f);
 
@@ -50,35 +55,38 @@ static void testSphereVsCone(const glm::vec3 coneNormal, const glm::vec3 coneBiN
 
 void GeometryUtilTests::testConeSphereAngle() {
 
+    glm::vec3 coneAxis(1.0f, 0.0f, 0.0f);
+
     // start with a 45 degree cone.
-    testSphereVsCone(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), PI / 4.0f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), PI / 4.0f, 1.0f, 10.0f);
 
     // test 30 degree cone.
-    testSphereVsCone(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), PI / 6.0f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), PI / 6.0f, 1.0f, 10.0f);
 
     // test 60 degree cone.
-    testSphereVsCone(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), PI / 3.0f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), PI / 3.0f, 1.0f, 10.0f);
 
     // test 120 degree cone.
-    testSphereVsCone(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 2 * PI / 3.0f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), 2 * PI / 3.0f, 1.0f, 10.0f);
 
     // test skinny cone.
-    testSphereVsCone(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 0.0001f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), 0.0001f, 1.0f, 10.0f);
 
     // start again with a 45 off axis cone.
-    testSphereVsCone(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), PI / 4.0f, 1.0f, 10.0f);
+    coneAxis = glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f));
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), PI / 4.0f, 1.0f, 10.0f);
 
     // test 30 degree off axis cone
-    testSphereVsCone(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), PI / 6.0f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), PI / 6.0f, 1.0f, 10.0f);
 
     // test 60 degree cone off axis cone
-    testSphereVsCone(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), PI / 3.0f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), PI / 3.0f, 1.0f, 10.0f);
 
     // test 120 degree off axis cone.
-    testSphereVsCone(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), 2 * PI / 3.0f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), 2 * PI / 3.0f, 1.0f, 10.0f);
 
     // test skinny off-axis cone.
-    testSphereVsCone(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), 0.0001f, 1.0f, 10.0f);
+    testSphereVsCone(coneAxis, glm::vec3(0.0f, 1.0f, 0.0f), 0.0001f, 1.0f, 10.0f);
 }
 
 void GeometryUtilTests::testLocalRayRectangleIntersection() {
@@ -255,18 +263,32 @@ void GeometryUtilTests::testTwistSwingDecomposition() {
                 glm::quat measuredTwistRotation;
                 glm::quat measuredSwingRotation;
                 swingTwistDecomposition(totalRotation, twistAxis, measuredSwingRotation, measuredTwistRotation);
-    
+
                 // dot decomposed with components
                 float twistDot = fabsf(glm::dot(twistRotation, measuredTwistRotation));
                 float swingDot = fabsf(glm::dot(swingRotation, measuredSwingRotation));
-    
+
                 // the dot products should be very close to 1.0
-                const float MIN_ERROR = 1.0e-6f;
+                const float MIN_ERROR = 1.0e-2f;
                 QCOMPARE_WITH_ABS_ERROR(1.0f, twistDot, MIN_ERROR);
                 QCOMPARE_WITH_ABS_ERROR(1.0f, swingDot, MIN_ERROR);
             }
         }
     }
+
+    // another test
+    glm::vec3 rotationAxis(0.0847604970032961f, 0.9923774166501398f, 0.08946145859552818f);  // ~ y-axis
+    float rotationAngle = 3.48358890069786f;  // ~ 200 degrees
+    glm::vec3 direction(0.0f, 0.0f, 1.0f);
+
+    glm::quat swing, twist;
+    swingTwistDecomposition(glm::angleAxis(rotationAngle, rotationAxis), direction, swing, twist);
+
+    const float MIN_ERROR = 1.0e-6f;
+    QCOMPARE_WITH_ABS_ERROR(1.0f, fabs(glm::dot(glm::axis(twist), direction)), MIN_ERROR);
+
+    const float MIN_TWIST_ANGLE = 0.2f;  // ~ 11.5 degrees
+    QCOMPARE(fabs(glm::angle(twist)) < MIN_TWIST_ANGLE, true);
 }
 
 
@@ -277,7 +299,7 @@ void GeometryUtilTests::testSphereCapsulePenetration() {
     glm::vec3 capsuleEnd(0.0f, 10.0f, 0.0f);
     float capsuleRadius = 1.0f;
 
-    glm::vec3 penetration(glm::vec3::_null);
+    glm::vec3 penetration;
     bool hit = findSphereCapsulePenetration(sphereCenter, sphereRadius, capsuleStart, capsuleEnd, capsuleRadius, penetration);
     QCOMPARE(hit, true);
     QCOMPARE_WITH_ABS_ERROR(penetration, glm::vec3(-0.5f, 0.0f, 0.0f), EPSILON);

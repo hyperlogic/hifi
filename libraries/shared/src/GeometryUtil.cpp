@@ -17,6 +17,8 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include "NumericalConstants.h"
+#include "GLMHelpers.h"
+#include "StreamUtils.h"
 
 glm::vec3 computeVectorFromPointToSegment(const glm::vec3& point, const glm::vec3& start, const glm::vec3& end) {
     // compute the projection of the point vector onto the segment vector
@@ -547,12 +549,59 @@ bool findRayRectangleIntersection(const glm::vec3& origin, const glm::vec3& dire
     return false;
 }
 
-void swingTwistDecomposition(const glm::quat& rotation,
-        const glm::vec3& direction,
-        glm::quat& swing,
-        glm::quat& twist) {
+
+#define USE_ALTERNATE_SWING_TWIST_DECOMPOSITION
+
+#ifdef USE_ALTERNATE_SWING_TWIST_DECOMPOSITION
+
+void swingTwistDecomposition(const glm::quat& rotation, const glm::vec3& direction, glm::quat& swing, glm::quat& twist) {
     // direction MUST be normalized else the decomposition will be inaccurate
-    assert(fabsf(glm::length2(direction) - 1.0f) < 1.0e-4f); 
+    assert(fabsf(glm::length2(direction) - 1.0f) < 1.0e-4f);
+
+    qDebug() << "swingTwistDecomposition";
+    qDebug() << "    rotation =" << rotation;
+    qDebug() << "    direction =" << direction;
+
+    glm::vec3 rotationAxis = glm::axis(rotation);
+    glm::vec3 rotatedDirection = rotation * direction;
+    glm::vec3 u, v, w;
+
+    qDebug() << "    rotationAxis" << rotationAxis;
+    qDebug() << "    rotatedDirection =" << rotatedDirection;
+
+    // verify that rotation axis is valid
+    if (glm::length(rotationAxis) > 1.0e-4f) {
+        generateBasisVectors(rotatedDirection, rotationAxis, u, v, w);
+    } else {
+        generateBasisVectors(rotatedDirection, u, v, w);
+    }
+
+    qDebug() << "    u" << u;
+    qDebug() << "    v" << v;
+    qDebug() << "    w" << w;
+
+    // rotate v and project it on to the vw plane and take the rotation angle of
+    // that vector in the plane.  This angle will become our twist angle.
+    glm::vec3 rotatedV = rotation * v;
+    float theta = atan2(glm::dot(rotatedV, w), glm::dot(rotatedV, v));
+
+    qDebug() << "    rotatedV" << rotatedV;
+    qDebug() << "    rotatedV . w" << glm::dot(rotatedV, w);
+    qDebug() << "    rotatedV . v" << glm::dot(rotatedV, v);
+    qDebug() << "    theta" << theta;
+
+    twist = glm::angleAxis(theta, direction);
+
+    // once twist is known we can solve for swing:
+    // rotation = swing * twist  -->  swing = rotation * invTwist
+    swing = rotation * glm::inverse(twist);
+}
+
+#else
+
+void swingTwistDecomposition(const glm::quat& rotation, const glm::vec3& direction, glm::quat& swing, glm::quat& twist) {
+    // direction MUST be normalized else the decomposition will be inaccurate
+    assert(fabsf(glm::length2(direction) - 1.0f) < 1.0e-4f);
 
     // the twist part has an axis (imaginary component) that is parallel to direction argument
     glm::vec3 axisOfRotation(rotation.x, rotation.y, rotation.z);
@@ -564,6 +613,8 @@ void swingTwistDecomposition(const glm::quat& rotation,
     // rotation = swing * twist  -->  swing = rotation * invTwist
     swing = rotation * glm::inverse(twist);
 }
+
+#endif // USE_ALTERNATE_SWING_TWIST_DECOMPOSITION
 
 // calculate the minimum angle between a point and a sphere.
 float coneSphereAngle(const glm::vec3& coneCenter, const glm::vec3& coneDirection, const glm::vec3& sphereCenter, float sphereRadius) {
