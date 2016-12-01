@@ -243,6 +243,12 @@ public:
     void setTargetScale(float targetScale);
     void setTargetScaleVerbose(float targetScale);
 
+    float getDomainLimitedScale() const { return glm::clamp(_targetScale, _domainMinimumScale, _domainMaximumScale); }
+    void setDomainMinimumScale(float domainMinimumScale)
+        { _domainMinimumScale = glm::clamp(domainMinimumScale, MIN_AVATAR_SCALE, MAX_AVATAR_SCALE); }
+    void setDomainMaximumScale(float domainMaximumScale)
+        { _domainMaximumScale = glm::clamp(domainMaximumScale, MIN_AVATAR_SCALE, MAX_AVATAR_SCALE); }
+
     //  Hand State
     Q_INVOKABLE void setHandState(char s) { _handState = s; }
     Q_INVOKABLE char getHandState() const { return _handState; }
@@ -377,6 +383,8 @@ protected:
 
     // Body scale
     float _targetScale;
+    float _domainMinimumScale { MIN_AVATAR_SCALE };
+    float _domainMaximumScale { MAX_AVATAR_SCALE };
 
     //  Hand state (are we grabbing something or not)
     char _handState;
@@ -531,6 +539,7 @@ void RayToAvatarIntersectionResultFromScriptValue(const QScriptValue& object, Ra
 const int SENSOR_TO_WORLD_MATRIX_INDEX = 65534; // -2
 const int CONTROLLER_RIGHTHAND_INDEX = 65533; // -3
 const int CONTROLLER_LEFTHAND_INDEX = 65532; // -4
-
+const int CAMERA_RELATIVE_CONTROLLER_RIGHTHAND_INDEX = 65531; // -5
+const int CAMERA_RELATIVE_CONTROLLER_LEFTHAND_INDEX = 65530; // -6
 
 #endif // hifi_AvatarData_h

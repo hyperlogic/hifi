@@ -104,6 +104,10 @@ public:
     void clearJointAnimationPriority(int index);
 
     void clearIKJointLimitHistory();
+    void updateMaxHipsOffsetLength(float maxLength, float deltaTime);
+    float getMaxHipsOffsetLength() const;
+
+    int getJointParentIndex(int childIndex) const;
 
     // geometry space
     void setJointState(int index, bool valid, const glm::quat& rotation, const glm::vec3& translation, float priority);
@@ -133,6 +137,7 @@ public:
     // rig space (thread-safe)
     bool getAbsoluteJointRotationInRigFrame(int jointIndex, glm::quat& rotation) const;
     bool getAbsoluteJointTranslationInRigFrame(int jointIndex, glm::vec3& translation) const;
+    bool getAbsoluteJointPoseInRigFrame(int jointIndex, AnimPose& returnPose) const;
 
     // legacy
     bool getJointCombinedRotation(int jointIndex, glm::quat& result, const glm::quat& rotation) const;
@@ -209,6 +214,8 @@ public:
     void setEnableInverseKinematics(bool enable);
 
     const glm::mat4& getGeometryToRigTransform() const { return _geometryToRigTransform; }
+
+    void setEnableDebugDrawIKTargets(bool enableDebugDrawIKTargets) { _enableDebugDrawIKTargets = enableDebugDrawIKTargets; }
 
 signals:
     void onLoadComplete();
@@ -312,6 +319,12 @@ protected:
     bool _enableInverseKinematics { true };
 
     mutable uint32_t _jointNameWarningCount { 0 };
+    glm::vec3 _desiredRigHeadPosition;
+    bool _truncateIKTargets { false };
+    bool _enableDebugDrawIKTargets { false };
+
+    float _maxHipsOffsetLength { 1.0f };
+    float _desiredMaxHipsOffsetLength { 1.0f };
 
 private:
     QMap<int, StateHandler> _stateHandlers;

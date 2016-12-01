@@ -387,33 +387,12 @@ Menu::Menu() {
     });
 
 #ifdef Q_OS_WIN
-    #define MIN_CORES_FOR_INCREMENTAL_TEXTURES 5
-    bool recommendedIncrementalTransfers = (QThread::idealThreadCount() >= MIN_CORES_FOR_INCREMENTAL_TEXTURES);
-    bool recommendedSparseTextures = recommendedIncrementalTransfers;
-
-    qDebug() << "[TEXTURE TRANSFER SUPPORT]"
-        << "\n\tidealThreadCount:" << QThread::idealThreadCount()
-        << "\n\tRECOMMENDED enableSparseTextures:" << recommendedSparseTextures
-        << "\n\tRECOMMENDED enableIncrementalTextures:" << recommendedIncrementalTransfers;
-
-    gpu::Texture::setEnableIncrementalTextureTransfers(recommendedIncrementalTransfers);
-    gpu::Texture::setEnableSparseTextures(recommendedSparseTextures);
-
-    // Developer > Render > Enable Dynamic Texture Management
+    // Developer > Render > Enable Sparse Textures
     {
-        auto action = addCheckableActionToQMenuAndActionHash(renderOptionsMenu, MenuOption::EnableDynamicTextureManagement, 0, recommendedSparseTextures);
+        auto action = addCheckableActionToQMenuAndActionHash(renderOptionsMenu, MenuOption::SparseTextureManagement, 0, gpu::Texture::getEnableSparseTextures());
         connect(action, &QAction::triggered, [&](bool checked) {
             qDebug() << "[TEXTURE TRANSFER SUPPORT] --- Enable Dynamic Texture Management menu option:" << checked;
             gpu::Texture::setEnableSparseTextures(checked);
-        });
-    }
-
-    // Developer > Render > Enable Incremental Texture Transfer
-    {
-        auto action = addCheckableActionToQMenuAndActionHash(renderOptionsMenu, MenuOption::EnableIncrementalTextureTransfer, 0, recommendedIncrementalTransfers);
-        connect(action, &QAction::triggered, [&](bool checked) {
-            qDebug() << "[TEXTURE TRANSFER SUPPORT] --- Enable Incremental Texture Transfer menu option:" << checked;
-            gpu::Texture::setEnableIncrementalTextureTransfers(checked);
         });
     }
 
@@ -519,6 +498,10 @@ Menu::Menu() {
     addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::RenderMyLookAtVectors, 0, false);
     addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::RenderOtherLookAtVectors, 0, false);
     addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::FixGaze, 0, false);
+    addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::DisplayLeftFootTrace, 0, false,
+        avatar.get(), SLOT(setEnableDebugDrawLeftFootTrace(bool)));
+    addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::DisplayRightFootTrace, 0, false,
+        avatar.get(), SLOT(setEnableDebugDrawRightFootTrace(bool)));
     addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::AnimDebugDrawDefaultPose, 0, false,
         avatar.get(), SLOT(setEnableDebugDrawDefaultPose(bool)));
     addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::AnimDebugDrawAnimPose, 0, false,
@@ -535,6 +518,8 @@ Menu::Menu() {
         avatar.get(), SLOT(setEnableInverseKinematics(bool)));
     addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::RenderSensorToWorldMatrix, 0, false,
         avatar.get(), SLOT(setEnableDebugDrawSensorToWorldMatrix(bool)));
+    addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::RenderIKTargets, 0, false,
+        avatar.get(), SLOT(setEnableDebugDrawIKTargets(bool)));
 
     addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::ActionMotorControl,
         Qt::CTRL | Qt::SHIFT | Qt::Key_K, true, avatar.get(), SLOT(updateMotionBehaviorFromMenu()),
@@ -544,9 +529,17 @@ Menu::Menu() {
         avatar.get(), SLOT(updateMotionBehaviorFromMenu()),
         UNSPECIFIED_POSITION, "Developer");
 
-    addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::EnableCharacterController, 0, true,
+    addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::EnableAvatarCollisions, 0, true,
         avatar.get(), SLOT(updateMotionBehaviorFromMenu()),
         UNSPECIFIED_POSITION, "Developer");
+
+    // KINEMATIC_CONTROLLER_HACK
+    addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::MoveKinematically, 0, false,
+        avatar.get(), SLOT(updateMotionBehaviorFromMenu()),
+        UNSPECIFIED_POSITION, "Developer");
+
+    addCheckableActionToQMenuAndActionHash(avatarDebugMenu, MenuOption::EnableVerticalComfortMode, 0, false,
+        avatar.get(), SLOT(setEnableVerticalComfortMode(bool)));
 
     // Developer > Hands >>>
     MenuWrapper* handOptionsMenu = developerMenu->addMenu("Hands");

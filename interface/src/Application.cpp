@@ -45,6 +45,7 @@
 
 #include <gl/QOpenGLContextWrapper.h>
 
+#include <shared/GlobalAppProperties.h>
 #include <ResourceScriptingInterface.h>
 #include <AccountManager.h>
 #include <AddressManager.h>
@@ -152,6 +153,7 @@
 #include "ui/LoginDialog.h"
 #include "ui/overlays/Cube3DOverlay.h"
 #include "ui/Snapshot.h"
+#include "ui/SnapshotAnimated.h"
 #include "ui/StandAloneJSConsole.h"
 #include "ui/Stats.h"
 #include "ui/UpdateDialog.h"
@@ -165,6 +167,8 @@
 // On Windows PC, NVidia Optimus laptop, we want to enable NVIDIA GPU
 // FIXME seems to be broken.
 #if defined(Q_OS_WIN)
+#include <VersionHelpers.h>
+
 extern "C" {
  _declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 }
@@ -415,6 +419,16 @@ bool setupEssentials(int& argc, char** argv) {
 
     Setting::preInit();
 
+#if defined(Q_OS_WIN)
+    // Select appropriate audio DLL
+    QString audioDLLPath = QCoreApplication::applicationDirPath();
+    if (IsWindows8OrGreater()) {
+        audioDLLPath += "/audioWin8";
+    } else {
+        audioDLLPath += "/audioWin7";
+    }
+    QCoreApplication::addLibraryPath(audioDLLPath);
+#endif
 
     static const auto SUPPRESS_SETTINGS_RESET = "--suppress-settings-reset";
     bool suppressPrompt = cmdOptionExists(argc, const_cast<const char**>(argv), SUPPRESS_SETTINGS_RESET);
@@ -535,7 +549,8 @@ Application::Application(int& argc, char** argv, QElapsedTimer& startupTimer, bo
     _maxOctreePPS(maxOctreePacketsPerSecond.get()),
     _lastFaceTrackerUpdate(0)
 {
-    setProperty("com.highfidelity.launchedFromSteam", SteamClient::isRunning());
+    setProperty(hifi::properties::STEAM, SteamClient::isRunning());
+    setProperty(hifi::properties::CRASHED, _previousSessionCrashed);
 
     _runningMarker.startRunningMarker();
 
@@ -599,7 +614,8 @@ Application::Application(int& argc, char** argv, QElapsedTimer& startupTimer, bo
         qCDebug(interfaceapp) << "Home sandbox does not appear to be running....";
         if (wantsSandboxRunning) {
             QString contentPath = getRunServerPath();
-            SandboxUtils::runLocalSandbox(contentPath, true, RUNNING_MARKER_FILENAME);
+            bool noUpdater = SteamClient::isRunning();
+            SandboxUtils::runLocalSandbox(contentPath, true, RUNNING_MARKER_FILENAME, noUpdater);
             sandboxIsRunning = true;
         }
         determinedSandboxState = true;
@@ -1119,9 +1135,12 @@ Application::Application(int& argc, char** argv, QElapsedTimer& startupTimer, bo
     setActiveEyeTracker();
 #endif
 
-    auto applicationUpdater = DependencyManager::get<AutoUpdater>();
-    connect(applicationUpdater.data(), &AutoUpdater::newVersionIsAvailable, dialogsManager.data(), &DialogsManager::showUpdateDialog);
-    applicationUpdater->checkForUpdate();
+    // If launched from Steam, let it handle updates
+    if (!SteamClient::isRunning()) {
+        auto applicationUpdater = DependencyManager::get<AutoUpdater>();
+        connect(applicationUpdater.data(), &AutoUpdater::newVersionIsAvailable, dialogsManager.data(), &DialogsManager::showUpdateDialog);
+        applicationUpdater->checkForUpdate();
+    }
 
     // Now that menu is initialized we can sync myAvatar with it's state.
     myAvatar->updateMotionBehaviorFromMenu();
@@ -1193,6 +1212,7 @@ Application::Application(int& argc, char** argv, QElapsedTimer& startupTimer, bo
         properties["present_rate"] = displayPlugin->presentRate();
         properties["new_frame_present_rate"] = displayPlugin->newFramePresentRate();
         properties["dropped_frame_rate"] = displayPlugin->droppedFrameRate();
+        properties["stutter_rate"] = displayPlugin->stutterRate();
         properties["sim_rate"] = getAverageSimsPerSecond();
         properties["avatar_sim_rate"] = getAvatarSimrate();
         properties["has_async_reprojection"] = displayPlugin->hasAsyncReprojection();
@@ -1238,7 +1258,10 @@ Application::Application(int& argc, char** argv, QElapsedTimer& startupTimer, bo
 
         auto glInfo = getGLContextData();
         properties["gl_info"] = glInfo;
+        properties["gpu_used_memory"] = (int)BYTES_TO_MB(gpu::Context::getUsedGPUMemory());
         properties["gpu_free_memory"] = (int)BYTES_TO_MB(gpu::Context::getFreeGPUMemory());
+        properties["gpu_frame_time"] = (float)(qApp->getGPUContext()->getFrameTimerGPUAverage());
+        properties["batch_frame_time"] = (float)(qApp->getGPUContext()->getFrameTimerBatchAverage());
         properties["ideal_thread_count"] = QThread::idealThreadCount();
 
         auto hmdHeadPose = getHMDSensorPose();
@@ -1654,7 +1677,8 @@ Application::~Application() {
     
     _window->deleteLater();
 
-    qInstallMessageHandler(nullptr); // NOTE: Do this as late as possible so we continue to get our log messages
+    // Can't log to file passed this point, FileLogger about to be deleted
+    qInstallMessageHandler(LogHandler::verboseMessageHandler);
 }
 
 void Application::initializeGL() {
@@ -1676,6 +1700,8 @@ void Application::initializeGL() {
 
     _glWidget->makeCurrent();
     gpu::Context::init<gpu::gl::GLBackend>();
+    qApp->setProperty(hifi::properties::gl::MAKE_PROGRAM_CALLBACK, 
+        QVariant::fromValue((void*)(&gpu::gl::GLBackend::makeProgram)));
     _gpuContext = std::make_shared<gpu::Context>();
     // The gpu context can make child contexts for transfers, so 
     // we need to restore primary rendering context
@@ -3378,13 +3404,31 @@ void Application::loadSettings() {
     // If there is a preferred plugin, we probably messed it up with the menu settings, so fix it.
     auto pluginManager = PluginManager::getInstance();
     auto plugins = pluginManager->getPreferredDisplayPlugins();
-    for (auto plugin : plugins) {
-        auto menu = Menu::getInstance();
-        if (auto action = menu->getActionForOption(plugin->getName())) {
-            action->setChecked(true);
-            action->trigger();
-            // Find and activated highest priority plugin, bail for the rest
-            break;
+    auto menu = Menu::getInstance();
+    if (plugins.size() > 0) {
+        for (auto plugin : plugins) {
+            if (auto action = menu->getActionForOption(plugin->getName())) {
+                action->setChecked(true);
+                action->trigger();
+                // Find and activated highest priority plugin, bail for the rest
+                break;
+            }
+        }
+    } else {
+        // If this is our first run, and no preferred devices were set, default to
+        // an HMD device if available.
+        Setting::Handle<bool> firstRun { Settings::firstRun, true };
+        if (firstRun.get()) {
+            auto displayPlugins = pluginManager->getDisplayPlugins();
+            for (auto& plugin : displayPlugins) {
+                if (plugin->isHmd()) {
+                    if (auto action = menu->getActionForOption(plugin->getName())) {
+                        action->setChecked(true);
+                        action->trigger();
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -3850,13 +3894,6 @@ void Application::update(float deltaTime) {
             if (nearbyEntitiesAreReadyForPhysics()) {
                 _physicsEnabled = true;
                 getMyAvatar()->updateMotionBehaviorFromMenu();
-            } else {
-                auto characterController = getMyAvatar()->getCharacterController();
-                if (characterController) {
-                    // if we have a character controller, disable it here so the avatar doesn't get stuck due to
-                    // a non-loading collision hull.
-                    characterController->setEnabled(false);
-                }
             }
         }
     }
@@ -3985,7 +4022,7 @@ void Application::update(float deltaTime) {
             avatarManager->getObjectsToChange(motionStates);
             _physicsEngine->changeObjects(motionStates);
 
-            myAvatar->prepareForPhysicsSimulation();
+            myAvatar->prepareForPhysicsSimulation(deltaTime);
             _physicsEngine->forEachAction([&](EntityActionPointer action) {
                 action->prepareForPhysicsSimulation();
             });
@@ -5401,23 +5438,31 @@ void Application::toggleLogDialog() {
     }
 }
 
-void Application::takeSnapshot(bool notify, float aspectRatio) {
-    postLambdaEvent([notify, aspectRatio, this] {
+
+void Application::takeSnapshot(bool notify, bool includeAnimated, float aspectRatio) {
+    postLambdaEvent([notify, includeAnimated, aspectRatio, this] {
         QMediaPlayer* player = new QMediaPlayer();
         QFileInfo inf = QFileInfo(PathUtils::resourcesPath() + "sounds/snap.wav");
         player->setMedia(QUrl::fromLocalFile(inf.absoluteFilePath()));
         player->play();
 
+        // Get a screenshot and save it
         QString path = Snapshot::saveSnapshot(getActiveDisplayPlugin()->getScreenshot(aspectRatio));
 
-        emit DependencyManager::get<WindowScriptingInterface>()->snapshotTaken(path, notify);
+        // If we're not doing an animated snapshot as well...
+        if (!includeAnimated || !(SnapshotAnimated::alsoTakeAnimatedSnapshot.get())) {
+            // Tell the dependency manager that the capture of the still snapshot has taken place.
+            emit DependencyManager::get<WindowScriptingInterface>()->snapshotTaken(path, "", notify);
+        } else {
+            // Get an animated GIF snapshot and save it
+            SnapshotAnimated::saveSnapshotAnimated(path, aspectRatio, qApp, DependencyManager::get<WindowScriptingInterface>());
+        }
     });
 }
-
-void Application::shareSnapshot(const QString& path) {
-    postLambdaEvent([path] {
+void Application::shareSnapshot(const QString& path, const QUrl& href) {
+    postLambdaEvent([path, href] {
         // not much to do here, everything is done in snapshot code...
-        Snapshot::uploadSnapshot(path);
+        Snapshot::uploadSnapshot(path, href);
     });
 }
 

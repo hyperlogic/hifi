@@ -86,6 +86,10 @@ public:
     bool shouldFlushEncoder() { return _shouldFlushEncoder; }
 
     QString getCodecName() { return _selectedCodecName; }
+    
+    bool shouldMuteClient() { return _shouldMuteClient; }
+    void setShouldMuteClient(bool shouldMuteClient) { _shouldMuteClient = shouldMuteClient; }
+    glm::vec3 getPosition() { return getAvatarAudioStream() ? getAvatarAudioStream()->getPosition() : glm::vec3(0); }
 
 signals:
     void injectorStreamFinished(const QUuid& streamIdentifier);
@@ -114,6 +118,8 @@ private:
     Decoder* _decoder{ nullptr }; // for mic stream
 
     bool _shouldFlushEncoder { false };
+
+    bool _shouldMuteClient { false };
 };
 
 #endif // hifi_AudioMixerClientData_h

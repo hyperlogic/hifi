@@ -210,7 +210,7 @@ QByteArray AvatarData::toByteArray(bool cullSmallChanges, bool sendAll) {
     packFloatAngleToTwoByte((uint8_t*)(header->localOrientation + 0), bodyEulerAngles.y);
     packFloatAngleToTwoByte((uint8_t*)(header->localOrientation + 1), bodyEulerAngles.x);
     packFloatAngleToTwoByte((uint8_t*)(header->localOrientation + 2), bodyEulerAngles.z);
-    packFloatRatioToTwoByte((uint8_t*)(&header->scale), _targetScale);
+    packFloatRatioToTwoByte((uint8_t*)(&header->scale), getDomainLimitedScale());
     header->lookAtPosition[0] = _headData->_lookAtPosition.x;
     header->lookAtPosition[1] = _headData->_lookAtPosition.y;
     header->lookAtPosition[2] = _headData->_lookAtPosition.z;
@@ -516,7 +516,7 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
         }
         return buffer.size();
     }
-    _targetScale = std::max(MIN_AVATAR_SCALE, std::min(MAX_AVATAR_SCALE, scale));
+    setTargetScale(scale);
 
     glm::vec3 lookAt = glm::vec3(header->lookAtPosition[0], header->lookAtPosition[1], header->lookAtPosition[2]);
     if (isNaN(lookAt)) {
@@ -952,6 +952,12 @@ int AvatarData::getFauxJointIndex(const QString& name) const {
     }
     if (name == "_CONTROLLER_RIGHTHAND") {
         return CONTROLLER_RIGHTHAND_INDEX;
+    }
+    if (name == "_CAMERA_RELATIVE_CONTROLLER_LEFTHAND") {
+        return CAMERA_RELATIVE_CONTROLLER_LEFTHAND_INDEX;
+    }
+    if (name == "_CAMERA_RELATIVE_CONTROLLER_RIGHTHAND") {
+        return CAMERA_RELATIVE_CONTROLLER_RIGHTHAND_INDEX;
     }
     return -1;
 }
@@ -1439,7 +1445,7 @@ QJsonObject AvatarData::toJson() const {
     if (!success) {
         qDebug() << "Warning -- AvatarData::toJson couldn't get avatar transform";
     }
-    avatarTransform.setScale(getTargetScale());
+    avatarTransform.setScale(getDomainLimitedScale());
     if (recordingBasis) {
         root[JSON_AVATAR_BASIS] = Transform::toJson(*recordingBasis);
         // Find the relative transform
@@ -1451,7 +1457,7 @@ QJsonObject AvatarData::toJson() const {
         root[JSON_AVATAR_RELATIVE] = Transform::toJson(avatarTransform);
     }
 
-    auto scale = getTargetScale();
+    auto scale = getDomainLimitedScale();
     if (scale != 1.0f) {
         root[JSON_AVATAR_SCALE] = scale;
     }
