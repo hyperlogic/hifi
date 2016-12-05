@@ -443,7 +443,7 @@ void CharacterController::handleChangedCollisionGroup() {
         }
         _pendingFlags &= ~PENDING_FLAG_UPDATE_COLLISION_GROUP;
 
-        if (_rigidBody && _collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS && _state != State::Hover{
+        if (_rigidBody && _collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS && _state != State::Hover) {
             _gravity = 0.0f;
             _rigidBody->setGravity(_gravity * _currentUp);
         }
