@@ -67,8 +67,6 @@ CharacterController::CharacterController() {
     _targetVelocity.setValue(0.0f, 0.0f, 0.0f);
     _followDesiredBodyTransform.setIdentity();
     _jumpSpeed = JUMP_SPEED;
-    _state = State::Hover;
-    _isPushingUp = false;
     _rayHitStartTime = 0;
     _takeoffToInAirStartTime = 0;
     _jumpButtonDownStartTime = 0;
@@ -114,6 +112,7 @@ void CharacterController::setDynamicsWorld(btDynamicsWorld* world) {
             _dynamicsWorld->addRigidBody(_rigidBody, _collisionGroup, BULLET_COLLISION_MASK_MY_AVATAR);
             _dynamicsWorld->addAction(this);
             // restore gravity settings because adding an object to the world overwrites its gravity setting
+            _gravity = _collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS ? 0.0f : DEFAULT_CHARACTER_GRAVITY;
             _rigidBody->setGravity(_gravity * _currentUp);
             btCollisionShape* shape = _rigidBody->getCollisionShape();
             assert(shape && shape->getShapeType() == CONVEX_HULL_SHAPE_PROXYTYPE);
@@ -385,17 +384,12 @@ void CharacterController::setState(State desiredState) {
         qCDebug(physics) << "CharacterController::setState" << stateToStr(desiredState) << "from" << stateToStr(_state) << "," << reason;
 #endif
         if (_rigidBody) {
-            if (desiredState == State::Hover && _state != State::Hover) {
-                // hover enter
-                _rigidBody->setGravity(btVector3(0.0f, 0.0f, 0.0f));
-            } else if (_state == State::Hover && desiredState != State::Hover) {
-                // hover exit
-                if (_collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS) {
-                    _rigidBody->setGravity(btVector3(0.0f, 0.0f, 0.0f));
-                } else {
-                    _rigidBody->setGravity(_gravity * _currentUp);
-                }
+            if (desiredState == State::Hover) {
+                _gravity = 0.0f;
+            } else {
+                _gravity = _collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS ? 0.0f : DEFAULT_CHARACTER_GRAVITY;
             }
+            _rigidBody->setGravity(_gravity * _currentUp);
         }
         _state = desiredState;
     }
@@ -449,8 +443,8 @@ void CharacterController::handleChangedCollisionGroup() {
         }
         _pendingFlags &= ~PENDING_FLAG_UPDATE_COLLISION_GROUP;
 
-        if (_state != State::Hover && _rigidBody) {
-            _gravity = _collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS ? 0.0f : DEFAULT_CHARACTER_GRAVITY;
+        if (_rigidBody && _collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS && _state != State::Hover) {
+            _gravity = 0.0f;
             _rigidBody->setGravity(_gravity * _currentUp);
         }
     }
@@ -460,6 +454,7 @@ void CharacterController::updateUpAxis(const glm::quat& rotation) {
     _currentUp = quatRotate(glmToBullet(rotation), LOCAL_UP_AXIS);
     _ghost.setUpDirection(_currentUp);
     if (_state != State::Hover && _rigidBody) {
+        _gravity = _collisionGroup == BULLET_COLLISION_GROUP_COLLISIONLESS ? 0.0f : DEFAULT_CHARACTER_GRAVITY;
         _rigidBody->setGravity(_gravity * _currentUp);
     }
 }
@@ -790,11 +785,11 @@ void CharacterController::updateState() {
             SET_STATE(State::Hover, "kinematic motion"); // HACK
         }
     } else {
-        // OUTOFBODY_HACK -- in collisionless state switch only between Ground and Hover states
-        if (rayHasHit) {
-            SET_STATE(State::Ground, "collisionless above ground");
-        } else {
+        // COLLISIONLESS_HACK: switch between Ground and Hover states
+        if (_targetVelocity.length2() > 0.0f || velocity.length2() > 0.0f) {
             SET_STATE(State::Hover, "collisionless in air");
+        } else {
+            SET_STATE(State::Ground, "collisionless above ground");
         }
     }
 }

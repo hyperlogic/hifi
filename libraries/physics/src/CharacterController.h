@@ -191,8 +191,7 @@ protected:
     btVector3 _linearAcceleration;
     bool _following { false };
 
-    State _state;
-    bool _isPushingUp;
+    State _state { State::Hover };
 
     btDynamicsWorld* _dynamicsWorld { nullptr };
     btRigidBody* _rigidBody { nullptr };
