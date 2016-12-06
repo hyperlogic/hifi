@@ -87,6 +87,8 @@ class MyAvatar : public Avatar {
 
     Q_PROPERTY(bool hmdLeanRecenterEnabled READ getHMDLeanRecenterEnabled WRITE setHMDLeanRecenterEnabled)
     Q_PROPERTY(bool avatarCollisionsEnabled READ getAvatarCollisionsEnabled WRITE setAvatarCollisionsEnabled)
+    Q_PROPERTY(bool characterControllerEnabled READ getAvatarCollisionsEnabled WRITE setAvatarCollisionsEnabled)
+
 
     /**jsdoc
      * Your avatar is your in-world representation of you. The MyAvatar API is used to manipulate the avatar.
@@ -137,6 +139,7 @@ class MyAvatar : public Avatar {
      * @property hmdLeanRecenterEnabled {bool} This can be used disable the hmd lean recenter behavior.  This behavior is what causes your avatar
      *   to follow your HMD as you walk around the room, in room scale VR.  Disabling this is useful if you desire to pin the avatar to a fixed location.
      * @property avatarCollisionsEnabled {bool} This can be used to disable collisions between the avatar and the world.
+     * @property characterControllerEnabled {bool} Legacy alias to avatarCollisionsEnabled.
      */
 
 public:
