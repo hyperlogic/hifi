@@ -321,8 +321,12 @@ public:
 
     Q_INVOKABLE bool getSnapTurn() const { return _useSnapTurn; }
     Q_INVOKABLE void setSnapTurn(bool on) { _useSnapTurn = on; }
+
     Q_INVOKABLE bool getClearOverlayWhenMoving() const { return _clearOverlayWhenMoving; }
     Q_INVOKABLE void setClearOverlayWhenMoving(bool on) { _clearOverlayWhenMoving = on; }
+
+    Q_INVOKABLE bool getHMDComfortModeEnabled() const { return _hmdComfortModeEnabled; }
+    Q_INVOKABLE void setHMDComfortModeEnabled(bool enabled);
 
     Q_INVOKABLE void setHMDLeanRecenterEnabled(bool value) { _hmdLeanRecenterEnabled = value; }
     Q_INVOKABLE bool getHMDLeanRecenterEnabled() const { return _hmdLeanRecenterEnabled; }
@@ -436,7 +440,7 @@ public:
     virtual glm::quat getAbsoluteJointRotationInObjectFrame(int index) const override;
     virtual glm::vec3 getAbsoluteJointTranslationInObjectFrame(int index) const override;
 
-    glm::vec3 getPreActionVelocity() const;
+    glm::vec3 getVelocityForAnimation() const;
 
     void addHoldAction(AvatarActionHold* holdAction);  // thread-safe
     void removeHoldAction(AvatarActionHold* holdAction);  // thread-safe
@@ -595,6 +599,7 @@ private:
     QUrl _fstAnimGraphOverrideUrl;
     bool _useSnapTurn { true };
     bool _clearOverlayWhenMoving { true };
+    bool _hmdComfortModeEnabled { true };
 
     // working copies -- see AvatarData for thread-safe _sensorToWorldMatrixCache, used for outward facing access
     glm::mat4 _sensorToWorldMatrix { glm::mat4() };

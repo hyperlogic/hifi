@@ -90,7 +90,7 @@ public:
     void disableFollow() { _following = false; }
 
     glm::vec3 getLinearVelocity() const;
-    glm::vec3 getPreActionLinearVelocity() const;
+    glm::vec3 getLinearVelocityForAnimation() const;
     glm::vec3 getVelocityChange() const;
 
     float getCapsuleRadius() const { return _radius; }
@@ -123,6 +123,8 @@ public:
     void setMoveKinematically(bool kinematic); // KINEMATIC_CONTROLLER_HACK
 
     bool queryPenetration(const btTransform& transform);
+
+    void setHMDComfortModeEnabled(bool enabled) { _hmdComfortModeEnabled = enabled; }
 
 protected:
 #ifdef DEBUG_STATE_CHANGE
@@ -157,6 +159,7 @@ protected:
     btVector3 _previousFollowPosition { 0.0f, 0.0f, 0.0f };
     btVector3 _position;
     btQuaternion _rotation;
+    bool _hmdComfortModeEnabled { true };
 
     glm::vec3 _shapeLocalOffset;
 

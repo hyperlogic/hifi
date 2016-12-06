@@ -80,6 +80,11 @@ void setupPreferences() {
         preference->setStep(0.25);
         preferences->addPreference(preference);
     }
+    {
+        auto getter = [=]()->bool { return myAvatar->getHMDComfortModeEnabled(); };
+        auto setter = [=](bool value) { myAvatar->setHMDComfortModeEnabled(value); };
+        preferences->addPreference(new CheckPreference(AVATAR_BASICS, "HMD Comfort Mode Enabled", getter, setter));
+    }
 
     // UI
     {

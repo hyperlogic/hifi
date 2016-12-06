@@ -469,10 +469,17 @@ void MyAvatar::simulate(float deltaTime) {
     // update sensorToWorldMatrix for camera and hand controllers
     // before we perform rig animations and IK.
 
-    if (_characterController.getState() != CharacterController::State::Hover) {
-        updateSensorToWorldMatrix(_enableVerticalComfortMode ? SensorToWorldUpdateMode::VerticalComfort : SensorToWorldUpdateMode::Vertical);
+    if (!_hmdComfortModeEnabled) {
+        // Fully update sensor to world matrix. The camera fully follows the avatar & body matrix.
+        updateSensorToWorldMatrix(SensorToWorldUpdateMode::Full);
     } else {
-        updateSensorToWorldMatrix(SensorToWorldUpdateMode::None);
+        if (_characterController.getState() != CharacterController::State::Hover) {
+            // The horizontal part of the camera is decoupled from the avatar, but the vertical part is not.
+            updateSensorToWorldMatrix(_enableVerticalComfortMode ? SensorToWorldUpdateMode::VerticalComfort : SensorToWorldUpdateMode::Vertical);
+        } else {
+            // the camera is completly decoupled from the avatar.
+            updateSensorToWorldMatrix(SensorToWorldUpdateMode::None);
+        }
     }
 
     {
@@ -806,6 +813,15 @@ void MyAvatar::restoreRoleAnimation(const QString& role) {
     _rig->restoreRoleAnimation(role);
 }
 
+void MyAvatar::setHMDComfortModeEnabled(bool enabled) {
+    if (QThread::currentThread() != thread()) {
+        QMetaObject::invokeMethod(this, "setHMDComfortModeEnabled", Q_ARG(bool, enabled));
+        return;
+    }
+    _hmdComfortModeEnabled = enabled;
+    _characterController.setHMDComfortModeEnabled(enabled);
+}
+
 void MyAvatar::saveData() {
     Settings settings;
     settings.beginGroup("Avatar");
@@ -858,6 +874,7 @@ void MyAvatar::saveData() {
     settings.setValue("collisionSoundURL", _collisionSoundURL);
     settings.setValue("useSnapTurn", _useSnapTurn);
     settings.setValue("clearOverlayWhenMoving", _clearOverlayWhenMoving);
+    settings.setValue("hmdComfortModeEnabled", _hmdComfortModeEnabled);
 
     settings.endGroup();
 }
@@ -995,6 +1012,7 @@ void MyAvatar::loadData() {
     setCollisionSoundURL(settings.value("collisionSoundURL", DEFAULT_AVATAR_COLLISION_SOUND_URL).toString());
     setSnapTurn(settings.value("useSnapTurn", _useSnapTurn).toBool());
     setClearOverlayWhenMoving(settings.value("clearOverlayWhenMoving", _clearOverlayWhenMoving).toBool());
+    setHMDComfortModeEnabled(settings.value("hmdComfortModeEnabled", _hmdComfortModeEnabled).toBool());
 
     settings.endGroup();
 
@@ -1365,9 +1383,8 @@ void MyAvatar::updateMotors() {
             swingTwistDecomposition(getHead()->getCameraOrientation(), _worldUpDirection, liftRotation, motorRotation);
         }
 
-        if (qApp->isHMDMode()) {
-            // OUTOFBODY_HACK: in HMDMode motors are applied differently: a "follow" motor is added
-            // during the CharacterController's substep
+        if (qApp->isHMDMode() && _hmdComfortModeEnabled) {
+            // in hmdComfortMode, the motors are applied directly to the sensorToWorld matrix, not to the characterController
         } else {
             if (_isPushing || _isBraking || !_isBeingPushed) {
                 _characterController.addMotor(_actionMotorVelocity, motorRotation, DEFAULT_MOTOR_TIMESCALE, INVALID_MOTOR_TIMESCALE);
@@ -1387,8 +1404,8 @@ void MyAvatar::updateMotors() {
             // world-frame
             motorRotation = glm::quat();
         }
-        if (qApp->isHMDMode()) {
-            // OUTOFBODY_HACK: motors are applied differently in HMDMode
+        if (qApp->isHMDMode() && _hmdComfortModeEnabled) {
+            // in hmdComfortMode, motors are applied directly to the sensorToWorld matrix, not to the characterController
         } else {
             _characterController.addMotor(_scriptedMotorVelocity, motorRotation, _scriptedMotorTimescale);
         }
@@ -1802,7 +1819,9 @@ void MyAvatar::updateOrientation(float deltaTime) {
 
     getHead()->setBasePitch(getHead()->getBasePitch() + _driveKeys[PITCH] * _pitchSpeed * deltaTime);
 
-    if (qApp->isHMDMode()) {
+    if (qApp->isHMDMode() && _hmdComfortModeEnabled) {
+
+        // apply rotations directly to the sensorToWorldMatrix
 
         // rotate the sensorToWorldMatrix about the HMD!
         glm::vec3 hmdOffset = extractTranslation(getHMDSensorMatrix());
@@ -1942,7 +1961,10 @@ void MyAvatar::updatePosition(float deltaTime) {
             _characterController.setStepUpEnabled(result.walkable);
         }
 
-        if (qApp->isHMDMode()) {
+        if (qApp->isHMDMode() && _hmdComfortModeEnabled) {
+
+            // apply velocity and motors directly to the sensorToWorld matrix
+
             glm::quat motorRotation;
             glm::vec3 worldVelocity = glm::vec3(0.0f);
             if (_motionBehaviors & AVATAR_MOTION_ACTION_MOTOR_ENABLED) {
@@ -2037,8 +2059,8 @@ bool findAvatarAvatarPenetration(const glm::vec3 positionA, float radiusA, float
     return false;
 }
 
-glm::vec3 MyAvatar::getPreActionVelocity() const {
-    return _characterController.getPreActionLinearVelocity();
+glm::vec3 MyAvatar::getVelocityForAnimation() const {
+    return _characterController.getLinearVelocityForAnimation();
 }
 
 // There can be a separation between the _targetScale and the actual scale of the rendered avatar in a domain.

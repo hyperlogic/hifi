@@ -239,8 +239,11 @@ const btScalar MIN_TARGET_SPEED_SQUARED = MIN_TARGET_SPEED * MIN_TARGET_SPEED;
 void CharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar dt) {
     _stepHeight = _minStepHeight; // clears memory of last step obstacle
     btVector3 velocity = _rigidBody->getLinearVelocity() - _parentVelocity;
-    if (_following) {
-        _followTimeAccumulator += dt;
+    _followTimeAccumulator += dt;
+    if (_following && _hmdComfortModeEnabled) {
+
+        // apply a followVelocity to the rigid body through the use of a motor.
+
         // linear part uses a motor
         const float MAX_WALKING_SPEED = 30.5f; // TODO: scale this stuff with avatar size
         const float MAX_WALKING_SPEED_DISTANCE = 1.0f;
@@ -480,42 +483,58 @@ void CharacterController::setParentVelocity(const glm::vec3& velocity) {
 }
 
 void CharacterController::setFollowParameters(const glm::mat4& desiredWorldBodyMatrix) {
-    _followDesiredBodyTransform = glmToBullet(desiredWorldBodyMatrix) * btTransform(btQuaternion::getIdentity(), glmToBullet(_shapeLocalOffset));
-    if (!_following) {
-        _following = true;
-        _followVelocity = btVector3(0.0f, 0.0f, 0.0f);
-    } else if (_followTimeAccumulator > 0.0f) {
-        btVector3 newFollowVelocity = (_followDesiredBodyTransform.getOrigin() - _previousFollowPosition) / _followTimeAccumulator;
-        const float dontDivideByZero = 0.001f;
-        float newSpeed = newFollowVelocity.length() + dontDivideByZero;
-        float oldSpeed = _followVelocity.length();
 
-        bool successfulSnap = false;
-        btVector3 offset = _followDesiredBodyTransform.getOrigin() - _position;
-        const btScalar MAX_FOLLOW_OFFSET = 10.0f * _radius;
-        if (offset.length() > MAX_FOLLOW_OFFSET) {
-            successfulSnap = queryPenetration(_followDesiredBodyTransform);
-            if (successfulSnap) {
-                _position = _followDesiredBodyTransform.getOrigin();
+    if (!_hmdComfortModeEnabled) {
+
+        // directly teleport to the desired position & orientation, but keep track of the velocity for animation purposes.
+
+        glm::vec3 followTranslation = extractTranslation(desiredWorldBodyMatrix);
+        if (_followTimeAccumulator > 0.0f) {
+            _followVelocity = (glmToBullet(followTranslation) - _previousFollowPosition) / _followTimeAccumulator;
+        } else {
+            _followVelocity.setZero();
+        }
+        setPositionAndOrientation(followTranslation, glmExtractRotation(desiredWorldBodyMatrix));  // teleport
+        _previousFollowPosition = glmToBullet(followTranslation);
+        _followTimeAccumulator = 0.0f;
+    } else {
+        _followDesiredBodyTransform = glmToBullet(desiredWorldBodyMatrix) * btTransform(btQuaternion::getIdentity(), glmToBullet(_shapeLocalOffset));
+        if (!_following) {
+            _following = true;
+            _followVelocity = btVector3(0.0f, 0.0f, 0.0f);
+        } else if (_followTimeAccumulator > 0.0f) {
+            btVector3 newFollowVelocity = (_followDesiredBodyTransform.getOrigin() - _previousFollowPosition) / _followTimeAccumulator;
+            const float dontDivideByZero = 0.001f;
+            float newSpeed = newFollowVelocity.length() + dontDivideByZero;
+            float oldSpeed = _followVelocity.length();
+
+            bool successfulSnap = false;
+            btVector3 offset = _followDesiredBodyTransform.getOrigin() - _position;
+            const btScalar MAX_FOLLOW_OFFSET = 10.0f * _radius;
+            if (offset.length() > MAX_FOLLOW_OFFSET) {
+                successfulSnap = queryPenetration(_followDesiredBodyTransform);
+                if (successfulSnap) {
+                    _position = _followDesiredBodyTransform.getOrigin();
+                }
+            }
+
+            const float VERY_SLOW_HOVER_SPEED = 0.25f;
+            const float FAST_CHANGE_SPEED_RATIO = 100.0f;
+            if (successfulSnap || (oldSpeed / newSpeed > FAST_CHANGE_SPEED_RATIO && newSpeed < VERY_SLOW_HOVER_SPEED)) {
+                // character is snapping to avatar position or avatar is stopping quickly
+                // HACK: slam _followVelocity and _rigidBody velocity immediately
+                _followVelocity = newFollowVelocity;
+                newFollowVelocity.setY(0.0f);
+                _rigidBody->setLinearVelocity(newFollowVelocity);
+            } else {
+                // use simple blending to filter noise from the velocity measurement
+                const float blend = 0.2f;
+                _followVelocity = (1.0f - blend) * _followVelocity + blend * newFollowVelocity;
             }
         }
-
-        const float VERY_SLOW_HOVER_SPEED = 0.25f;
-        const float FAST_CHANGE_SPEED_RATIO = 100.0f;
-        if (successfulSnap || (oldSpeed / newSpeed > FAST_CHANGE_SPEED_RATIO && newSpeed < VERY_SLOW_HOVER_SPEED)) {
-            // character is snapping to avatar position or avatar is stopping quickly
-            // HACK: slam _followVelocity and _rigidBody velocity immediately
-            _followVelocity = newFollowVelocity;
-            newFollowVelocity.setY(0.0f);
-            _rigidBody->setLinearVelocity(newFollowVelocity);
-        } else {
-            // use simple blending to filter noise from the velocity measurement
-            const float blend = 0.2f;
-            _followVelocity = (1.0f - blend) * _followVelocity + blend * newFollowVelocity;
-        }
+        _previousFollowPosition = _followDesiredBodyTransform.getOrigin();
+        _followTimeAccumulator = 0.0f;
     }
-    _previousFollowPosition = _followDesiredBodyTransform.getOrigin();
-    _followTimeAccumulator = 0.0f;
 }
 
 glm::vec3 CharacterController::getLinearVelocity() const {
@@ -526,8 +545,12 @@ glm::vec3 CharacterController::getLinearVelocity() const {
     return velocity;
 }
 
-glm::vec3 CharacterController::getPreActionLinearVelocity() const {
-    return _preActionVelocity;
+glm::vec3 CharacterController::getLinearVelocityForAnimation() const {
+    if (_hmdComfortModeEnabled) {
+        return _preActionVelocity;
+    } else {
+        return _preActionVelocity + bulletToGLM(_followVelocity);
+    }
 }
 
 glm::vec3 CharacterController::getVelocityChange() const {

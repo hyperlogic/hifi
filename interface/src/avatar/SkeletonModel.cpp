@@ -221,7 +221,7 @@ void SkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
 
         Rig::CharacterControllerState ccState = convertCharacterControllerState(myAvatar->getCharacterController()->getState());
 
-        auto velocity = myAvatar->getPreActionVelocity();
+        auto velocity = myAvatar->getVelocityForAnimation();
         auto position = myAvatar->getLocalPosition();
         auto orientation = myAvatar->getLocalOrientation();
         _rig->computeMotionAnimationState(deltaTime, position, velocity, orientation, ccState);
