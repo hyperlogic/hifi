@@ -146,6 +146,9 @@ public:
     explicit MyAvatar(RigPointer rig);
     ~MyAvatar();
 
+    virtual void setPosition(const glm::vec3& position) override;
+    virtual void setOrientation(const glm::quat& orientation) override;
+
     virtual void simulateAttachments(float deltaTime) override;
 
     AudioListenerMode getAudioListenerModeHead() const { return FROM_HEAD; }

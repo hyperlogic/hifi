@@ -194,8 +194,8 @@ MyAvatar::MyAvatar(RigPointer rig) :
             setDisplayName(dummyAvatar.getDisplayName());
         }
 
-        setPosition(dummyAvatar.getPosition());
-        setOrientation(dummyAvatar.getOrientation());
+        Avatar::setPosition(dummyAvatar.getPosition());
+        Avatar::setOrientation(dummyAvatar.getOrientation());
 
         if (!dummyAvatar.getAttachmentData().isEmpty()) {
             setAttachmentData(dummyAvatar.getAttachmentData());
@@ -219,6 +219,21 @@ MyAvatar::~MyAvatar() {
     _lookAtTargetAvatar.reset();
 }
 
+
+void MyAvatar::setPosition(const glm::vec3& position) {
+    Avatar::setPosition(position);
+    if (qApp->isHMDMode()) {
+        updateSensorToWorldMatrix();
+    }
+}
+
+void MyAvatar::setOrientation(const glm::quat& orientation) {
+    Avatar::setOrientation(orientation);
+    if (qApp->isHMDMode()) {
+        updateSensorToWorldMatrix();
+    }
+}
+
 void MyAvatar::setOrientationVar(const QVariant& newOrientationVar) {
     Avatar::setOrientation(quatFromVariant(newOrientationVar));
 }
@@ -239,10 +254,10 @@ QByteArray MyAvatar::toByteArray(bool cullSmallChanges, bool sendAll) {
     if (mode == CAMERA_MODE_THIRD_PERSON || mode == CAMERA_MODE_INDEPENDENT) {
         // fake the avatar position that is sent up to the AvatarMixer
         glm::vec3 oldPosition = getPosition();
-        setPosition(getSkeletonPosition());
+        Avatar::setPosition(getSkeletonPosition());
         QByteArray array = AvatarData::toByteArray(cullSmallChanges, sendAll);
         // copy the correct position back
-        setPosition(oldPosition);
+        Avatar::setPosition(oldPosition);
         return array;
     }
     return AvatarData::toByteArray(cullSmallChanges, sendAll);
@@ -276,8 +291,8 @@ void MyAvatar::centerBody() {
     }
 
     // this will become our new position.
-    setPosition(worldBodyPos);
-    setOrientation(worldBodyRot);
+    Avatar::setPosition(worldBodyPos);
+    Avatar::setOrientation(worldBodyRot);
 
     // reset the body in sensor space
     _bodySensorMatrix = newBodySensorMatrix;
@@ -322,8 +337,8 @@ void MyAvatar::reset(bool andRecenter, bool andReload, bool andHead) {
         auto worldBodyRot = glm::normalize(glm::quat_cast(worldBodyMatrix));
 
         // this will become our new position.
-        setPosition(worldBodyPos);
-        setOrientation(worldBodyRot);
+        Avatar::setPosition(worldBodyPos);
+        Avatar::setOrientation(worldBodyRot);
 
         // now sample the new hmd orientation AFTER sensor reset, which should be identity.
         glm::mat4 identity;
@@ -1815,7 +1830,7 @@ void MyAvatar::updateOrientation(float deltaTime) {
 
     // update body orientation by movement inputs
     glm::quat deltaRotation = glm::quat(glm::radians(glm::vec3(0.0f, totalBodyYaw, 0.0f)));
-    setOrientation(getOrientation() * deltaRotation);
+    Avatar::setOrientation(getOrientation() * deltaRotation);
 
     getHead()->setBasePitch(getHead()->getBasePitch() + _driveKeys[PITCH] * _pitchSpeed * deltaTime);
 
