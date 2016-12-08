@@ -146,7 +146,9 @@ public:
     explicit MyAvatar(RigPointer rig);
     ~MyAvatar();
 
+    using Avatar::setPosition;
     virtual void setPosition(const glm::vec3& position) override;
+    using Avatar::setOrientation;
     virtual void setOrientation(const glm::quat& orientation) override;
 
     virtual void simulateAttachments(float deltaTime) override;
