@@ -1465,7 +1465,8 @@ void MyAvatar::prepareForPhysicsSimulation(float deltaTime) {
     _prePhysicsRoomPose = AnimPose(_sensorToWorldMatrix);
 }
 
-void MyAvatar::harvestResultsFromPhysicsSimulation(float deltaTime) {
+void MyAvatar::harvestResultsFromPhysicsSimulation(float deltaTime, bool hasOutgoingChanges) {
+
     // figure out how far the hips can move before they hit something
     int hipsJoint = getJointIndex("Hips");
     glm::vec3 hipsPosition; // rig-frame
@@ -1479,15 +1480,25 @@ void MyAvatar::harvestResultsFromPhysicsSimulation(float deltaTime) {
     }
     _rig->updateMaxHipsOffsetLength(maxHipsOffsetRadius, deltaTime);
 
-    glm::vec3 position = getPosition();
-    glm::quat orientation = getOrientation();
-    if (_characterController.isEnabledAndReady()) {
-        _characterController.getPositionAndOrientation(position, orientation);
-    }
-    nextAttitude(position, orientation);
+    if (hasOutgoingChanges) {
+        glm::vec3 position = getPosition();
+        glm::quat orientation = getOrientation();
+        if (_characterController.isEnabledAndReady()) {
+            _characterController.getPositionAndOrientation(position, orientation);
+        }
+        nextAttitude(position, orientation);
 
-    if (_characterController.isEnabledAndReady()) {
-        setVelocity(_characterController.getLinearVelocity());
+        if (_characterController.isEnabledAndReady()) {
+            setVelocity(_characterController.getLinearVelocity());
+        }
+    } else {
+        // no physics step was taken, so, in order to avoid HMD glitches we need to teleport the avatar to the position
+        // because the characterController was unable to.
+        if (qApp->isHMDMode() && !_hmdComfortModeEnabled) {
+            // The avatar physics body always follows the _bodySensorMatrix.
+            glm::mat4 worldBodyMatrix = _sensorToWorldMatrix * _bodySensorMatrix;
+            nextAttitude(extractTranslation(worldBodyMatrix), glmExtractRotation(worldBodyMatrix));
+        }
     }
 
     _follow.postPhysicsUpdate(*this);

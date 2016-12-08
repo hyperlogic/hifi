@@ -4025,7 +4025,8 @@ void Application::update(float deltaTime) {
         {
             PROFILE_RANGE_EX("HarvestChanges", 0xffffff00, (uint64_t)getActiveDisplayPlugin()->presentCount());
             PerformanceTimer perfTimer("harvestChanges");
-            if (_physicsEngine->hasOutgoingChanges()) {
+            bool hasOutgoingChanges = _physicsEngine->hasOutgoingChanges();
+            if (hasOutgoingChanges) {
                 getEntities()->getTree()->withWriteLock([&] {
                     PerformanceTimer perfTimer("handleOutgoingChanges");
                     const VectorOfMotionStates& outgoingChanges = _physicsEngine->getOutgoingChanges();
@@ -4047,8 +4048,6 @@ void Application::update(float deltaTime) {
                     getEntities()->update(); // update the models...
                 }
 
-                myAvatar->harvestResultsFromPhysicsSimulation(deltaTime);
-
                 if (Menu::getInstance()->isOptionChecked(MenuOption::DisplayDebugTimingDetails) &&
                         Menu::getInstance()->isOptionChecked(MenuOption::ExpandPhysicsSimulationTiming)) {
                     _physicsEngine->harvestPerformanceStats();
@@ -4056,6 +4055,8 @@ void Application::update(float deltaTime) {
                 // NOTE: the PhysicsEngine stats are written to stdout NOT to Qt log framework
                 _physicsEngine->dumpStatsIfNecessary();
             }
+
+            myAvatar->harvestResultsFromPhysicsSimulation(deltaTime, hasOutgoingChanges);
         }
     }
 

@@ -398,7 +398,7 @@ public:
 
     void updateMotors();
     void prepareForPhysicsSimulation(float deltaTime);
-    void harvestResultsFromPhysicsSimulation(float deltaTime);
+    void harvestResultsFromPhysicsSimulation(float deltaTime, bool hasOutgoingChanges);
 
     const QString& getCollisionSoundURL() { return _collisionSoundURL; }
     void setCollisionSoundURL(const QString& url);
