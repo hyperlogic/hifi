@@ -397,12 +397,14 @@ void MyAvatar::update(float deltaTime) {
 
     // Request to show the hand controllers if we're out-of-body for more then HAND_CONTROLLER_SHOW_TIME.
     // Similarlly request to hide the controllers when we return to our bodies.
-    const float HAND_CONTROLLER_SHOW_TIME = 0.75f;
+    const float HAND_CONTROLLER_SHOW_TIME = 1.0f;
     auto hmdInterface = DependencyManager::get<HMDScriptingInterface>();
-    if (isOutOfBody() != _handControllerShow) {
+
+    bool isFarOutOfBody = isOutOfBody() && _follow._outOfBodyDistance > (TRUNCATE_IK_CAPSULE_RADIUS * 1.05f);
+    if (isFarOutOfBody != _handControllerShow) {
         _handControllerShowTimer += deltaTime;
         if (_handControllerShowTimer > HAND_CONTROLLER_SHOW_TIME) {
-            if (isOutOfBody()) {
+            if (isFarOutOfBody) {
                 hmdInterface->requestShowHandControllers();
                 _handControllerShow = true;
                 _handControllerShowTimer = 0.0f;
