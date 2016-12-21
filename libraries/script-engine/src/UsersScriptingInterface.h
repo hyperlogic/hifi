@@ -52,6 +52,13 @@ public slots:
     void mute(const QUuid& nodeID);
 
     /**jsdoc
+    * Returns a string containing the username associated with the given Avatar UUID
+    * @function Users.getUsernameFromID
+    * @param {nodeID} nodeID The node or session ID of the user whose username you want.
+    */
+    void requestUsernameFromID(const QUuid& nodeID);
+
+    /**jsdoc
     * Returns `true` if the DomainServer will allow this Node/Avatar to make kick
     * @function Users.getCanKick
     * @return {bool} `true` if the client can kick other users, `false` if not.
@@ -77,21 +84,6 @@ public slots:
     void disableIgnoreRadius();
 
     /**jsdoc
-    * sets the parameters for the ignore radius feature.
-    * @function Users.setIgnoreRadius
-    * @param {number} radius The radius for the auto ignore in radius feature
-    * @param {bool} [enabled=true] Whether the ignore in radius feature should be enabled
-    */
-    void setIgnoreRadius(float radius, bool enabled = true);
-
-    /**jsdoc
-    * Returns the effective radius of the ingore radius feature if it is enabled.
-    * @function Users.getIgnoreRadius
-    * @return {number} radius of the ignore feature
-    */
-    float getIgnoreRadius();
-
-    /**jsdoc
     * Returns `true` if the ignore in radius feature is enabled
     * @function Users.getIgnoreRadiusEnabled
     * @return {bool} `true` if the ignore in radius feature is enabled, `false` if not.
@@ -101,6 +93,18 @@ public slots:
 signals:
     void canKickChanged(bool canKick);
     void ignoreRadiusEnabledChanged(bool isEnabled);
+
+    /**jsdoc
+    * Notifies scripts that another user has entered the ignore radius
+    * @function Users.enteredIgnoreRadius
+    */
+    void enteredIgnoreRadius();
+
+    /**jsdoc
+    * Notifies scripts of the username and machine fingerprint associated with a UUID.
+    * @function Users.usernameFromIDReply
+    */
+    void usernameFromIDReply(const QString& nodeID, const QString& username, const QString& machineFingerprint);
 };
 
 

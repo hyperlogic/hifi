@@ -20,6 +20,7 @@
 #include <GeometryUtil.h>
 #include <NumericalConstants.h>
 #include <DebugDraw.h>
+#include <PerfStat.h>
 #include <ScriptValueUtils.h>
 #include <shared/NsightHelpers.h>
 
@@ -916,7 +917,7 @@ void Rig::updateAnimationStateHandlers() { // called on avatar update thread (wh
 
 void Rig::updateAnimations(float deltaTime, glm::mat4 rootTransform) {
 
-    PROFILE_RANGE_EX(__FUNCTION__, 0xffff00ff, 0);
+    PROFILE_RANGE_EX(simulation_animation, __FUNCTION__, 0xffff00ff, 0);
 
     setModelOffset(rootTransform);
 
@@ -1008,10 +1009,6 @@ void Rig::updateFromEyeParameters(const EyeParameters& params) {
     updateEyeJoint(params.rightEyeJointIndex, params.modelTranslation, params.modelRotation,
                    params.worldHeadOrientation, params.eyeLookAt, params.eyeSaccade);
 }
-
-static const glm::vec3 X_AXIS(1.0f, 0.0f, 0.0f);
-static const glm::vec3 Y_AXIS(0.0f, 1.0f, 0.0f);
-static const glm::vec3 Z_AXIS(0.0f, 0.0f, 1.0f);
 
 void Rig::computeHeadNeckAnimVars(const AnimPose& hmdPose, glm::vec3& headPositionOut, glm::quat& headOrientationOut,
                                   glm::vec3& neckPositionOut, glm::quat& neckOrientationOut) const {
@@ -1277,6 +1274,7 @@ void Rig::copyJointsIntoJointData(QVector<JointData>& jointDataVec) const {
 }
 
 void Rig::copyJointsFromJointData(const QVector<JointData>& jointDataVec) {
+    PerformanceTimer perfTimer("copyJoints");
     if (_animSkeleton && jointDataVec.size() == (int)_internalPoseSet._overrideFlags.size()) {
 
         // transform all the default poses into rig space.

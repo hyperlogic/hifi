@@ -18,6 +18,7 @@ UsersScriptingInterface::UsersScriptingInterface() {
     auto nodeList = DependencyManager::get<NodeList>();
     connect(nodeList.data(), &LimitedNodeList::canKickChanged, this, &UsersScriptingInterface::canKickChanged);
     connect(nodeList.data(), &NodeList::ignoreRadiusEnabledChanged, this, &UsersScriptingInterface::ignoreRadiusEnabledChanged);
+    connect(nodeList.data(), &NodeList::usernameFromIDReply, this, &UsersScriptingInterface::usernameFromIDReply);
 }
 
 void UsersScriptingInterface::ignore(const QUuid& nodeID) {
@@ -35,6 +36,11 @@ void UsersScriptingInterface::mute(const QUuid& nodeID) {
     DependencyManager::get<NodeList>()->muteNodeBySessionID(nodeID);
 }
 
+void UsersScriptingInterface::requestUsernameFromID(const QUuid& nodeID) {
+    // ask the Domain Server via the NodeList for the username associated with the given session ID
+    DependencyManager::get<NodeList>()->requestUsernameFromSessionID(nodeID);
+}
+
 bool UsersScriptingInterface::getCanKick() {
     // ask the NodeList to return our ability to kick
     return DependencyManager::get<NodeList>()->getThisNodeCanKick();
@@ -50,14 +56,6 @@ void UsersScriptingInterface::enableIgnoreRadius() {
 
 void UsersScriptingInterface::disableIgnoreRadius() {
     DependencyManager::get<NodeList>()->disableIgnoreRadius();
-}
-
-void UsersScriptingInterface::setIgnoreRadius(float radius, bool enabled) {
-    DependencyManager::get<NodeList>()->ignoreNodesInRadius(radius, enabled);
-}
-
- float UsersScriptingInterface::getIgnoreRadius() {
-    return DependencyManager::get<NodeList>()->getIgnoreRadius();
 }
 
 bool UsersScriptingInterface::getIgnoreRadiusEnabled() {

@@ -43,6 +43,8 @@
 
 #include "DomainServerNodeData.h"
 #include "NodeConnectionData.h"
+#include <Trace.h>
+#include <StatTracker.h>
 
 int const DomainServer::EXIT_CODE_REBOOT = 234923;
 
@@ -73,17 +75,13 @@ DomainServer::DomainServer(int argc, char* argv[]) :
 {
     parseCommandLine();
 
+    DependencyManager::set<tracing::Tracer>();
+    DependencyManager::set<StatTracker>();
+
     LogUtils::init();
     Setting::init();
 
-    setOrganizationName(BuildInfo::MODIFIED_ORGANIZATION);
-    setOrganizationDomain("highfidelity.io");
-    setApplicationName("domain-server");
-    setApplicationVersion(BuildInfo::VERSION);
-    QSettings::setDefaultFormat(QSettings::IniFormat);
-
     qDebug() << "Setting up domain-server";
-
     qDebug() << "[VERSION] Build sequence:" << qPrintable(applicationVersion());
     qDebug() << "[VERSION] MODIFIED_ORGANIZATION:" << BuildInfo::MODIFIED_ORGANIZATION;
     qDebug() << "[VERSION] VERSION:" << BuildInfo::VERSION;
@@ -534,6 +532,7 @@ void DomainServer::setupNodeListAndAssignments() {
     // NodeList won't be available to the settings manager when it is created, so call registerListener here
     packetReceiver.registerListener(PacketType::DomainSettingsRequest, &_settingsManager, "processSettingsRequestPacket");
     packetReceiver.registerListener(PacketType::NodeKickRequest, &_settingsManager, "processNodeKickRequestPacket");
+    packetReceiver.registerListener(PacketType::UsernameFromIDRequest, &_settingsManager, "processUsernameFromIDRequestPacket");
     
     // register the gatekeeper for the packets it needs to receive
     packetReceiver.registerListener(PacketType::DomainConnectRequest, &_gatekeeper, "processConnectRequestPacket");
