@@ -1822,7 +1822,7 @@ void MyAvatar::updateOrientation(float deltaTime) {
     }
 
     // use head/HMD orientation to turn while flying
-    if (getCharacterController()->getState() == CharacterController::State::Hover) {
+    if (qApp->isHMDMode() && getCharacterController()->getState() == CharacterController::State::Hover) {
 
         // This is the direction the user desires to fly in.
         glm::vec3 desiredFacing = getHead()->getCameraOrientation() * Vectors::UNIT_Z;
