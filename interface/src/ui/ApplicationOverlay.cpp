@@ -28,6 +28,7 @@
 #include "Util.h"
 #include "ui/Stats.h"
 #include "ui/AvatarInputs.h"
+#include "overlays/Web3DOverlay.h"
 #include "OffscreenUi.h"
 #include "InterfaceLogging.h"
 #include <QQmlContext>
@@ -54,6 +55,8 @@ ApplicationOverlay::~ApplicationOverlay() {
         geometryCache->releaseID(_rearViewGeometryId);
     }
 }
+
+Web3DOverlay* AJT_HACK_OVERLAY = nullptr;
 
 // Renders the overlays either to a texture or to the screen
 void ApplicationOverlay::renderOverlay(RenderArgs* renderArgs) {
@@ -140,6 +143,11 @@ void ApplicationOverlay::renderAudioScope(RenderArgs* renderArgs) {
 
     // Render the audio scope
     DependencyManager::get<AudioScope>()->render(renderArgs, width, height);
+
+    if (AJT_HACK_OVERLAY) {
+        qDebug() << "AJT: got here";
+        AJT_HACK_OVERLAY->renderFromApplicationOverlay(renderArgs);
+    }
 }
 
 void ApplicationOverlay::renderOverlays(RenderArgs* renderArgs) {

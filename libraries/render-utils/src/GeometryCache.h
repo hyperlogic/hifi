@@ -161,6 +161,9 @@ public:
     void bindOpaqueWebBrowserProgram(gpu::Batch& batch);
     gpu::PipelinePointer getOpaqueWebBrowserProgram();
 
+    void bindOpaqueWebBrowserOverlayProgram(gpu::Batch& batch);
+    gpu::PipelinePointer getOpaqueWebBrowserOverlayProgram();
+
     void bindTransparentWebBrowserProgram(gpu::Batch& batch);
     gpu::PipelinePointer getTransparentWebBrowserProgram();
 
@@ -426,6 +429,9 @@ private:
 
     gpu::ShaderPointer _simpleOpaqueWebBrowserShader;
     gpu::PipelinePointer _simpleOpaqueWebBrowserPipeline;
+
+    gpu::ShaderPointer _simpleOpaqueWebBrowserOverlayShader;
+    gpu::PipelinePointer _simpleOpaqueWebBrowserOverlayPipeline;
 
     gpu::ShaderPointer _simpleTransparentWebBrowserShader;
     gpu::PipelinePointer _simpleTransparentWebBrowserPipeline;

@@ -32,6 +32,7 @@ public:
     QString pickURL();
     void loadSourceURL();
     virtual void render(RenderArgs* args) override;
+    void renderFromApplicationOverlay(RenderArgs* args);
     virtual const render::ShapeKey getShapeKey() override;
 
     virtual void update(float deltatime) override;

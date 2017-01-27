@@ -32,6 +32,9 @@
 #include <gl/OffscreenQmlSurface.h>
 #include <gl/OffscreenQmlSurfaceCache.h>
 
+// AJT: HACK
+extern Web3DOverlay* AJT_HACK_OVERLAY;
+
 static const float DPI = 30.47f;
 static const float INCHES_TO_METERS = 1.0f / 39.3701f;
 static const float METERS_TO_INCHES = 39.3701f;
@@ -66,6 +69,7 @@ Web3DOverlay::~Web3DOverlay() {
         if (rootItem && rootItem->objectName() == "tabletRoot") {
             auto tabletScriptingInterface = DependencyManager::get<TabletScriptingInterface>();
             tabletScriptingInterface->setQmlTabletRoot("com.highfidelity.interface.tablet.system", nullptr, nullptr);
+            AJT_HACK_OVERLAY = nullptr;
         }
 
         // Fix for crash in QtWebEngineCore when rapidly switching domains
@@ -130,7 +134,6 @@ QString Web3DOverlay::pickURL() {
     }
 }
 
-
 void Web3DOverlay::loadSourceURL() {
 
     QUrl sourceUrl(_url);
@@ -158,6 +161,7 @@ void Web3DOverlay::loadSourceURL() {
             // Override min fps for tablet UI, for silky smooth scrolling
             _webSurface->setMaxFps(90);
         }
+        AJT_HACK_OVERLAY = this;
     }
     _webSurface->getRootContext()->setContextProperty("globalPosition", vec3toVariant(getPosition()));
 }
@@ -247,12 +251,44 @@ void Web3DOverlay::render(RenderArgs* args) {
     gpu::Batch& batch = *args->_batch;
     batch.setResourceTexture(0, _texture);
     batch.setModelTransform(transform);
+
     auto geometryCache = DependencyManager::get<GeometryCache>();
     if (color.a < OPAQUE_ALPHA_THRESHOLD) {
         geometryCache->bindTransparentWebBrowserProgram(batch);
     } else {
         geometryCache->bindOpaqueWebBrowserProgram(batch);
     }
+    geometryCache->renderQuad(batch, halfSize * -1.0f, halfSize, vec2(0), vec2(1), color, _geometryId);
+    batch.setResourceTexture(0, args->_whiteTexture); // restore default white color after me
+}
+
+void Web3DOverlay::renderFromApplicationOverlay(RenderArgs* args) {
+
+    Q_ASSERT(args->_batch);
+    gpu::Batch& batch = *args->_batch;
+    batch.setResourceTexture(0, _texture);
+
+    vec2 halfSize = getSize() / 2.0f;
+    vec4 color(toGlm(getColor()), getAlpha());
+
+    Transform transform = getTransform();
+    if (glm::length2(getDimensions()) != 1.0f) {
+        transform.postScale(vec3(getDimensions(), 1.0f));
+    }
+
+    batch.setModelTransform(transform);
+
+    // AJT: HACK only necessary in 2d mode
+    glm::mat4 projMat;
+    Transform viewMat;
+    args->getViewFrustum().evalProjectionMatrix(projMat);
+    args->getViewFrustum().evalViewTransform(viewMat);
+
+    batch.setProjectionTransform(projMat);
+    batch.setViewTransform(viewMat);
+
+    auto geometryCache = DependencyManager::get<GeometryCache>();
+    geometryCache->bindOpaqueWebBrowserOverlayProgram(batch);
     geometryCache->renderQuad(batch, halfSize * -1.0f, halfSize, vec2(0), vec2(1), color, _geometryId);
     batch.setResourceTexture(0, args->_whiteTexture); // restore default white color after me
 }
