@@ -54,8 +54,8 @@ public:
     QString getDefaultScriptsLocation() const;
 
     Q_INVOKABLE void loadOneScript(const QString& scriptFilename);
-    Q_INVOKABLE ScriptEngine* loadScript(const QUrl& scriptFilename = QString(),
-        bool isUserLoaded = true, bool loadScriptFromEditor = false, bool activateMainWindow = false, bool reload = false);
+    Q_INVOKABLE ScriptEngine* loadScript(const QUrl& scriptFilename = QString(), bool isUserLoaded = true, bool loadScriptFromEditor = false,
+                                         bool activateMainWindow = false, bool reload = false, bool isHighPriority = false);
     Q_INVOKABLE bool stopScript(const QString& scriptHash, bool restart = false);
 
     Q_INVOKABLE void reloadAllScripts();
@@ -70,6 +70,8 @@ public:
     // Called at shutdown time
     void shutdownScripting();
     bool isStopped() const { return _isStopped; }
+
+    void ScriptEngines::updateHighPriorityScripts();
 
 signals:
     void scriptCountChanged();

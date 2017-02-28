@@ -28,7 +28,6 @@ var DEFAULT_SCRIPTS = [
     "system/selectAudioDevice.js",
     "system/notifications.js",
     "system/controllers/controllerDisplayManager.js",
-    "system/controllers/handControllerGrab.js",
     "system/controllers/handControllerPointer.js",
     "system/controllers/squeezeHands.js",
     "system/controllers/grab.js",
@@ -37,6 +36,10 @@ var DEFAULT_SCRIPTS = [
     "system/dialTone.js",
     "system/firstPersonHMD.js",
     "system/tablet-ui/tabletUI.js"
+];
+
+var HIGH_PRIORITY_SCRIPTS = [
+    "system/controllers/handControllerGrab.js"
 ];
 
 // add a menu item for debugging
@@ -76,6 +79,25 @@ function runDefaultsSeparately() {
     }
 }
 
+function runHighPriorityScripts() {
+    var isHighPriority = true;
+    for (var i = 0; i < HIGH_PRIORITY_SCRIPTS.length; i++) {
+        Script.load(HIGH_PRIORITY_SCRIPTS[i], isHighPriority);
+    }
+}
+
+function removeHighPriorityScripts() {
+    var runningScripts = ScriptDiscoveryService.getRunning();
+    for (var i = 0; i < runningScripts.length; i++) {
+        var scriptName = runningScripts[i].name;
+        for (var j = 0; j < HIGH_PRIORITY_SCRIPTS.length; j++) {
+            if (HIGH_PRIORITY_SCRIPTS[j].slice(-scriptName.length) === scriptName) {
+                ScriptDiscoveryService.stopScript(runningScripts[i].url);
+            }
+        }
+    }
+}
+
 // start all scripts
 if (Menu.isOptionChecked(MENU_ITEM)) {
     // we're debugging individual default scripts
@@ -85,6 +107,7 @@ if (Menu.isOptionChecked(MENU_ITEM)) {
     // include all default scripts into this ScriptEngine
     runDefaultsTogether();
 }
+runHighPriorityScripts();
 
 function menuItemEvent(menuItem) {
     if (menuItem === MENU_ITEM) {
@@ -105,6 +128,7 @@ function removeMenuItem() {
 }
 
 Script.scriptEnding.connect(function() {
+    removeHighPriorityScripts();
     removeMenuItem();
 });
 

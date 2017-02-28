@@ -197,7 +197,7 @@ ScriptEngine::ScriptEngine(Context context, const QString& scriptContents, const
         reportUncaughtException();
         clearExceptions();
     });
-    
+
     setProcessEventsInterval(MSECS_PER_SECOND);
     if (isEntityServerScript()) {
         qCDebug(scriptengine) << "isEntityServerScript() -- limiting maxRetries to 1";
@@ -210,6 +210,8 @@ QString ScriptEngine::getContext() const {
     switch (_context) {
         case CLIENT_SCRIPT:
             return "client";
+        case HIGH_PRIORITY_CLIENT_SCRIPT:
+            return "high_priority_client";
         case ENTITY_CLIENT_SCRIPT:
             return "entity_client";
         case ENTITY_SERVER_SCRIPT:
@@ -329,6 +331,46 @@ void ScriptEngine::runDebuggable() {
     timer->start(10);
 }
 
+void ScriptEngine::initHighProrityScript() {
+    _isThreaded = false;
+    init();
+    _isRunning = true;
+    emit runningStateChanged();
+    QScriptValue result = evaluate(_scriptContents, _fileNameString);
+    _lastUpdate = usecTimestampNow();
+}
+
+void ScriptEngine::updateHighPriorityScript() {
+    if (_isFinished) {
+        return;
+    }
+
+    qint64 now = usecTimestampNow();
+
+    if (_emitScriptUpdates() && _lastUpdate < now) {
+        float deltaTime = (float) (now - _lastUpdate) / (float) USECS_PER_SECOND;
+        emit update(deltaTime);
+    }
+    _lastUpdate = now;
+
+    if (hasUncaughtException()) {
+        reportUncaughtException();
+        clearExceptions();
+    }
+}
+
+void ScriptEngine::stopHighPriorityScript() {
+    scriptInfoMessage("Script Engine stopping:" + getFilename());
+
+    stopAllTimers(); // make sure all our timers are stopped if the script is ending
+    emit scriptEnding();
+
+    emit finished(_fileNameString, this);
+
+    _isRunning = false;
+    emit runningStateChanged();
+    emit doneRunning();
+}
 
 void ScriptEngine::runInThread() {
     Q_ASSERT_X(!_isThreaded, "ScriptEngine::runInThread()", "runInThread should not be called more than once");
@@ -345,7 +387,7 @@ void ScriptEngine::runInThread() {
     QThread* workerThread = new QThread();
     workerThread->setObjectName(QString("Script Thread:") + getFilename());
     moveToThread(workerThread);
-    
+
     // NOTE: If you connect any essential signals for proper shutdown or cleanup of
     // the script engine, make sure to add code to "reconnect" them to the
     // disconnectNonEssentialSignals() method
@@ -1413,7 +1455,7 @@ void ScriptEngine::include(const QString& includeFile, QScriptValue callback) {
 // NOTE: The load() command is similar to the include() command except that it loads the script
 // as a stand-alone script. To accomplish this, the ScriptEngine class just emits a signal which
 // the Application or other context will connect to in order to know to actually load the script
-void ScriptEngine::load(const QString& loadFile) {
+void ScriptEngine::load(const QString& loadFile, bool isHighPriority) {
     if (DependencyManager::get<ScriptEngines>()->isStopped()) {
         scriptWarningMessage("Script.load() while shutting down is ignored... loadFile:" 
                 + loadFile + "parent script:" + getFilename());
@@ -1426,12 +1468,13 @@ void ScriptEngine::load(const QString& loadFile) {
     }
 
     QUrl url = resolvePath(loadFile);
+    const bool isUserLoaded = false;
     if (_isReloading) {
         auto scriptCache = DependencyManager::get<ScriptCache>();
         scriptCache->deleteScript(url.toString());
-        emit reloadScript(url.toString(), false);
+        emit reloadScript(url.toString(), isUserLoaded, isHighPriority);
     } else {
-        emit loadScript(url.toString(), false);
+        emit loadScript(url.toString(), isUserLoaded, isHighPriority);
     }
 }
 

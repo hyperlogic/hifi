@@ -4485,6 +4485,9 @@ void Application::update(float deltaTime) {
         }
     }
 
+    auto scriptEngines = DependencyManager::get<ScriptEngines>().data();
+    scriptEngines->updateHighPriorityScripts();
+
     {
         PROFILE_RANGE_EX(app, "Overlays", 0xffff0000, (uint64_t)getActiveDisplayPlugin()->presentCount());
         PerformanceTimer perfTimer("overlays");

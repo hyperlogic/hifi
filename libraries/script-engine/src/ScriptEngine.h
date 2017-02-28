@@ -85,6 +85,7 @@ public:
 
     enum Context {
         CLIENT_SCRIPT,
+        HIGH_PRIORITY_CLIENT_SCRIPT,
         ENTITY_CLIENT_SCRIPT,
         ENTITY_SERVER_SCRIPT,
         AGENT_SCRIPT
@@ -93,6 +94,10 @@ public:
     static int processLevelMaxRetries;
     ScriptEngine(Context context, const QString& scriptContents = NO_SCRIPT, const QString& fileNameString = QString(""));
     ~ScriptEngine();
+
+    void initHighProrityScript();
+    void updateHighPriorityScript();
+    void stopHighPriorityScript();
 
     /// run the script in a dedicated thread. This will have the side effect of evalulating
     /// the current script contents and calling run(). Callers will likely want to register the script with external
@@ -154,7 +159,7 @@ public:
     Q_INVOKABLE void addEventHandler(const EntityItemID& entityID, const QString& eventName, QScriptValue handler);
     Q_INVOKABLE void removeEventHandler(const EntityItemID& entityID, const QString& eventName, QScriptValue handler);
 
-    Q_INVOKABLE void load(const QString& loadfile);
+    Q_INVOKABLE void load(const QString& loadfile, bool isHighPriority = false);
     Q_INVOKABLE void include(const QStringList& includeFiles, QScriptValue callback = QScriptValue());
     Q_INVOKABLE void include(const QString& includeFile, QScriptValue callback = QScriptValue());
 
@@ -229,8 +234,8 @@ signals:
     void infoMessage(const QString& message);
     void runningStateChanged();
     void evaluationFinished(QScriptValue result, bool isException);
-    void loadScript(const QString& scriptName, bool isUserLoaded);
-    void reloadScript(const QString& scriptName, bool isUserLoaded);
+    void loadScript(const QString& scriptName, bool isUserLoaded, bool isHighPriority);
+    void reloadScript(const QString& scriptName, bool isUserLoaded, bool isHighPriority);
     void doneRunning();
 
     // Emitted when an entity script is added or removed, or when the status of an entity
@@ -238,6 +243,7 @@ signals:
     void entityScriptDetailsUpdated();
 
 protected:
+    friend class ScriptEngines;
     void init();
 
     QString reportUncaughtException(const QString& overrideFileName = QString());

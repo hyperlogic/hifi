@@ -428,7 +428,7 @@ void ScriptEngines::reloadAllScripts() {
 }
 
 ScriptEngine* ScriptEngines::loadScript(const QUrl& scriptFilename, bool isUserLoaded, bool loadScriptFromEditor,
-                                        bool activateMainWindow, bool reload) {
+                                        bool activateMainWindow, bool reload, bool highPriority) {
     if (thread() != QThread::currentThread()) {
         ScriptEngine* result { nullptr };
         QMetaObject::invokeMethod(this, "loadScript", Qt::BlockingQueuedConnection, Q_RETURN_ARG(ScriptEngine*, result),
@@ -436,7 +436,8 @@ ScriptEngine* ScriptEngines::loadScript(const QUrl& scriptFilename, bool isUserL
             Q_ARG(bool, isUserLoaded),
             Q_ARG(bool, loadScriptFromEditor),
             Q_ARG(bool, activateMainWindow),
-            Q_ARG(bool, reload));
+            Q_ARG(bool, reload),
+            Q_ARG(bool, highPriority));
         return result;
     }
     QUrl scriptUrl;
@@ -452,11 +453,16 @@ ScriptEngine* ScriptEngines::loadScript(const QUrl& scriptFilename, bool isUserL
     }
 
     auto scriptEngine = getScriptEngine(scriptUrl);
-    if (scriptEngine && !scriptEngine->isStopping()) {
+    if (!highPriority && scriptEngine && !scriptEngine->isStopping()) {
         return scriptEngine;
     }
 
-    scriptEngine = new ScriptEngine(_context, NO_SCRIPT, "");
+    ScriptEngine::Context context = _context;
+    if (_context == ScriptEngine::CLIENT_SCRIPT && highPriority) {
+        context = ScriptEngine::HIGH_PRIORITY_CLIENT_SCRIPT;
+    }
+
+    scriptEngine = new ScriptEngine(context, NO_SCRIPT, "");
     scriptEngine->setUserLoaded(isUserLoaded);
     connect(scriptEngine, &ScriptEngine::doneRunning, this, [scriptEngine] {
         scriptEngine->deleteLater();
@@ -508,11 +514,11 @@ void ScriptEngines::onScriptEngineLoaded(const QString& rawScriptURL) {
 
 void ScriptEngines::launchScriptEngine(ScriptEngine* scriptEngine) {
     connect(scriptEngine, &ScriptEngine::finished, this, &ScriptEngines::onScriptFinished, Qt::DirectConnection);
-    connect(scriptEngine, &ScriptEngine::loadScript, [&](const QString& scriptName, bool userLoaded) {
-        loadScript(scriptName, userLoaded);
+    connect(scriptEngine, &ScriptEngine::loadScript, [&](const QString& scriptName, bool isUserLoaded, bool isHighPriority) {
+        loadScript(scriptName, isUserLoaded, false, false, false, isHighPriority);
     });
-    connect(scriptEngine, &ScriptEngine::reloadScript, [&](const QString& scriptName, bool userLoaded) {
-        loadScript(scriptName, userLoaded, false, false, true);
+    connect(scriptEngine, &ScriptEngine::reloadScript, [&](const QString& scriptName, bool isUserLoaded, bool isHighPriority) {
+        loadScript(scriptName, isUserLoaded, false, false, true, isHighPriority);
     });
 
     // register our application services and set it off on its own thread
@@ -524,7 +530,11 @@ void ScriptEngines::launchScriptEngine(ScriptEngine* scriptEngine) {
     if (HIFI_SCRIPT_DEBUGGABLES && wantDebug) {
         scriptEngine->runDebuggable();
     } else {
-        scriptEngine->runInThread();
+        if (scriptEngine->_context == ScriptEngine::HIGH_PRIORITY_CLIENT_SCRIPT) {
+            scriptEngine->initHighProrityScript();
+        } else {
+            scriptEngine->runInThread();
+        }
     }
 }
 
@@ -555,4 +565,25 @@ void ScriptEngines::onScriptEngineError(const QString& scriptFilename) {
 
 QString ScriptEngines::getDefaultScriptsLocation() const {
     return defaultScriptsLocation().toString();
+}
+
+void ScriptEngines::updateHighPriorityScripts() {
+    QVector<ScriptEngine*> stopList;
+    {
+        QMutexLocker locker(&_allScriptsMutex);
+        QSetIterator<ScriptEngine*> i(_allKnownScriptEngines);
+        while (i.hasNext()) {
+            ScriptEngine* scriptEngine = i.next();
+            if (scriptEngine->_context == ScriptEngine::HIGH_PRIORITY_CLIENT_SCRIPT) {
+                scriptEngine->updateHighPriorityScript();
+                if (scriptEngine->_isRunning && scriptEngine->_isFinished) {
+                    stopList << scriptEngine;
+                }
+            }
+        }
+    }
+
+    for (auto& scriptEngine : stopList) {
+        scriptEngine->stopHighPriorityScript();
+    }
 }
