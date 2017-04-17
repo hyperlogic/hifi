@@ -42,13 +42,15 @@ public:
     };
 
     struct HeadParameters {
-        glm::quat worldHeadOrientation = glm::quat();  // world space (-z forward)
-        glm::quat rigHeadOrientation = glm::quat();  // rig space (-z forward)
-        glm::vec3 rigHeadPosition = glm::vec3();     // rig space
-        glm::mat4 hipsMatrix = glm::mat4();          // rig space
-        bool hipsEnabled = false;
-        bool isInHMD = false;
+        glm::mat4 hipsMatrix = glm::mat4();           // rig space
+        glm::mat4 spine2Matrix = glm::mat4();         // rig space
+        glm::quat worldHeadOrientation = glm::quat(); // world space (-z forward)
+        glm::quat rigHeadOrientation = glm::quat();   // rig space (z forward)
+        glm::vec3 rigHeadPosition = glm::vec3();      // rig space
         int neckJointIndex = -1;
+        bool hipsEnabled = false;
+        bool spine2Enabled = false;
+        bool isInHMD = false;
         bool isTalking = false;
     };
 

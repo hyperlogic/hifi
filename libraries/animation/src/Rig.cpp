@@ -1025,13 +1025,19 @@ void Rig::updateFromHeadParameters(const HeadParameters& params, float dt) {
     _animVars.set("isTalking", params.isTalking);
     _animVars.set("notIsTalking", !params.isTalking);
 
-    // AJT:
+    // AJT: TODO: make sure hipsMatrix and spineMatrix are in correct coordinate space.
     if (params.hipsEnabled) {
         _animVars.set("hipsType", (int)IKTarget::Type::RotationAndPosition);
         _animVars.set("hipsPosition", extractTranslation(params.hipsMatrix));
         _animVars.set("hipsRotation", glmExtractRotation(params.hipsMatrix) * Quaternions::Y_180);
     } else {
         _animVars.set("hipsType", (int)IKTarget::Type::Unknown);
+    }
+
+    if (params.spine2Enabled) {
+        _animVars.set("spine2Type", (int)IKTarget::Type::RotationAndPosition);
+        _animVars.set("spine2Position", extractTranslation(params.hipsMatrix));
+        _animVars.set("spine2Rotation", glmExtractRotation(params.hipsMatrix) * Quaternions::Y_180);
     }
 
     // by default this IK target is disabled.

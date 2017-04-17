@@ -12,17 +12,24 @@ var calibrated = false;
 var rightTriggerPressed = false;
 var leftTriggerPressed = false;
 
-var MAPPING_NAME = "com.highfidelity.viveMotionCapture";
+var TRIGGER_MAPPING_NAME = "com.highfidelity.viveMotionCapture.triggerMapping";
 
-var mapping = Controller.newMapping(MAPPING_NAME);
-mapping.from([Controller.Standard.RTClick]).peek().to(function (value) {
+var triggerMapping = Controller.newMapping(TRIGGER_MAPPING_NAME);
+triggerMapping.from([Controller.Standard.RTClick]).peek().to(function (value) {
     rightTriggerPressed = (value !== 0) ? true : false;
 });
-mapping.from([Controller.Standard.LTClick]).peek().to(function (value) {
+triggerMapping.from([Controller.Standard.LTClick]).peek().to(function (value) {
     leftTriggerPressed = (value !== 0) ? true : false;
 });
 
-Controller.enableMapping(MAPPING_NAME);
+Controller.enableMapping(TRIGGER_MAPPING_NAME);
+
+var RED = {x: 1, y: 0, z: 0, w: 1};
+var GREEN = {x: 0, y: 1, z: 0, w: 1};
+var BLUE = {x: 0, y: 0, z: 1, w: 1};
+
+var POSE_MAPPING_NAME = "com.highfidelity.viveMotionCapture.poseMapping";
+var poseMappingCount = 0;
 
 var leftFoot;
 var rightFoot;
@@ -86,7 +93,7 @@ function computeDefaultToReferenceXform() {
 
         return defaultToReferenceXform;
     } else {
-        return new Xform.ident();
+        return Xform.ident();
     }
 }
 
@@ -190,12 +197,23 @@ var ikTypes = {
     Off: 4
 };
 
-var handlerId;
-
 function computeIKTargetXform(jointInfo) {
     var pose = Controller.getPoseValue(jointInfo.channel);
     var offsetXform = jointInfo.offsetXform;
     return Xform.mul(Y_180_XFORM, Xform.mul(new Xform(pose.rotation, pose.translation), offsetXform));
+}
+
+function createMappingFunction(pose) {
+    return function () {
+        var xform = computeIKTargetXform(pose);
+        return {
+            translation: xform.pos,
+            rotation: xform.rot,
+            velocity: {x: 0, y: 0, z: 0}, // AJT: TODO:
+            angularVelocity: {x: 0, y: 0, z: 0}, // AJT: TODO:
+            valid: true
+        };
+    };
 }
 
 function update(dt) {
@@ -204,12 +222,34 @@ function update(dt) {
             calibrate();
             calibrated = true;
 
-            if (handlerId) {
-                MyAvatar.removeAnimationStateHandler(handlerId);
+            if (poseMapping) {
+                Controller.disableMapping(POSE_MAPPING_NAME + poseMappingCount);
+                poseMappingCount++;
             }
 
-            handlerId = MyAvatar.addAnimationStateHandler(function (props) {
+            var poseMapping = Controller.newMapping(TRIGGER_MAPPING_NAME + poseMappingCount);
 
+            if (rightFoot) {
+                poseMapping.from(createMappingFunction(rightFoot));
+            }
+
+            if (leftFoot) {
+                poseMapping.from(createMappingFunction(leftFoot));
+            }
+
+            if (hips) {
+                poseMapping.from(createMappingFunction(hips));
+            }
+
+            if (spine2) {
+                poseMapping.from(createMappingFunction(spine2));
+            }
+
+            Controller.enableMapping(TRIGGER_MAPPING_NAME + poseMappingCount);
+
+
+            /*
+            handlerId = MyAvatar.addAnimationStateHandler(function (props) {
                 var result = {}, xform;
                 if (rightFoot) {
                     xform = computeIKTargetXform(rightFoot);
@@ -255,7 +295,7 @@ function update(dt) {
 
                 return result;
             }, ANIM_VARS);
-
+            */
         }
     } else {
         calibrated = false;
@@ -263,9 +303,6 @@ function update(dt) {
 
     var drawMarkers = false;
     if (drawMarkers) {
-        var RED = {x: 1, y: 0, z: 0, w: 1};
-        var GREEN = {x: 0, y: 1, z: 0, w: 1};
-        var BLUE = {x: 0, y: 0, z: 1, w: 1};
 
         if (leftFoot) {
             var leftFootPose = Controller.getPoseValue(leftFoot.channel);
@@ -285,7 +322,6 @@ function update(dt) {
 
     var drawReferencePose = false;
     if (drawReferencePose) {
-        var GREEN = {x: 0, y: 1, z: 0, w: 1};
         var defaultToReferenceXform = computeDefaultToReferenceXform();
         var leftFootIndex = MyAvatar.getJointIndex("LeftFoot");
         if (leftFootIndex > 0) {
@@ -295,13 +331,12 @@ function update(dt) {
             DebugDraw.addMyAvatarMarker("leftFootTracker", referenceLeftFootXform.rot, referenceLeftFootXform.pos, GREEN);
         }
     }
-
 }
 
 Script.update.connect(update);
 
 Script.scriptEnding.connect(function () {
-    Controller.disableMapping(MAPPING_NAME);
+    Controller.disableMapping(TRIGGER_MAPPING_NAME);
     Script.update.disconnect(update);
 });
 var TRIGGER_OFF_VALUE = 0.1;

@@ -120,8 +120,27 @@ void SkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
             headParams.rigHeadOrientation = extractRotation(rigHMDMat);
             headParams.worldHeadOrientation = extractRotation(worldHMDMat);
 
-            headParams.hipsMatrix = worldToRig * myAvatar->getSensorToWorldMatrix() * myAvatar->deriveBodyFromHMDSensor();
-            headParams.hipsEnabled = true;
+            auto hipsControllerPose = myAvatar->getHipsControllerPoseInAvatarFrame();
+            if (hipsControllerPose.isValid()) {
+                headParams.hipsMatrix = createMatFromQuatAndPos(hipsControllerPose.getRotation(), hipsControllerPose.getTranslation());
+                headParams.hipsEnabled = true;
+            } else {
+                // AJT: TODO: re-enable old style hips computation
+                // Make an estimate of where the hips should be.
+                headParams.hipsMatrix = worldToRig * myAvatar->getSensorToWorldMatrix() * myAvatar->deriveBodyFromHMDSensor();
+                headParams.hipsEnabled = true;
+            }
+
+            // AJT: TODO Pass spine2 to headParams
+            auto spine2ControllerPose = myAvatar->getHipsControllerPoseInAvatarFrame();
+            if (spine2ControllerPose.isValid()) {
+                headParams.spine2Matrix = createMatFromQuatAndPos(spine2ControllerPose.getRotation(), spine2ControllerPose.getTranslation());
+                headParams.spine2Enabled = true;
+            } else {
+                headParams.spine2Enabled = false;
+            }
+
+
         } else {
             headParams.hipsEnabled = false;
             headParams.isInHMD = false;

@@ -1384,6 +1384,43 @@ controller::Pose MyAvatar::getRightFootControllerPoseInAvatarFrame() const {
     return getRightFootControllerPoseInWorldFrame().transform(invAvatarMatrix);
 }
 
+void MyAvatar::setSpineControllerPosesInSensorFrame(const controller::Pose& hips, const controller::Pose& spine2) {
+    if (controller::InputDevice::getLowVelocityFilter()) {
+        auto oldHipsPose = getHipsControllerPoseInSensorFrame();
+        auto oldSpine2Pose = getSpine2ControllerPoseInSensorFrame();
+        _hipsControllerPoseInSensorFrameCache.set(applyLowVelocityFilter(oldHipsPose, hips));
+        _spine2ControllerPoseInSensorFrameCache.set(applyLowVelocityFilter(oldSpine2Pose, spine2));
+    } else {
+        _hipsControllerPoseInSensorFrameCache.set(hips);
+        _spine2ControllerPoseInSensorFrameCache.set(spine2);
+    }
+}
+
+controller::Pose MyAvatar::getHipsControllerPoseInSensorFrame() const {
+    return _hipsControllerPoseInSensorFrameCache.get();
+}
+
+controller::Pose MyAvatar::getSpine2ControllerPoseInSensorFrame() const {
+    return _spine2ControllerPoseInSensorFrameCache.get();
+}
+
+controller::Pose MyAvatar::getHipsControllerPoseInWorldFrame() const {
+    return _hipsControllerPoseInSensorFrameCache.get().transform(getSensorToWorldMatrix());
+}
+
+controller::Pose MyAvatar::getSpine2ControllerPoseInWorldFrame() const {
+    return _spine2ControllerPoseInSensorFrameCache.get().transform(getSensorToWorldMatrix());
+}
+
+controller::Pose MyAvatar::getHipsControllerPoseInAvatarFrame() const {
+    glm::mat4 invAvatarMatrix = glm::inverse(createMatFromQuatAndPos(getOrientation(), getPosition()));
+    return getHipsControllerPoseInWorldFrame().transform(invAvatarMatrix);
+}
+
+controller::Pose MyAvatar::getSpine2ControllerPoseInAvatarFrame() const {
+    glm::mat4 invAvatarMatrix = glm::inverse(createMatFromQuatAndPos(getOrientation(), getPosition()));
+    return getSpine2ControllerPoseInWorldFrame().transform(invAvatarMatrix);
+}
 
 void MyAvatar::updateMotors() {
     _characterController.clearMotors();
