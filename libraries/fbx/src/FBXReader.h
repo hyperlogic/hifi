@@ -56,6 +56,7 @@ public:
 
 struct FBXJointShapeInfo {
     // same units and frame as FBXJoint.translation
+    glm::vec3 avgPoint;
     QVector<glm::vec3> points;
 };
 

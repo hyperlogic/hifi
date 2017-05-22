@@ -1778,6 +1778,7 @@ FBXGeometry* FBXReader::extractFBXGeometry(const QVariantHash& mapping, const QS
                 avgPoint += points[j];
             }
             avgPoint /= (float)points.size();
+            joint.shapeInfo.avgPoint = avgPoint;
 
             // compute a k-Dop bounding volume
             for (uint32_t j = 0; j < cardinalDirections.size(); ++j) {

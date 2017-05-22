@@ -1494,4 +1494,126 @@ void Rig::computeAvatarBoundingCapsule(
     localOffsetOut = rigCenter - (geometryToRig * rootPosition);
 }
 
+/*
+const int NUM_DOPS = 14;
+glm::vec3 dopNormals[NUM_DOPS] = {
+    Vectors::UNIT_X,
+    -Vectors::UNIT_X,
+    Vectors::UNIT_Y,
+    -Vectors::UNIT_Y,
+    Vectors::UNIT_Z,
+    -Vectors::UNIT_Z,
+    glm::vec3(INV_SQRT_3, INV_SQRT_3, INV_SQRT_3),
+    -glm::vec3(INV_SQRT_3, INV_SQRT_3, INV_SQRT_3),
+    glm::vec3(INV_SQRT_3, -INV_SQRT_3, INV_SQRT_3),
+    -glm::vec3(INV_SQRT_3, -INV_SQRT_3, INV_SQRT_3),
+    glm::vec3(INV_SQRT_3, INV_SQRT_3, -INV_SQRT_3),
+    -glm::vec3(INV_SQRT_3, INV_SQRT_3, -INV_SQRT_3),
+    glm::vec3(INV_SQRT_3, -INV_SQRT_3, -INV_SQRT_3),
+    -glm::vec3(INV_SQRT_3, -INV_SQRT_3, -INV_SQRT_3)
+};
+*/
 
+struct KDopLine {
+    glm::vec3 n;
+    glm::vec3 p;
+    int iPlane;
+    int jPlane;
+    glm::vec3 eval(float t) const { return p + (n * t); }
+};
+
+struct KDopPoint {
+    glm::vec3 p;
+    int l1iPlane;
+    int l1jPlane;
+    int l2iPlane;
+    int l2jPlane;
+};
+
+struct FourteenDop {
+    float dots[NUM_DOPS];
+};
+
+static bool lineLineIntersection(const KDopLine& l1, const KDopLine& l2, KDopPoint* pointOut) {
+    // compute nearest between the two lines.
+    glm::vec3 r = l1.p - l2.p;
+    float a = glm::dot(l1.n, l1.n);
+    float b = glm::dot(l1.n, l2.n);
+    float c = glm::dot(l1.n, r);
+    float e = glm::dot(l2.n, l2.n);
+    float f = glm::dot(l2.n, r);
+    float d = a * e - b * b;
+    if (fabsf(d) < 0.0001f) {
+        // lines are parallel
+        return false;
+    } else {
+        float s = (b * f - c * e) / d;
+        float t = (a * f - b * c) / d;
+        glm::vec3 p1 = l1.eval(s);
+        glm::vec3 p2 = l2.eval(t);
+        float len = glm::length(p1 - p2);
+        if (len > 0.01f) {
+            // lines are too far apart and don't intersect
+            return false;
+        } else {
+            *pointOut = { p1, l1.iPlane, l1.jPlane, l2.iPlane, l2.jPlane };
+            return true;
+        }
+    }
+}
+
+void Rig::debugDrawKDop(const FBXJointShapeInfo& shapeInfo, const AnimPose& rigToWorldPose) const {
+    std::vector<KDopLine> lines;
+
+    // find all the lines where two planes intersect
+    for (int i = 0; i < shapeInfo.points.size(); i++) {
+        for (int j = i + 1; j < shapeInfo.points.size(); j++) {
+
+            // compute planes p1 and p2
+            float p1d = glm::length(shapeInfo.points[i] - shapeInfo.avgPoint);
+            glm::vec3 p1n = (shapeInfo.points[i] - shapeInfo.avgPoint) / p1d;
+            float p2d = glm::length(shapeInfo.points[j] - shapeInfo.avgPoint);
+            glm::vec3 p2n = (shapeInfo.points[j] - shapeInfo.avgPoint) / p1d;
+
+            // check if they intersect
+            glm::vec3 u = glm::cross(p1n, p2n);
+            if (glm::dot(u, u) >= 0.001f) {
+                // compute line of intersection between planes
+                float d11 = glm::dot(p1n, p1n);
+                float d12 = glm::dot(p1n, p2n);
+                float d22 = glm::dot(p2n, p2n);
+                float denom = d11 * d22 - d12 * d12;
+                float k1 = (p1d * d22 - p2d * d12) / denom;
+                float k2 = (p2d * d11 - p1d * d12) / denom;
+                KDopLine l = { u, k1 * p1n + k2 * p2n, i, j };
+                lines.push_back(l);
+            }
+        }
+    }
+
+    // find all the points where two lines intersect
+    std::vector<KDopPoint> points;
+    for (int i = 0; i < lines.size(); i++) {
+        for (int j = i + 1; j < lines.size(); j++) {
+            // check if lines intersect
+            KDopPoint intersectionPoint;
+            if (lineLineIntersection(lines[i], lines[j], &intersectionPoint)) {
+                points.push_back(intersectionPoint);
+            }
+        }
+    }
+
+    // TODO: filter the points, that aren't on the kdop surface
+    std::vector<glm::vec3> renderPoints;
+    for (auto& point : points) {
+        renderPoints.push_back(point.p);
+    }
+
+    // draw points!
+    const glm::vec3 TINY(0.0f, 0.01f, 0.0f);
+    const glm::vec4 GREEN(0.0f, 1.0f, 0.0f, 1.0f);
+    for (auto& point : renderPoints) {
+        glm::vec3 worldPoint = rigToWorldPose.xformPoint(transformPoint(getGeometryToRigTransform(), point + shapeInfo.avgPoint));
+        DebugDraw::getInstance().drawRay(worldPoint, worldPoint + TINY, GREEN);
+    }
+}

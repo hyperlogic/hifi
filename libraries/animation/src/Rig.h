@@ -237,6 +237,8 @@ public:
     // input assumed to be in rig space
     void computeHeadFromHMD(const AnimPose& hmdPose, glm::vec3& headPositionOut, glm::quat& headOrientationOut) const;
 
+    void debugDrawKDop(const FBXJointShapeInfo& shapeInfo, const AnimPose& rigToWorldPose) const;
+
 signals:
     void onLoadComplete();
 

@@ -159,5 +159,10 @@ void MySkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
     eyeParams.rightEyeJointIndex = geometry.rightEyeJointIndex;
 
     _rig->updateFromEyeParameters(eyeParams);
+
+    // AJT: TODO REMOVE DEBUG
+    int hipsIndex = _rig->indexOfJoint("Hips");
+    AnimPose rigToWorldPose(glm::vec3(1.0f), getRotation(), getTranslation());
+    _rig->debugDrawKDop(geometry.joints[hipsIndex].shapeInfo, rigToWorldPose);
 }
 
