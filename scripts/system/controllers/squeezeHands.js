@@ -58,14 +58,24 @@ function init() {
             "leftHandOverlayAlpha", "leftHandGraspAlpha",
             "rightHandOverlayAlpha", "rightHandGraspAlpha",
             "isLeftHandGrasp", "isLeftIndexPoint", "isLeftThumbRaise", "isLeftIndexPointAndThumbRaise",
-            "isRightHandGrasp", "isRightIndexPoint", "isRightThumbRaise", "isRightIndexPointAndThumbRaise"
+            "isRightHandGrasp", "isRightIndexPoint", "isRightThumbRaise", "isRightIndexPointAndThumbRaise",
+            "ikOverlayAlpha"
         ]
     );
     Messages.subscribe(HIFI_POINT_INDEX_MESSAGE_CHANNEL);
     Messages.messageReceived.connect(handleMessages);
 }
 
+var lastIKOverlayAlpha = 1.0;
+
 function animStateHandler(props) {
+    var isDriving = (Controller.getValue(Controller.Standard.LY) !== 0 ||
+                     Controller.getValue(Controller.Standard.LX) !== 0 ||
+                     Controller.getValue(Controller.Standard.RY) !== 0);
+    var target = isDriving ? 0 : 1;
+    var SMOOTH_COEFF = 0.9;
+    lastIKOverlayAlpha = lerp(target, lastIKOverlayAlpha, SMOOTH_COEFF);
+
     return {
         leftHandOverlayAlpha: leftHandOverlayAlpha,
         leftHandGraspAlpha: lastLeftTrigger,
@@ -80,7 +90,8 @@ function animStateHandler(props) {
         isRightHandGrasp: !isRightIndexPointing && !isRightThumbRaised,
         isRightIndexPoint: isRightIndexPointing && !isRightThumbRaised,
         isRightThumbRaise: !isRightIndexPointing && isRightThumbRaised,
-        isRightIndexPointAndThumbRaise: isRightIndexPointing && isRightThumbRaised
+        isRightIndexPointAndThumbRaise: isRightIndexPointing && isRightThumbRaised,
+        ikOverlayAlpha: lastIKOverlayAlpha
     };
 }
 
