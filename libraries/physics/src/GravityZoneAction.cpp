@@ -22,6 +22,12 @@ GravityZoneAction::GravityZoneAction() {
     _ghost.setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
 }
 
+GravityZoneAction::~GravityZoneAction() {
+    removeFromWorld();
+    _ghost.setCollisionShape(nullptr);
+    _box.reset(nullptr);
+}
+
 void GravityZoneAction::setCollisionWorld(btCollisionWorld* world) {
     if (world != _world) {
         removeFromWorld();
@@ -50,19 +56,20 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
 
     btTransform invGhostTransform = _ghost.getWorldTransform().inverse();
 
+    btVector3 Y_AXIS(0.0f, 1.0f, 0.0f);
     for (int i = 0; i < _ghost.getNumOverlappingObjects(); i++) {
         btCollisionObject* obj = _ghost.getOverlappingObject(i);
         ObjectMotionState* motionState = static_cast<ObjectMotionState*>(obj->getUserPointer());
         if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
             btVector3 entityPosition = glmToBullet(motionState->getObjectPosition());
-            btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
             btVector3 localEntityPosition = invGhostTransform(entityPosition);
             if (_box->isInside(localEntityPosition, 0.0001f)) {
                 btRigidBody* body = motionState->getRigidBody();
                 if (body) {
+                    btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
+                    float signedMagnitude = entityGravity.dot(Y_AXIS);
                     btVector3 newGravity = entityPosition.normalize();
-                    float oldGravityMagnitude = entityGravity.length();
-                    newGravity *= btVector3(-oldGravityMagnitude, -oldGravityMagnitude, -oldGravityMagnitude);
+                    newGravity *= btVector3(signedMagnitude, signedMagnitude, signedMagnitude);
                     body->setGravity(newGravity);
                 }
             }
