@@ -18,27 +18,24 @@
 #include <BulletCollision/CollisionDispatch/btGhostObject.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <ZonePhysicsActionProperties.h>
 
 class GravityZoneAction : public btActionInterface {
 public:
-    GravityZoneAction();
-    virtual ~GravityZoneAction() {}
+    GravityZoneAction(const ZonePhysicsActionProperties& zpap, btDynamicsWorld* world);
 
-    void setCollisionWorld(btCollisionWorld* world);
-    void setShapeFromZoneEntity(const glm::vec3& position, const glm::quat& rotation,
-                                const glm::vec3& dimensions, const glm::vec3& registrationPoint);
+    virtual ~GravityZoneAction();
+
+    void updateProperties(const ZonePhysicsActionProperties& zpap);
 
     // these are from btActionInterface
     virtual void updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) override;
     virtual void debugDraw(btIDebugDraw* debugDrawer) override;
 protected:
-    void addToWorld();
-    void removeFromWorld();
 
     std::unique_ptr<btBoxShape> _box;
     btGhostObject _ghost;
-    btCollisionWorld* _world { nullptr };
-    bool _inWorld { false };
+    btDynamicsWorld* _world { nullptr };
 };
 
 #endif // hifi_GravityZoneAction_h

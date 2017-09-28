@@ -35,6 +35,7 @@
 #include "SimulationOwner.h"
 #include "SimulationFlags.h"
 #include "EntityDynamicInterface.h"
+#include "ZonePhysicsActionProperties.h"
 
 class EntitySimulation;
 class EntityTreeElement;
@@ -281,6 +282,8 @@ public:
     void setDynamic(bool value);
 
     virtual bool shouldBePhysical() const { return false; }
+
+    virtual ZonePhysicsActionProperties getZonePhysicsActionProperties() const;
 
     bool getLocked() const;
     void setLocked(bool value);

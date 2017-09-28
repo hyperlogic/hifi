@@ -90,6 +90,7 @@ public:
     bool addDynamic(EntityDynamicPointer dynamic);
     void removeDynamic(const QUuid dynamicID);
     void forEachDynamic(std::function<void(EntityDynamicPointer)> actor);
+    btDynamicsWorld* getDynamicsWorld() const { return _dynamicsWorld; }
 
 private:
     QList<EntityDynamicPointer> removeDynamicsForBody(btRigidBody* body);

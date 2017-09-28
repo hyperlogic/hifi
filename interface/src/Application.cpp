@@ -5066,6 +5066,7 @@ void Application::update(float deltaTime) {
             });
 
             _entitySimulation->applyDynamicChanges();
+            _entitySimulation->applyZoneChanges(_physicsEngine->getDynamicsWorld());
 
              avatarManager->getObjectsToRemoveFromPhysics(motionStates);
             _physicsEngine->removeObjects(motionStates);

@@ -26,6 +26,8 @@ public:
 
     ALLOW_INSTANTIATION // This class can be instantiated
 
+    virtual ZonePhysicsActionProperties getZonePhysicsActionProperties() const override;
+
     // methods for getting/setting all properties of an entity
     virtual EntityItemProperties getProperties(EntityPropertyFlags desiredProperties = EntityPropertyFlags()) const override;
     virtual bool setProperties(const EntityItemProperties& properties) override;

@@ -15,34 +15,31 @@
 #include "BulletUtil.h"
 #include "ObjectMotionState.h"
 
-class GravityZoneMotionState : public ObjectMotionState {
-};
-
-GravityZoneAction::GravityZoneAction() {
+GravityZoneAction::GravityZoneAction(const ZonePhysicsActionProperties& zpap, btDynamicsWorld* world) {
     _ghost.setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
+    updateProperties(zpap);
+    _world = world;
+    const int16_t GRAVITY_ZONE_GHOST_GROUP = -1;
+    const int16_t GRAVITY_ZONE_GHOST_MASK = -1;
+    _world->addCollisionObject(&_ghost, GRAVITY_ZONE_GHOST_GROUP, GRAVITY_ZONE_GHOST_MASK);
+    _world->addAction(this);
 }
 
 GravityZoneAction::~GravityZoneAction() {
-    removeFromWorld();
+    _world->removeAction(this);
+    _world->removeCollisionObject(&_ghost);
     _ghost.setCollisionShape(nullptr);
     _box.reset(nullptr);
 }
 
-void GravityZoneAction::setCollisionWorld(btCollisionWorld* world) {
-    if (world != _world) {
-        removeFromWorld();
-        _world = world;
-        addToWorld();
-    }
-}
+void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zpap) {
+    assert(zpap.type != ZonePhysicsActionProperties::None);
 
-void GravityZoneAction::setShapeFromZoneEntity(const glm::vec3& position, const glm::quat& rotation,
-                                               const glm::vec3& dimensions, const glm::vec3& registrationPoint) {
-
-    btVector3 btPosition = glmToBullet(position);
-    btQuaternion btRotation = glmToBullet(rotation);
-    btVector3 btDimensions = glmToBullet(dimensions);
-    btVector3 btRegistrationPoint = glmToBullet(registrationPoint);
+    // TODO: detect "hard" and easy changes
+    btVector3 btPosition = glmToBullet(zpap.position);
+    btQuaternion btRotation = glmToBullet(zpap.rotation);
+    btVector3 btDimensions = glmToBullet(zpap.dimensions);
+    btVector3 btRegistrationPoint = glmToBullet(zpap.registrationPoint);
 
     _box.reset(new btBoxShape(btDimensions * 0.5f));
     const btVector3 ONE_HALF(0.5f, 0.5f, 0.5f);
@@ -78,22 +75,6 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
 }
 
 void GravityZoneAction::debugDraw(btIDebugDraw* debugDrawer) {
-}
-
-void GravityZoneAction::addToWorld() {
-    if (_world && !_inWorld) {
-        const int16_t GRAVITY_ZONE_GHOST_GROUP = -1;
-        const int16_t GRAVITY_ZONE_GHOST_MASK = -1;
-        _world->addCollisionObject(&_ghost, GRAVITY_ZONE_GHOST_GROUP, GRAVITY_ZONE_GHOST_MASK);
-        _inWorld = true;
-    }
-}
-
-void GravityZoneAction::removeFromWorld() {
-    if (_world && _inWorld) {
-        _world->removeCollisionObject(&_ghost);
-        _inWorld = false;
-    }
 }
 
 

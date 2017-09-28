@@ -26,6 +26,7 @@
 class PhysicalEntitySimulation;
 using PhysicalEntitySimulationPointer = std::shared_ptr<PhysicalEntitySimulation>;
 using SetOfEntityMotionStates = QSet<EntityMotionState*>;
+class GravityZoneAction;
 
 class PhysicalEntitySimulation : public EntitySimulation {
 public:
@@ -36,6 +37,7 @@ public:
 
     virtual void addDynamic(EntityDynamicPointer dynamic) override;
     virtual void applyDynamicChanges() override;
+    void applyZoneChanges(btDynamicsWorld* world);
 
     virtual void takeEntitiesToDelete(VectorOfEntities& entitiesToDelete) override;
 
@@ -62,10 +64,29 @@ public:
 
     EntityEditPacketSender* getPacketSender() { return _entityPacketSender; }
 
+protected:
+    void queueZoneUpdateTransaction(const EntityItemID& entityItemID, const ZonePhysicsActionProperties zpap);
+    void queueZoneRemoveTransaction(const EntityItemID& entityItemID);
+
 private:
     SetOfEntities _entitiesToRemoveFromPhysics;
     SetOfEntities _entitiesToRelease;
     SetOfEntities _entitiesToAddToPhysics;
+
+    // used to queue up change transactions to the zoneActionMap.
+    struct ZoneUpdateTransaction {
+        enum CommandType { Update, Remove };
+        ZoneUpdateTransaction(CommandType commandTypeIn, const EntityItemID& entityItemIDIn) : commandType(commandTypeIn), entityItemID(entityItemIDIn) {
+            zpap.type = ZonePhysicsActionProperties::None;
+        }
+        ZoneUpdateTransaction(CommandType commandTypeIn, const EntityItemID& entityItemIDIn, const ZonePhysicsActionProperties& zpapIn) : commandType(commandTypeIn), entityItemID(entityItemIDIn), zpap(zpapIn) {}
+        CommandType commandType;
+        EntityItemID entityItemID;
+        ZonePhysicsActionProperties zpap;
+    };
+    std::mutex _zoneUpdateMutex;  // guards the zoneUpdateTransactions queue from multithreaded access
+    std::vector<ZoneUpdateTransaction> _zoneUpdateTransactions;  // queue of changes
+    std::map<EntityItemID, std::unique_ptr<GravityZoneAction>> _zoneActionMap;
 
     SetOfEntityMotionStates _pendingChanges; // EntityMotionStates already in PhysicsEngine that need their physics changed
     SetOfEntityMotionStates _outgoingChanges; // EntityMotionStates for which we may need to send updates to entity-server

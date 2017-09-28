@@ -46,6 +46,11 @@ ZoneEntityItem::ZoneEntityItem(const EntityItemID& entityItemID) : EntityItem(en
     _backgroundMode = BACKGROUND_MODE_INHERIT;
 }
 
+ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() const {
+    // AJT: TODO: implement me
+    return EntityItem::getZonePhysicsActionProperties();
+}
+
 EntityItemProperties ZoneEntityItem::getProperties(EntityPropertyFlags desiredProperties) const {
     EntityItemProperties properties = EntityItem::getProperties(desiredProperties); // get the properties from our base class
 

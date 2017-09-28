@@ -16,6 +16,7 @@
 #include "ShapeManager.h"
 
 #include "PhysicalEntitySimulation.h"
+#include "GravityZoneAction.h"
 
 PhysicalEntitySimulation::PhysicalEntitySimulation() {
 }
@@ -42,22 +43,38 @@ void PhysicalEntitySimulation::updateEntitiesInternal(const quint64& now) {
     // Do nothing here because the "internal" update the PhysicsEngine::stepSimualtion() which is done elsewhere.
 }
 
+void PhysicalEntitySimulation::queueZoneUpdateTransaction(const EntityItemID& entityItemID, const ZonePhysicsActionProperties zpap) {
+    std::lock_guard<std::mutex> guard(_zoneUpdateMutex);
+    _zoneUpdateTransactions.push_back(ZoneUpdateTransaction(ZoneUpdateTransaction::Update, entityItemID, zpap));
+}
+
+void PhysicalEntitySimulation::queueZoneRemoveTransaction(const EntityItemID& entityItemID) {
+    std::lock_guard<std::mutex> guard(_zoneUpdateMutex);
+    _zoneUpdateTransactions.push_back(ZoneUpdateTransaction(ZoneUpdateTransaction::Remove, entityItemID));
+}
+
 void PhysicalEntitySimulation::addEntityInternal(EntityItemPointer entity) {
     QMutexLocker lock(&_mutex);
     assert(entity);
     assert(!entity->isDead());
-    if (entity->shouldBePhysical()) {
-        EntityMotionState* motionState = static_cast<EntityMotionState*>(entity->getPhysicsInfo());
-        if (!motionState) {
-            _entitiesToAddToPhysics.insert(entity);
+    if (entity->getType() == EntityTypes::Zone) {
+        queueZoneUpdateTransaction(entity->getEntityItemID(), entity->getZonePhysicsActionProperties());
+    } else {
+        if (entity->shouldBePhysical()) {
+            EntityMotionState* motionState = static_cast<EntityMotionState*>(entity->getPhysicsInfo());
+            if (!motionState) {
+                _entitiesToAddToPhysics.insert(entity);
+            }
+        } else if (entity->isMovingRelativeToParent()) {
+            _simpleKinematicEntities.insert(entity);
         }
-    } else if (entity->isMovingRelativeToParent()) {
-        _simpleKinematicEntities.insert(entity);
     }
 }
 
 void PhysicalEntitySimulation::removeEntityInternal(EntityItemPointer entity) {
-    if (entity->isSimulated()) {
+    if (entity->getType() == EntityTypes::Zone) {
+        queueZoneRemoveTransaction(entity->getEntityItemID());
+    } else if (entity->isSimulated()) {
         EntitySimulation::removeEntityInternal(entity);
         QMutexLocker lock(&_mutex);
         _entitiesToAddToPhysics.remove(entity);
@@ -92,29 +109,33 @@ void PhysicalEntitySimulation::changeEntityInternal(EntityItemPointer entity) {
     // queue incoming changes: from external sources (script, EntityServer, etc) to physics engine
     QMutexLocker lock(&_mutex);
     assert(entity);
-    EntityMotionState* motionState = static_cast<EntityMotionState*>(entity->getPhysicsInfo());
-    if (motionState) {
-        if (!entity->shouldBePhysical()) {
-            // the entity should be removed from the physical simulation
-            _pendingChanges.remove(motionState);
-            _physicalObjects.remove(motionState);
-            _outgoingChanges.remove(motionState);
-            _entitiesToRemoveFromPhysics.insert(entity);
-            if (entity->isMovingRelativeToParent()) {
-                _simpleKinematicEntities.insert(entity);
-            }
-        } else {
-            _pendingChanges.insert(motionState);
-        }
-    } else if (entity->shouldBePhysical()) {
-        // The intent is for this object to be in the PhysicsEngine, but it has no MotionState yet.
-        // Perhaps it's shape has changed and it can now be added?
-        _entitiesToAddToPhysics.insert(entity);
-        _simpleKinematicEntities.remove(entity); // just in case it's non-physical-kinematic
-    } else if (entity->isMovingRelativeToParent()) {
-        _simpleKinematicEntities.insert(entity);
+    if (entity->getType() == EntityTypes::Zone) {
+        queueZoneUpdateTransaction(entity->getEntityItemID(), entity->getZonePhysicsActionProperties());
     } else {
-        _simpleKinematicEntities.remove(entity); // just in case it's non-physical-kinematic
+        EntityMotionState* motionState = static_cast<EntityMotionState*>(entity->getPhysicsInfo());
+        if (motionState) {
+            if (!entity->shouldBePhysical()) {
+                // the entity should be removed from the physical simulation
+                _pendingChanges.remove(motionState);
+                _physicalObjects.remove(motionState);
+                _outgoingChanges.remove(motionState);
+                _entitiesToRemoveFromPhysics.insert(entity);
+                if (entity->isMovingRelativeToParent()) {
+                    _simpleKinematicEntities.insert(entity);
+                }
+            } else {
+                _pendingChanges.insert(motionState);
+            }
+        } else if (entity->shouldBePhysical()) {
+            // The intent is for this object to be in the PhysicsEngine, but it has no MotionState yet.
+            // Perhaps it's shape has changed and it can now be added?
+            _entitiesToAddToPhysics.insert(entity);
+            _simpleKinematicEntities.remove(entity); // just in case it's non-physical-kinematic
+        } else if (entity->isMovingRelativeToParent()) {
+            _simpleKinematicEntities.insert(entity);
+        } else {
+            _simpleKinematicEntities.remove(entity); // just in case it's non-physical-kinematic
+        }
     }
 }
 
@@ -367,4 +388,27 @@ void PhysicalEntitySimulation::applyDynamicChanges() {
     foreach (EntityDynamicPointer dynamicFailedToAdd, dynamicsFailedToAdd) {
         addDynamic(dynamicFailedToAdd);
     }
+}
+
+void PhysicalEntitySimulation::applyZoneChanges(btDynamicsWorld* world) {
+    std::lock_guard<std::mutex> guard(_zoneUpdateMutex);
+    for (auto& zoneTransaction : _zoneUpdateTransactions) {
+        auto iter = _zoneActionMap.find(zoneTransaction.entityItemID);
+        if (zoneTransaction.commandType == ZoneUpdateTransaction::Remove) {
+            if (iter != _zoneActionMap.end()) {
+                _zoneActionMap.erase(iter);
+            }
+        } else if (zoneTransaction.commandType == ZoneUpdateTransaction::Update) {
+            if (iter != _zoneActionMap.end()) {
+                if (zoneTransaction.zpap.type == ZonePhysicsActionProperties::None) {
+                    _zoneActionMap.erase(iter);
+                } else {
+                    iter->second->updateProperties(zoneTransaction.zpap);
+                }
+            } else {
+                _zoneActionMap[zoneTransaction.entityItemID] = std::make_unique<GravityZoneAction>(zoneTransaction.zpap, world);
+            }
+        }
+    }
+    _zoneUpdateTransactions.clear();
 }
