@@ -114,6 +114,11 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                         break;
                     }
                 }
+            } else {
+                btRigidBody* body = motionState->getRigidBody();
+                if (body) {
+                    // restore gravity
+                }
             }
         }
     }
