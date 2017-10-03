@@ -15,6 +15,28 @@
 #include "BulletUtil.h"
 #include "ObjectMotionState.h"
 
+
+void AddRemovePairGhostObject::addOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btBroadphaseProxy* thisProxy) {
+    btGhostObject::addOverlappingObjectInternal(otherProxy, thisProxy);
+}
+
+void AddRemovePairGhostObject::removeOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btDispatcher* dispatcher, btBroadphaseProxy* thisProxy) {
+    btGhostObject::removeOverlappingObjectInternal(otherProxy, dispatcher, thisProxy);
+
+    // restore gravity to any rigid bodies that leave the zone.
+    if (otherProxy) {
+        btCollisionObject* obj = static_cast<btCollisionObject*>(otherProxy->m_clientObject);
+        if (obj && obj->getInternalType() == btCollisionObject::CO_RIGID_BODY) {
+            btRigidBody* body = static_cast<btRigidBody*>(obj);
+            ObjectMotionState* motionState = static_cast<ObjectMotionState*>(obj->getUserPointer());
+            if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
+                btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
+                body->setGravity(entityGravity);
+            }
+        }
+    }
+}
+
 GravityZoneAction::GravityZoneAction(const ZonePhysicsActionProperties& zpap, btDynamicsWorld* world) {
     _ghost.setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
     updateProperties(zpap);
@@ -46,16 +68,24 @@ void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zpap
     btVector3 registrationOffset = rotateVector(btRotation, (ONE_HALF - btRegistrationPoint) * btDimensions);
     _ghost.setWorldTransform(btTransform(btRotation, btPosition + registrationOffset));
     _ghost.setCollisionShape(_box.get());
+    _zpap = zpap;
 }
 
 void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) {
-    qDebug() << "AJT: GravityZoneAction::updateAction(), " << _ghost.getNumOverlappingObjects() << " objects";
+    if (_zpap.type == ZonePhysicsActionProperties::None) {
+        return;
+    }
+
+    qDebug() << "AJT: GravityZoneAction::updateAction(), _ghost = " << (void*)&_ghost << ", " << _ghost.getNumOverlappingObjects() << " objects";
 
     btTransform invGhostTransform = _ghost.getWorldTransform().inverse();
 
     btVector3 Y_AXIS(0.0f, 1.0f, 0.0f);
     for (int i = 0; i < _ghost.getNumOverlappingObjects(); i++) {
         btCollisionObject* obj = _ghost.getOverlappingObject(i);
+
+        qDebug() << "AJT:     overlappingObject = " << (void*)obj;
+
         ObjectMotionState* motionState = static_cast<ObjectMotionState*>(obj->getUserPointer());
         if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
             btVector3 entityPosition = glmToBullet(motionState->getObjectPosition());
@@ -65,9 +95,24 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                 if (body) {
                     btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
                     float signedMagnitude = entityGravity.dot(Y_AXIS);
-                    btVector3 newGravity = entityPosition.normalize();
-                    newGravity *= btVector3(signedMagnitude, signedMagnitude, signedMagnitude);
-                    body->setGravity(newGravity);
+                    switch (_zpap.type) {
+                    case ZonePhysicsActionProperties::Linear:
+                        body->setGravity(btVector3(signedMagnitude * _zpap.d.linear.up[0],
+                                                   signedMagnitude * _zpap.d.linear.up[1],
+                                                   signedMagnitude * _zpap.d.linear.up[2]));
+                        break;
+                    case ZonePhysicsActionProperties::Spherical: {
+                        btVector3 newGravity = entityPosition.normalize();
+                        newGravity *= btVector3(signedMagnitude, signedMagnitude, signedMagnitude);
+                        body->setGravity(newGravity);
+                        break;
+                    }
+                    case ZonePhysicsActionProperties::Planetoid:
+                        // AJT: TODO:
+                        break;
+                    default:
+                        break;
+                    }
                 }
             }
         }

@@ -20,6 +20,11 @@
 #include <glm/gtc/quaternion.hpp>
 #include <ZonePhysicsActionProperties.h>
 
+class AddRemovePairGhostObject : public btGhostObject {
+    virtual void addOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btBroadphaseProxy* thisProxy=0) override;
+    virtual void removeOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btDispatcher* dispatcher, btBroadphaseProxy* thisProxy=0) override;
+};
+
 class GravityZoneAction : public btActionInterface {
 public:
     GravityZoneAction(const ZonePhysicsActionProperties& zpap, btDynamicsWorld* world);
@@ -34,8 +39,9 @@ public:
 protected:
 
     std::unique_ptr<btBoxShape> _box;
-    btGhostObject _ghost;
-    btDynamicsWorld* _world { nullptr };
+    AddRemovePairGhostObject _ghost;
+    btDynamicsWorld* _world = { nullptr };
+    ZonePhysicsActionProperties _zpap;
 };
 
 #endif // hifi_GravityZoneAction_h
