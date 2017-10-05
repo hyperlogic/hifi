@@ -84,6 +84,16 @@ public:
 
     friend class PhysicalEntitySimulation;
 
+    // used for GravityZoneAction to ensure that bodies always have the correct gravity applied
+    // even when inside of zero or more gravity zones.
+    void incrementGravityZoneOverlapCount();
+    bool decrementGravityZoneOverlapCount();      // returns true if overlap count reaches zero after the decrement.
+    const btVector3& getGravityZoneAccumulator() const;
+    bool hasGravityZoneAccumulated() const;
+    bool incrementGravityZoneUpdateCount();       // returns true if updateCount == overlapCount
+    void resetGravityZoneAccumulators();
+    void gravityZoneAccumulate(const btVector3& accumulate);
+
 protected:
     // changes _outgoingPriority only if priority is larger
     void upgradeOutgoingPriority(uint8_t priority);
@@ -119,7 +129,6 @@ protected:
     glm::vec3 _lastVelocity;
     glm::vec3 _measuredAcceleration;
     quint64 _nextOwnershipBid { 0 };
-
     float _measuredDeltaTime;
     uint32_t _lastMeasureStep;
     uint32_t _lastStep; // last step of server extrapolation
@@ -128,6 +137,11 @@ protected:
     mutable uint8_t _accelerationNearlyGravityCount;
     uint8_t _numInactiveUpdates { 1 };
     uint8_t _outgoingPriority { 0 };
+
+    btVector3 _gravityZoneAccumulator { 0.0f, 0.0f, 0.0f };
+    int16_t _gravityZoneAccumulatorCount { 0 };
+    int16_t _gravityZoneOverlapCount { 0 };
+    int16_t _gravityZoneUpdateCount { 0 };
 };
 
 #endif // hifi_EntityMotionState_h

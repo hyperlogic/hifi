@@ -46,6 +46,14 @@ bool entityTreeIsLocked() {
 #endif
 
 
+#define CRASH_ASSERT(exp)                      \
+    do {                                       \
+        if (!(exp)) {                          \
+            int* ptr = (int*)0;                \
+            *ptr = 0x0badf00d;                 \
+        }                                      \
+    } while (0)
+
 EntityMotionState::EntityMotionState(btCollisionShape* shape, EntityItemPointer entity) :
     ObjectMotionState(nullptr),
     _entityPtr(entity),
@@ -801,4 +809,45 @@ bool EntityMotionState::shouldBeLocallyOwned() const {
 
 void EntityMotionState::upgradeOutgoingPriority(uint8_t priority) {
     _outgoingPriority = glm::max<uint8_t>(_outgoingPriority, priority);
+}
+
+void EntityMotionState::incrementGravityZoneOverlapCount() {
+    CRASH_ASSERT(_gravityZoneOverlapCount >= 0);
+    _gravityZoneOverlapCount++;
+}
+
+// returns true if overlap count reaches zero after the decrement.
+bool EntityMotionState::decrementGravityZoneOverlapCount() {
+    _gravityZoneOverlapCount--;
+    CRASH_ASSERT(_gravityZoneOverlapCount >= 0);
+    return _gravityZoneOverlapCount == 0;
+}
+
+const btVector3& EntityMotionState::getGravityZoneAccumulator() const {
+    return _gravityZoneAccumulator;
+}
+
+bool EntityMotionState::hasGravityZoneAccumulated() const {
+    return _gravityZoneAccumulatorCount > 0;
+}
+
+// returns true if updateCount == overlapCount
+bool EntityMotionState::incrementGravityZoneUpdateCount() {
+    _gravityZoneUpdateCount++;
+    CRASH_ASSERT(_gravityZoneUpdateCount <= _gravityZoneOverlapCount);
+    CRASH_ASSERT(_gravityZoneAccumulatorCount <= _gravityZoneOverlapCount);
+    return _gravityZoneUpdateCount == _gravityZoneOverlapCount;
+}
+
+void EntityMotionState::resetGravityZoneAccumulators() {
+    // reset accumulators
+    _gravityZoneAccumulatorCount = 0;
+    _gravityZoneAccumulator = btVector3(0.0f, 0.0f, 0.0f);
+    _gravityZoneUpdateCount = 0;
+}
+
+void EntityMotionState::gravityZoneAccumulate(const btVector3& accumulate) {
+    _gravityZoneAccumulator += accumulate;
+    _gravityZoneAccumulatorCount++;
+    CRASH_ASSERT(_gravityZoneAccumulatorCount > 0);
 }

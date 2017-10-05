@@ -40,7 +40,7 @@ protected:
 
     std::unique_ptr<btBoxShape> _box;
     AddRemovePairGhostObject _ghost;
-    btDynamicsWorld* _world = { nullptr };
+    btDynamicsWorld* _world { nullptr };
     ZonePhysicsActionProperties _zpap;
 };
 

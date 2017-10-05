@@ -47,7 +47,8 @@ ZoneEntityItem::ZoneEntityItem(const EntityItemID& entityItemID) : EntityItem(en
 }
 
 ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() const {
-    /* // AJT: REMOVE force all zones to thave the following properties.
+    // AJT: REMOVE force all zones to thave the following properties.
+    /*
     ZonePhysicsActionProperties zpap;
     zpap.type = ZonePhysicsActionProperties::Linear;
     zpap.position = getPosition();
@@ -60,7 +61,7 @@ ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() con
     zpap.d.linear.up[2] = 0;
     return zpap;
     */
-    return EntityItem::getZonePhyscisActionProperties();
+    return EntityItem::getZonePhysicsActionProperties();
 }
 
 EntityItemProperties ZoneEntityItem::getProperties(EntityPropertyFlags desiredProperties) const {

@@ -13,25 +13,41 @@
 
 #include <QDebug>
 #include "BulletUtil.h"
-#include "ObjectMotionState.h"
-
+#include "EntityMotionState.h"
 
 void AddRemovePairGhostObject::addOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btBroadphaseProxy* thisProxy) {
     btGhostObject::addOverlappingObjectInternal(otherProxy, thisProxy);
-}
 
-void AddRemovePairGhostObject::removeOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btDispatcher* dispatcher, btBroadphaseProxy* thisProxy) {
-    btGhostObject::removeOverlappingObjectInternal(otherProxy, dispatcher, thisProxy);
-
-    // restore gravity to any rigid bodies that leave the zone.
     if (otherProxy) {
         btCollisionObject* obj = static_cast<btCollisionObject*>(otherProxy->m_clientObject);
         if (obj && obj->getInternalType() == btCollisionObject::CO_RIGID_BODY) {
             btRigidBody* body = static_cast<btRigidBody*>(obj);
             ObjectMotionState* motionState = static_cast<ObjectMotionState*>(obj->getUserPointer());
             if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
-                btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
-                body->setGravity(entityGravity);
+                EntityMotionState* entityMotionState = static_cast<EntityMotionState*>(motionState);
+                entityMotionState->incrementGravityZoneOverlapCount();
+                entityMotionState->resetGravityZoneAccumulators();
+            }
+        }
+    }
+}
+
+void AddRemovePairGhostObject::removeOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btDispatcher* dispatcher, btBroadphaseProxy* thisProxy) {
+    btGhostObject::removeOverlappingObjectInternal(otherProxy, dispatcher, thisProxy);
+
+    if (otherProxy) {
+        btCollisionObject* obj = static_cast<btCollisionObject*>(otherProxy->m_clientObject);
+        if (obj && obj->getInternalType() == btCollisionObject::CO_RIGID_BODY) {
+            btRigidBody* body = static_cast<btRigidBody*>(obj);
+            ObjectMotionState* motionState = static_cast<ObjectMotionState*>(obj->getUserPointer());
+            if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
+                EntityMotionState* entityMotionState = static_cast<EntityMotionState*>(motionState);
+                if (entityMotionState->decrementGravityZoneOverlapCount()) {
+                    // if we are leaving the last zone, set gravity back to it's original entity value.
+                    btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
+                    body->setGravity(entityGravity);
+                    entityMotionState->resetGravityZoneAccumulators();
+                }
             }
         }
     }
@@ -76,18 +92,14 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
         return;
     }
 
-    qDebug() << "AJT: GravityZoneAction::updateAction(), _ghost = " << (void*)&_ghost << ", " << _ghost.getNumOverlappingObjects() << " objects";
-
     btTransform invGhostTransform = _ghost.getWorldTransform().inverse();
 
     btVector3 Y_AXIS(0.0f, 1.0f, 0.0f);
     for (int i = 0; i < _ghost.getNumOverlappingObjects(); i++) {
         btCollisionObject* obj = _ghost.getOverlappingObject(i);
-
-        qDebug() << "AJT:     overlappingObject = " << (void*)obj;
-
         ObjectMotionState* motionState = static_cast<ObjectMotionState*>(obj->getUserPointer());
         if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
+            EntityMotionState* entityMotionState = static_cast<EntityMotionState*>(motionState);
             btVector3 entityPosition = glmToBullet(motionState->getObjectPosition());
             btVector3 localEntityPosition = invGhostTransform(entityPosition);
             if (_box->isInside(localEntityPosition, 0.0001f)) {
@@ -97,14 +109,14 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                     float signedMagnitude = entityGravity.dot(Y_AXIS);
                     switch (_zpap.type) {
                     case ZonePhysicsActionProperties::Linear:
-                        body->setGravity(btVector3(signedMagnitude * _zpap.d.linear.up[0],
-                                                   signedMagnitude * _zpap.d.linear.up[1],
-                                                   signedMagnitude * _zpap.d.linear.up[2]));
+                        entityMotionState->gravityZoneAccumulate(btVector3(signedMagnitude * _zpap.d.linear.up[0],
+                                                                           signedMagnitude * _zpap.d.linear.up[1],
+                                                                           signedMagnitude * _zpap.d.linear.up[2]));
                         break;
                     case ZonePhysicsActionProperties::Spherical: {
-                        btVector3 newGravity = entityPosition.normalize();
-                        newGravity *= btVector3(signedMagnitude, signedMagnitude, signedMagnitude);
-                        body->setGravity(newGravity);
+                        btVector3 n = entityPosition.normalize();
+                        n *= signedMagnitude;
+                        entityMotionState->gravityZoneAccumulate(n);
                         break;
                     }
                     case ZonePhysicsActionProperties::Planetoid:
@@ -114,11 +126,18 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                         break;
                     }
                 }
-            } else {
-                btRigidBody* body = motionState->getRigidBody();
+            }
+            if (entityMotionState->incrementGravityZoneUpdateCount()) {
+                // we are the last overlapping zone.
+                btRigidBody* body = entityMotionState->getRigidBody();
                 if (body) {
-                    // restore gravity
+                    if (entityMotionState->hasGravityZoneAccumulated()) {
+                        body->setGravity(entityMotionState->getGravityZoneAccumulator());
+                    } else {
+                        body->setGravity(glmToBullet(entityMotionState->getObjectGravity()));
+                    }
                 }
+                entityMotionState->resetGravityZoneAccumulators();
             }
         }
     }
