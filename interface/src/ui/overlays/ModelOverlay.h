@@ -29,7 +29,7 @@ public:
     ModelOverlay(const ModelOverlay* modelOverlay);
 
     virtual void update(float deltatime) override;
-    virtual void render(RenderArgs* args) override;
+    virtual void render(RenderArgs* args) override {};
     void setProperties(const QVariantMap& properties) override;
     QVariant getProperty(const QString& property) override;
     virtual bool findRayIntersection(const glm::vec3& origin, const glm::vec3& direction, float& distance,
@@ -48,6 +48,9 @@ public:
 
     bool hasAnimation() const { return !_animationURL.isEmpty(); }
     bool jointsMapped() const { return _jointMappingURL == _animationURL && _jointMappingCompleted; }
+
+    void setVisible(bool visible) override;
+    void setDrawInFront(bool drawInFront) override;
 
 protected:
     Transform evalRenderTransform() override;
@@ -75,6 +78,8 @@ private:
     bool _scaleToFit = { false };
     float _loadPriority { 0.0f };
 
+    bool _visibleDirty { false };
+    bool _drawInFrontDirty { false };
     AnimationPointer _animation;
 
     QUrl _animationURL;
@@ -92,7 +97,6 @@ private:
     QUrl _jointMappingURL;
     bool _jointMappingCompleted { false };
     QVector<int> _jointMapping; // domain is index into model-joints, range is index into animation-joints
-
 };
 
 #endif // hifi_ModelOverlay_h
