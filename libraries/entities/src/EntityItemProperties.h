@@ -41,6 +41,7 @@
 #include "SimulationOwner.h"
 #include "SkyboxPropertyGroup.h"
 #include "StagePropertyGroup.h"
+#include "GravityPropertyGroup.h"
 #include "TextEntityItem.h"
 #include "ZoneEntityItem.h"
 
@@ -237,6 +238,9 @@ public:
     DEFINE_PROPERTY_REF(PROP_LAST_EDITED_BY, LastEditedBy, lastEditedBy, QUuid, ENTITY_ITEM_DEFAULT_LAST_EDITED_BY);
 
     DEFINE_PROPERTY_REF(PROP_SERVER_SCRIPTS, ServerScripts, serverScripts, QString, ENTITY_ITEM_DEFAULT_SERVER_SCRIPTS);
+
+    // used by ZoneEntityItem
+    DEFINE_PROPERTY_GROUP(GravityPropertyGroup, gravityPropertyGroup, GravityPropertyGroup);
 
     static QString getBackgroundModeString(BackgroundMode mode);
 

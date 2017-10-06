@@ -234,7 +234,10 @@ enum EntityPropertyList {
     PROP_SKYBOX_COLOR = PROP_ANIMATION_URL,
     PROP_SKYBOX_URL = PROP_ANIMATION_FPS,
     PROP_KEYLIGHT_AMBIENT_URL = PROP_ANIMATION_PLAYING,
-    
+    PROP_GRAVITY_G_TYPE = PROP_MAX_PARTICLES,
+    PROP_GRAVITY_G_FORCE = PROP_EMIT_RATE,
+    PROP_GRAVITY_UP = PROP_EMIT_SPEED,
+
     // Aliases/Piggyback properties for Web. These properties intentionally reuse the enum values for
     // other properties which will never overlap with each other. 
     PROP_SOURCE_URL = PROP_MODEL_URL,

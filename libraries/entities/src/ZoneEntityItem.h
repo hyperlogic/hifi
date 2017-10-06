@@ -17,6 +17,7 @@
 #include "EntityTree.h"
 #include "SkyboxPropertyGroup.h"
 #include "StagePropertyGroup.h"
+#include "GravityPropertyGroup.h"
 
 class ZoneEntityItem : public EntityItem {
 public:
@@ -72,6 +73,7 @@ public:
 
     SkyboxPropertyGroup getSkyboxProperties() const { return resultWithReadLock<SkyboxPropertyGroup>([&] { return _skyboxProperties; }); }
     const StagePropertyGroup& getStageProperties() const { return _stageProperties; }
+    const GravityPropertyGroup& getGravityProperties() const { return _gravityProperties; }
 
     bool getFlyingAllowed() const { return _flyingAllowed; }
     void setFlyingAllowed(bool value) { _flyingAllowed = value; }
@@ -84,6 +86,7 @@ public:
     bool backgroundPropertiesChanged() const { return _backgroundPropertiesChanged; }
     bool stagePropertiesChanged() const { return _stagePropertiesChanged; }
     bool skyboxPropertiesChanged() const { return _skyboxPropertiesChanged; }
+    bool gravityPropertiesChanged() const { return _gravityPropertiesChanged; }
 
     void resetRenderingPropertiesChanged();
 
@@ -111,6 +114,7 @@ protected:
 
     StagePropertyGroup _stageProperties;
     SkyboxPropertyGroup _skyboxProperties;
+    GravityPropertyGroup _gravityProperties;
 
     bool _flyingAllowed { DEFAULT_FLYING_ALLOWED };
     bool _ghostingAllowed { DEFAULT_GHOSTING_ALLOWED };
@@ -121,6 +125,7 @@ protected:
     bool _backgroundPropertiesChanged { false };
     bool _skyboxPropertiesChanged { false };
     bool _stagePropertiesChanged { false };
+    bool _gravityPropertiesChanged { false };
 
     static bool _drawZoneBoundaries;
     static bool _zonesArePickable;

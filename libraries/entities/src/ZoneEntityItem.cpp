@@ -47,21 +47,36 @@ ZoneEntityItem::ZoneEntityItem(const EntityItemID& entityItemID) : EntityItem(en
 }
 
 ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() const {
-    // AJT: REMOVE force all zones to thave the following properties.
-    /*
-    ZonePhysicsActionProperties zpap;
-    zpap.type = ZonePhysicsActionProperties::Linear;
-    zpap.position = getPosition();
-    zpap.rotation = getRotation();
-    zpap.dimensions = getDimensions();
-    zpap.registrationPoint = getRegistrationPoint();
-    zpap.d.linear.gforce = 1.0f;
-    zpap.d.linear.up[0] = 0;
-    zpap.d.linear.up[1] = -1;
-    zpap.d.linear.up[2] = 0;
-    return zpap;
-    */
-    return EntityItem::getZonePhysicsActionProperties();
+    uint8_t type = _gravityProperties.getGType();
+    if (type > 0) {
+        ZonePhysicsActionProperties zpap;
+        zpap.type = (ZonePhysicsActionProperties::Type)type;
+        zpap.position = getPosition();
+        zpap.rotation = getRotation();
+        zpap.dimensions = getDimensions();
+        zpap.registrationPoint = getRegistrationPoint();
+
+        switch (zpap.type) {
+        case ZonePhysicsActionProperties::Spherical:
+            zpap.d.spherical.gforce = _gravityProperties.getGForce();
+            break;
+        case ZonePhysicsActionProperties::Linear: {
+            zpap.d.linear.gforce = _gravityProperties.getGForce();
+            glm::vec3 up = _gravityProperties.getUp();
+            zpap.d.linear.up[0] = up.x;
+            zpap.d.linear.up[1] = up.y;
+            zpap.d.linear.up[2] = up.z;
+            break;
+        }
+        case ZonePhysicsActionProperties::None:
+        default:
+            zpap.type = ZonePhysicsActionProperties::None;
+            break;
+        }
+        return zpap;
+    } else {
+        return EntityItem::getZonePhysicsActionProperties();
+    }
 }
 
 EntityItemProperties ZoneEntityItem::getProperties(EntityPropertyFlags desiredProperties) const {

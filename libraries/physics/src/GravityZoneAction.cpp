@@ -104,6 +104,7 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
             btVector3 localEntityPosition = invGhostTransform(entityPosition);
             if (_box->isInside(localEntityPosition, 0.0001f)) {
                 btRigidBody* body = motionState->getRigidBody();
+                btVector3 tempVec3;
                 if (body) {
                     btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
                     float signedMagnitude = entityGravity.dot(Y_AXIS);
@@ -113,14 +114,10 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                                                                            signedMagnitude * _zpap.d.linear.up[1],
                                                                            signedMagnitude * _zpap.d.linear.up[2]));
                         break;
-                    case ZonePhysicsActionProperties::Spherical: {
-                        btVector3 n = entityPosition.normalize();
-                        n *= signedMagnitude;
-                        entityMotionState->gravityZoneAccumulate(n);
-                        break;
-                    }
-                    case ZonePhysicsActionProperties::Planetoid:
-                        // AJT: TODO:
+                    case ZonePhysicsActionProperties::Spherical:
+                        tempVec3 = entityPosition.normalize();
+                        tempVec3 *= signedMagnitude;
+                        entityMotionState->gravityZoneAccumulate(tempVec3);
                         break;
                     default:
                         break;

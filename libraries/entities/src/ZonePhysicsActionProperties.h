@@ -13,15 +13,10 @@
 #define hifi_ZonePhysicsActionProperties_h
 
 struct ZonePhysicsActionProperties {
-    enum Type { None, Spherical, Planetoid, Linear };
+    enum Type { None = 0, Spherical, Linear };
 
     struct SphericalGravityZone {
         float gforce;
-    };
-
-    struct PlanetoidGravityZone {
-        float gforce;
-        float radius;
     };
 
     struct LinearGravityZone {
@@ -31,7 +26,6 @@ struct ZonePhysicsActionProperties {
 
     union ZoneUnion {
         SphericalGravityZone spherical;
-        PlanetoidGravityZone planetoid;
         LinearGravityZone linear;
     };
 
