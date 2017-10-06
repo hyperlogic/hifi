@@ -596,6 +596,35 @@
                     <input type="text" id="property-zone-skybox-url">
                 </div>
             </fieldset>
+            <fieldset class="minor gravity-section">
+                <legend class="sub-section-header zone-group zone-section gravity-section">
+                    Gravity
+                </legend>
+                <!-- AJT -->
+                <div class="zone-group zone-section property dropdown">
+                    <label for="property-zone-gravity-type">Type</label>
+                    <select name="SelectType" id="property-zone-gravity-type">
+                        <option value="0">None</option>
+                        <option value="1">Spherical</option>
+                        <option value="2">Linear</option>
+                    </select>
+                </div>
+
+                <div class="zone-group property number">
+                    <label>G Force</label>
+                    <input type="number" id="property-gravity-g-force">
+                </div>
+
+                <fieldset class="zone-group property xyz fstuple">
+                    <legend>Gravity Up</legend>
+                    <div class="tuple">
+                        <div><input type="number" class="x" id="property-gravity-up-x"><label for="property-gravity-up-x">X:</label></div>
+                        <div><input type="number" class="y" id="property-gravity-up-y"><label for="property-gravity-up-y">Y:</label></div>
+                        <div><input type="number" class="z" id="property-gravity-up-z"><label for="property-gravity-up-z">Z:</label></div>
+                    </div>
+                </fieldset>
+
+            </fieldset>
         </fieldset>
 
 

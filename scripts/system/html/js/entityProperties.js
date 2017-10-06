@@ -676,6 +676,12 @@ function loaded() {
         var elZoneGhostingAllowed = document.getElementById("property-zone-ghosting-allowed");
         var elZoneFilterURL = document.getElementById("property-zone-filter-url");
 
+        var elZoneGravityType = document.getElementById("property-zone-gravity-type");
+        var elZoneGravityGForce = document.getElementById("property-gravity-g-force");
+        var elZoneGravityUpX = document.getElementById("property-gravity-up-x");
+        var elZoneGravityUpY = document.getElementById("property-gravity-up-y");
+        var elZoneGravityUpZ = document.getElementById("property-gravity-up-z");
+
         var elPolyVoxSections = document.querySelectorAll(".poly-vox-section");
         allSections.push(elPolyVoxSections);
         var elVoxelVolumeSizeX = document.getElementById("property-voxel-volume-size-x");
@@ -1016,6 +1022,13 @@ function loaded() {
                             elZoneFlyingAllowed.checked = properties.flyingAllowed;
                             elZoneGhostingAllowed.checked = properties.ghostingAllowed;
                             elZoneFilterURL.value = properties.filterURL;
+
+                            elZoneGravityType.value = properties.gravityPropertyGroup.gType;
+                            setDropdownText(elZoneGravityType);
+                            elZoneGravityGForce.value = properties.gravityPropertyGroup.gForce;
+                            elZoneGravityUpX.value = properties.gravityPropertyGroup.up.x;
+                            elZoneGravityUpY.value = properties.gravityPropertyGroup.up.y;
+                            elZoneGravityUpZ.value = properties.gravityPropertyGroup.up.z;
 
                             showElements(document.getElementsByClassName('skybox-section'), elZoneBackgroundMode.value == 'skybox');
                         } else if (properties.type == "PolyVox") {
@@ -1425,6 +1438,13 @@ function loaded() {
         elZoneFlyingAllowed.addEventListener('change', createEmitCheckedPropertyUpdateFunction('flyingAllowed'));
         elZoneGhostingAllowed.addEventListener('change', createEmitCheckedPropertyUpdateFunction('ghostingAllowed'));
         elZoneFilterURL.addEventListener('change', createEmitTextPropertyUpdateFunction('filterURL'));
+
+        var zoneGravityUpChangeFunction = createEmitGroupVec3PropertyUpdateFunction('gravityPropertyGroup', 'up', elZoneGravityUpX, elZoneGravityUpY, elZoneGravityUpZ)
+        elZoneGravityType.addEventListener('change', createEmitGroupNumberPropertyUpdateFunction('gravityPropertyGroup', 'gType'));
+        elZoneGravityGForce.addEventListener('change', createEmitGroupNumberPropertyUpdateFunction('gravityPropertyGroup', 'gForce'));
+        elZoneGravityUpX.addEventListener('change', zoneGravityUpChangeFunction);
+        elZoneGravityUpY.addEventListener('change', zoneGravityUpChangeFunction);
+        elZoneGravityUpZ.addEventListener('change', zoneGravityUpChangeFunction);
 
         var voxelVolumeSizeChangeFunction = createEmitVec3PropertyUpdateFunction(
             'voxelVolumeSize', elVoxelVolumeSizeX, elVoxelVolumeSizeY, elVoxelVolumeSizeZ);

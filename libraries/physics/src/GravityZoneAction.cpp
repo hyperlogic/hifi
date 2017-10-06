@@ -110,13 +110,13 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                     float signedMagnitude = entityGravity.dot(Y_AXIS);
                     switch (_zpap.type) {
                     case ZonePhysicsActionProperties::Linear:
-                        entityMotionState->gravityZoneAccumulate(btVector3(signedMagnitude * _zpap.d.linear.up[0],
-                                                                           signedMagnitude * _zpap.d.linear.up[1],
-                                                                           signedMagnitude * _zpap.d.linear.up[2]));
+                        entityMotionState->gravityZoneAccumulate(btVector3(signedMagnitude * _zpap.d.linear.gforce * _zpap.d.linear.up[0],
+                                                                           signedMagnitude * _zpap.d.linear.gforce * _zpap.d.linear.up[1],
+                                                                           signedMagnitude * _zpap.d.linear.gforce * _zpap.d.linear.up[2]));
                         break;
                     case ZonePhysicsActionProperties::Spherical:
                         tempVec3 = entityPosition.normalize();
-                        tempVec3 *= signedMagnitude;
+                        tempVec3 *= signedMagnitude * _zpap.d.spherical.gforce;
                         entityMotionState->gravityZoneAccumulate(tempVec3);
                         break;
                     default:

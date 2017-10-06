@@ -40,7 +40,8 @@ const int DIRTY_SIMULATION_FLAGS =
         Simulation::DIRTY_LIFETIME |
         Simulation::DIRTY_UPDATEABLE |
         Simulation::DIRTY_MATERIAL |
-        Simulation::DIRTY_SIMULATOR_ID;
+        Simulation::DIRTY_SIMULATOR_ID |
+        Simulation::DIRTY_ZONE_GRAVITY_PROPERTIES;
 
 class EntitySimulation : public QObject, public std::enable_shared_from_this<EntitySimulation> {
 Q_OBJECT

@@ -62,7 +62,7 @@ ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() con
             break;
         case ZonePhysicsActionProperties::Linear: {
             zpap.d.linear.gforce = _gravityProperties.getGForce();
-            glm::vec3 up = _gravityProperties.getUp();
+            glm::vec3 up = glm::normalize(_gravityProperties.getUp());
             zpap.d.linear.up[0] = up.x;
             zpap.d.linear.up[1] = up.y;
             zpap.d.linear.up[2] = up.z;
@@ -86,15 +86,16 @@ EntityItemProperties ZoneEntityItem::getProperties(EntityPropertyFlags desiredPr
     withReadLock([&] {
         _keyLightProperties.getProperties(properties);
     });
-    
+
     _stageProperties.getProperties(properties);
+    _gravityProperties.getProperties(properties);
 
     COPY_ENTITY_PROPERTY_TO_PROPERTIES(shapeType, getShapeType);
     COPY_ENTITY_PROPERTY_TO_PROPERTIES(compoundShapeURL, getCompoundShapeURL);
     COPY_ENTITY_PROPERTY_TO_PROPERTIES(backgroundMode, getBackgroundMode);
 
-    // Contains a QString property, must be synchronized
     withReadLock([&] {
+         // Contains a QString property, must be synchronized
         _skyboxProperties.getProperties(properties);
     });
 
@@ -132,6 +133,10 @@ bool ZoneEntityItem::setSubClassProperties(const EntityItemProperties& propertie
     });
 
     _stagePropertiesChanged = _stageProperties.setProperties(properties);
+    _gravityPropertiesChanged = _gravityProperties.setProperties(properties);
+    if (_gravityPropertiesChanged) {
+        markDirtyFlags(Simulation::DIRTY_ZONE_GRAVITY_PROPERTIES);
+    }
 
     SET_ENTITY_PROPERTY_FROM_PROPERTIES(shapeType, setShapeType);
     SET_ENTITY_PROPERTY_FROM_PROPERTIES(compoundShapeURL, setCompoundShapeURL);
@@ -146,7 +151,8 @@ bool ZoneEntityItem::setSubClassProperties(const EntityItemProperties& propertie
         _skyboxPropertiesChanged = _skyboxProperties.setProperties(properties);
     });
 
-    somethingChanged = somethingChanged || _keyLightPropertiesChanged || _stagePropertiesChanged || _skyboxPropertiesChanged;
+    somethingChanged = (somethingChanged || _keyLightPropertiesChanged || _stagePropertiesChanged ||
+                        _skyboxPropertiesChanged || _gravityPropertiesChanged);
 
     return somethingChanged;
 }
@@ -173,6 +179,12 @@ int ZoneEntityItem::readEntitySubclassDataFromBuffer(const unsigned char* data, 
     somethingChanged = somethingChanged || _stagePropertiesChanged;
     bytesRead += bytesFromStage;
     dataAt += bytesFromStage;
+
+    int bytesFromGravity = _gravityProperties.readEntitySubclassDataFromBuffer(dataAt, (bytesLeftToRead - bytesRead), args,
+                                                                               propertyFlags, overwriteLocalData, _gravityPropertiesChanged);
+    somethingChanged = somethingChanged || _gravityPropertiesChanged;
+    bytesRead += bytesFromGravity;
+    dataAt += bytesFromGravity;
 
     READ_ENTITY_PROPERTY(PROP_SHAPE_TYPE, ShapeType, setShapeType);
     READ_ENTITY_PROPERTY(PROP_COMPOUND_SHAPE_URL, QString, setCompoundShapeURL);
@@ -207,6 +219,7 @@ EntityPropertyFlags ZoneEntityItem::getEntityProperties(EncodeBitstreamParams& p
     requestedProperties += PROP_COMPOUND_SHAPE_URL;
     requestedProperties += PROP_BACKGROUND_MODE;
     requestedProperties += _stageProperties.getEntityProperties(params);
+    requestedProperties += _gravityProperties.getEntityProperties(params);
 
     withReadLock([&] {
         requestedProperties += _skyboxProperties.getEntityProperties(params);
@@ -235,6 +248,8 @@ void ZoneEntityItem::appendSubclassData(OctreePacketData* packetData, EncodeBits
     _stageProperties.appendSubclassData(packetData, params, modelTreeElementExtraEncodeData, requestedProperties,
                                     propertyFlags, propertiesDidntFit, propertyCount, appendState);
 
+    _gravityProperties.appendSubclassData(packetData, params, modelTreeElementExtraEncodeData, requestedProperties,
+                                          propertyFlags, propertiesDidntFit, propertyCount, appendState);
 
     APPEND_ENTITY_PROPERTY(PROP_SHAPE_TYPE, (uint32_t)getShapeType());
     APPEND_ENTITY_PROPERTY(PROP_COMPOUND_SHAPE_URL, getCompoundShapeURL());
@@ -258,6 +273,7 @@ void ZoneEntityItem::debugDump() const {
 
     _keyLightProperties.debugDump();
     _stageProperties.debugDump();
+    _gravityProperties.debugDump();
     _skyboxProperties.debugDump();
 }
 
@@ -323,6 +339,7 @@ void ZoneEntityItem::resetRenderingPropertiesChanged() {
         _keyLightPropertiesChanged = false;
         _backgroundPropertiesChanged = false;
         _stagePropertiesChanged = false;
+        _gravityPropertiesChanged = true;
         _skyboxPropertiesChanged = false;
     });
 }
