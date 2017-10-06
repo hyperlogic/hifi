@@ -406,7 +406,7 @@ void PhysicalEntitySimulation::applyZoneChanges(btDynamicsWorld* world) {
                     iter->second->updateProperties(zoneTransaction.zpap);
                 }
             } else {
-                _zoneActionMap[zoneTransaction.entityItemID] = std::make_unique<GravityZoneAction>(zoneTransaction.zpap, world);
+                _zoneActionMap[zoneTransaction.entityItemID] = std::unique_ptr<GravityZoneAction>(new GravityZoneAction(zoneTransaction.zpap, world));
             }
         }
     }
