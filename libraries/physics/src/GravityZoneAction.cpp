@@ -88,10 +88,6 @@ void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zpap
 }
 
 void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) {
-    if (_zpap.type == ZonePhysicsActionProperties::None) {
-        return;
-    }
-
     btTransform invGhostTransform = _ghost.getWorldTransform().inverse();
 
     btVector3 Y_AXIS(0.0f, 1.0f, 0.0f);

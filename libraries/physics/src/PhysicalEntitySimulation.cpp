@@ -22,6 +22,7 @@ PhysicalEntitySimulation::PhysicalEntitySimulation() {
 }
 
 PhysicalEntitySimulation::~PhysicalEntitySimulation() {
+    _zoneActionMap.clear();
 }
 
 void PhysicalEntitySimulation::init(
@@ -399,14 +400,16 @@ void PhysicalEntitySimulation::applyZoneChanges(btDynamicsWorld* world) {
                 _zoneActionMap.erase(iter);
             }
         } else if (zoneTransaction.commandType == ZoneUpdateTransaction::Update) {
-            if (iter != _zoneActionMap.end()) {
-                if (zoneTransaction.zpap.type == ZonePhysicsActionProperties::None) {
+            if (zoneTransaction.zpap.type == ZonePhysicsActionProperties::None) {
+                if (iter != _zoneActionMap.end()) {
                     _zoneActionMap.erase(iter);
-                } else {
-                    iter->second->updateProperties(zoneTransaction.zpap);
                 }
             } else {
-                _zoneActionMap[zoneTransaction.entityItemID] = std::unique_ptr<GravityZoneAction>(new GravityZoneAction(zoneTransaction.zpap, world));
+                if (iter != _zoneActionMap.end()) {
+                    iter->second->updateProperties(zoneTransaction.zpap);
+                } else {
+                    _zoneActionMap[zoneTransaction.entityItemID] = std::unique_ptr<GravityZoneAction>(new GravityZoneAction(zoneTransaction.zpap, world));
+                }
             }
         }
     }

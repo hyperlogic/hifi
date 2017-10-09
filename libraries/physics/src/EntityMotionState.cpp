@@ -46,14 +46,6 @@ bool entityTreeIsLocked() {
 #endif
 
 
-#define CRASH_ASSERT(exp)                      \
-    do {                                       \
-        if (!(exp)) {                          \
-            int* ptr = (int*)0;                \
-            *ptr = 0x0badf00d;                 \
-        }                                      \
-    } while (0)
-
 EntityMotionState::EntityMotionState(btCollisionShape* shape, EntityItemPointer entity) :
     ObjectMotionState(nullptr),
     _entityPtr(entity),
@@ -812,14 +804,14 @@ void EntityMotionState::upgradeOutgoingPriority(uint8_t priority) {
 }
 
 void EntityMotionState::incrementGravityZoneOverlapCount() {
-    CRASH_ASSERT(_gravityZoneOverlapCount >= 0);
+    assert(_gravityZoneOverlapCount >= 0);
     _gravityZoneOverlapCount++;
 }
 
 // returns true if overlap count reaches zero after the decrement.
 bool EntityMotionState::decrementGravityZoneOverlapCount() {
     _gravityZoneOverlapCount--;
-    CRASH_ASSERT(_gravityZoneOverlapCount >= 0);
+    assert(_gravityZoneOverlapCount >= 0);
     return _gravityZoneOverlapCount == 0;
 }
 
@@ -834,8 +826,8 @@ bool EntityMotionState::hasGravityZoneAccumulated() const {
 // returns true if updateCount == overlapCount
 bool EntityMotionState::incrementGravityZoneUpdateCount() {
     _gravityZoneUpdateCount++;
-    CRASH_ASSERT(_gravityZoneUpdateCount <= _gravityZoneOverlapCount);
-    CRASH_ASSERT(_gravityZoneAccumulatorCount <= _gravityZoneOverlapCount);
+    assert(_gravityZoneUpdateCount <= _gravityZoneOverlapCount);
+    assert(_gravityZoneAccumulatorCount <= _gravityZoneOverlapCount);
     return _gravityZoneUpdateCount == _gravityZoneOverlapCount;
 }
 
@@ -849,5 +841,5 @@ void EntityMotionState::resetGravityZoneAccumulators() {
 void EntityMotionState::gravityZoneAccumulate(const btVector3& accumulate) {
     _gravityZoneAccumulator += accumulate;
     _gravityZoneAccumulatorCount++;
-    CRASH_ASSERT(_gravityZoneAccumulatorCount > 0);
+    assert(_gravityZoneAccumulatorCount > 0);
 }
