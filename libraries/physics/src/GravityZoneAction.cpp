@@ -21,7 +21,6 @@ void AddRemovePairGhostObject::addOverlappingObjectInternal(btBroadphaseProxy* o
     if (otherProxy) {
         btCollisionObject* obj = static_cast<btCollisionObject*>(otherProxy->m_clientObject);
         if (obj && obj->getInternalType() == btCollisionObject::CO_RIGID_BODY) {
-            btRigidBody* body = static_cast<btRigidBody*>(obj);
             ObjectMotionState* motionState = static_cast<ObjectMotionState*>(obj->getUserPointer());
             if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
                 EntityMotionState* entityMotionState = static_cast<EntityMotionState*>(motionState);
