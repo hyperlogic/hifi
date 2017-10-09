@@ -53,9 +53,9 @@ void AddRemovePairGhostObject::removeOverlappingObjectInternal(btBroadphaseProxy
     }
 }
 
-GravityZoneAction::GravityZoneAction(const ZonePhysicsActionProperties& zpap, btDynamicsWorld* world) {
+GravityZoneAction::GravityZoneAction(const ZonePhysicsActionProperties& zoneActionProperties, btDynamicsWorld* world) {
     _ghost.setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
-    updateProperties(zpap);
+    updateProperties(zoneActionProperties);
     _world = world;
     const int16_t GRAVITY_ZONE_GHOST_GROUP = -1;
     const int16_t GRAVITY_ZONE_GHOST_MASK = -1;
@@ -70,21 +70,21 @@ GravityZoneAction::~GravityZoneAction() {
     _box.reset(nullptr);
 }
 
-void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zpap) {
-    assert(zpap.type != ZonePhysicsActionProperties::None);
+void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zoneActionProperties) {
+    assert(zoneActionProperties.type != ZonePhysicsActionProperties::None);
 
     // TODO: detect "hard" and easy changes
-    btVector3 btPosition = glmToBullet(zpap.position);
-    btQuaternion btRotation = glmToBullet(zpap.rotation);
-    btVector3 btDimensions = glmToBullet(zpap.dimensions);
-    btVector3 btRegistrationPoint = glmToBullet(zpap.registrationPoint);
+    btVector3 btPosition = glmToBullet(zoneActionProperties.position);
+    btQuaternion btRotation = glmToBullet(zoneActionProperties.rotation);
+    btVector3 btDimensions = glmToBullet(zoneActionProperties.dimensions);
+    btVector3 btRegistrationPoint = glmToBullet(zoneActionProperties.registrationPoint);
 
     _box.reset(new btBoxShape(btDimensions * 0.5f));
     const btVector3 ONE_HALF(0.5f, 0.5f, 0.5f);
     btVector3 registrationOffset = rotateVector(btRotation, (ONE_HALF - btRegistrationPoint) * btDimensions);
     _ghost.setWorldTransform(btTransform(btRotation, btPosition + registrationOffset));
     _ghost.setCollisionShape(_box.get());
-    _zpap = zpap;
+    _zoneActionProperties = zoneActionProperties;
 }
 
 void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) {
@@ -104,15 +104,16 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                 if (body) {
                     btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
                     float signedMagnitude = entityGravity.dot(Y_AXIS);
-                    switch (_zpap.type) {
+                    switch (_zoneActionProperties.type) {
                     case ZonePhysicsActionProperties::Linear:
-                        entityMotionState->gravityZoneAccumulate(btVector3(signedMagnitude * _zpap.d.linear.gforce * _zpap.d.linear.up[0],
-                                                                           signedMagnitude * _zpap.d.linear.gforce * _zpap.d.linear.up[1],
-                                                                           signedMagnitude * _zpap.d.linear.gforce * _zpap.d.linear.up[2]));
+                        entityMotionState->gravityZoneAccumulate(btVector3(
+                            signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[0],
+                            signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[1],
+                            signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[2]));
                         break;
                     case ZonePhysicsActionProperties::Spherical:
                         tempVec3 = entityPosition.normalize();
-                        tempVec3 *= signedMagnitude * _zpap.d.spherical.gforce;
+                        tempVec3 *= signedMagnitude * _zoneActionProperties.d.spherical.gforce;
                         entityMotionState->gravityZoneAccumulate(tempVec3);
                         break;
                     default:

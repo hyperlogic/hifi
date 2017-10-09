@@ -2340,9 +2340,9 @@ void EntityItem::checkWaitingToRemove(EntitySimulationPointer simulation) {
 }
 
 ZonePhysicsActionProperties EntityItem::getZonePhysicsActionProperties() const {
-    ZonePhysicsActionProperties zpap;
-    zpap.type = ZonePhysicsActionProperties::None;
-    return zpap;
+    ZonePhysicsActionProperties zoneActionProperties;
+    zoneActionProperties.type = ZonePhysicsActionProperties::None;
+    return zoneActionProperties;
 }
 
 void EntityItem::setDynamicData(QByteArray dynamicData) {

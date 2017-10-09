@@ -49,31 +49,31 @@ ZoneEntityItem::ZoneEntityItem(const EntityItemID& entityItemID) : EntityItem(en
 ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() const {
     uint8_t type = _gravityProperties.getGType();
     if (type > 0) {
-        ZonePhysicsActionProperties zpap;
-        zpap.type = (ZonePhysicsActionProperties::Type)type;
-        zpap.position = getPosition();
-        zpap.rotation = getRotation();
-        zpap.dimensions = getDimensions();
-        zpap.registrationPoint = getRegistrationPoint();
+        ZonePhysicsActionProperties zoneActionProperties;
+        zoneActionProperties.type = (ZonePhysicsActionProperties::Type)type;
+        zoneActionProperties.position = getPosition();
+        zoneActionProperties.rotation = getRotation();
+        zoneActionProperties.dimensions = getDimensions();
+        zoneActionProperties.registrationPoint = getRegistrationPoint();
 
-        switch (zpap.type) {
+        switch (zoneActionProperties.type) {
         case ZonePhysicsActionProperties::Spherical:
-            zpap.d.spherical.gforce = _gravityProperties.getGForce();
+            zoneActionProperties.d.spherical.gforce = _gravityProperties.getGForce();
             break;
         case ZonePhysicsActionProperties::Linear: {
-            zpap.d.linear.gforce = _gravityProperties.getGForce();
+            zoneActionProperties.d.linear.gforce = _gravityProperties.getGForce();
             glm::vec3 up = glm::normalize(_gravityProperties.getUp());
-            zpap.d.linear.up[0] = up.x;
-            zpap.d.linear.up[1] = up.y;
-            zpap.d.linear.up[2] = up.z;
+            zoneActionProperties.d.linear.up[0] = up.x;
+            zoneActionProperties.d.linear.up[1] = up.y;
+            zoneActionProperties.d.linear.up[2] = up.z;
             break;
         }
         case ZonePhysicsActionProperties::None:
         default:
-            zpap.type = ZonePhysicsActionProperties::None;
+            zoneActionProperties.type = ZonePhysicsActionProperties::None;
             break;
         }
-        return zpap;
+        return zoneActionProperties;
     } else {
         return EntityItem::getZonePhysicsActionProperties();
     }

@@ -44,9 +44,9 @@ void PhysicalEntitySimulation::updateEntitiesInternal(const quint64& now) {
     // Do nothing here because the "internal" update the PhysicsEngine::stepSimualtion() which is done elsewhere.
 }
 
-void PhysicalEntitySimulation::queueZoneUpdateTransaction(const EntityItemID& entityItemID, const ZonePhysicsActionProperties zpap) {
+void PhysicalEntitySimulation::queueZoneUpdateTransaction(const EntityItemID& entityItemID, const ZonePhysicsActionProperties zoneActionProperties) {
     std::lock_guard<std::mutex> guard(_zoneUpdateMutex);
-    _zoneUpdateTransactions.push_back(ZoneUpdateTransaction(ZoneUpdateTransaction::Update, entityItemID, zpap));
+    _zoneUpdateTransactions.push_back(ZoneUpdateTransaction(ZoneUpdateTransaction::Update, entityItemID, zoneActionProperties));
 }
 
 void PhysicalEntitySimulation::queueZoneRemoveTransaction(const EntityItemID& entityItemID) {
@@ -400,15 +400,15 @@ void PhysicalEntitySimulation::applyZoneChanges(btDynamicsWorld* world) {
                 _zoneActionMap.erase(iter);
             }
         } else if (zoneTransaction.commandType == ZoneUpdateTransaction::Update) {
-            if (zoneTransaction.zpap.type == ZonePhysicsActionProperties::None) {
+            if (zoneTransaction.zoneActionProperties.type == ZonePhysicsActionProperties::None) {
                 if (iter != _zoneActionMap.end()) {
                     _zoneActionMap.erase(iter);
                 }
             } else {
                 if (iter != _zoneActionMap.end()) {
-                    iter->second->updateProperties(zoneTransaction.zpap);
+                    iter->second->updateProperties(zoneTransaction.zoneActionProperties);
                 } else {
-                    _zoneActionMap[zoneTransaction.entityItemID] = std::unique_ptr<GravityZoneAction>(new GravityZoneAction(zoneTransaction.zpap, world));
+                    _zoneActionMap[zoneTransaction.entityItemID] = std::unique_ptr<GravityZoneAction>(new GravityZoneAction(zoneTransaction.zoneActionProperties, world));
                 }
             }
         }

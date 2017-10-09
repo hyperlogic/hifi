@@ -65,7 +65,7 @@ public:
     EntityEditPacketSender* getPacketSender() { return _entityPacketSender; }
 
 protected:
-    void queueZoneUpdateTransaction(const EntityItemID& entityItemID, const ZonePhysicsActionProperties zpap);
+    void queueZoneUpdateTransaction(const EntityItemID& entityItemID, const ZonePhysicsActionProperties zoneActionProperties);
     void queueZoneRemoveTransaction(const EntityItemID& entityItemID);
 
 private:
@@ -77,12 +77,14 @@ private:
     struct ZoneUpdateTransaction {
         enum CommandType { Update, Remove };
         ZoneUpdateTransaction(CommandType commandTypeIn, const EntityItemID& entityItemIDIn) : commandType(commandTypeIn), entityItemID(entityItemIDIn) {
-            zpap.type = ZonePhysicsActionProperties::None;
+            zoneActionProperties.type = ZonePhysicsActionProperties::None;
         }
-        ZoneUpdateTransaction(CommandType commandTypeIn, const EntityItemID& entityItemIDIn, const ZonePhysicsActionProperties& zpapIn) : commandType(commandTypeIn), entityItemID(entityItemIDIn), zpap(zpapIn) {}
+        ZoneUpdateTransaction(CommandType commandTypeIn, const EntityItemID& entityItemIDIn,
+                              const ZonePhysicsActionProperties& zoneActionPropertiesIn) :
+            commandType(commandTypeIn), entityItemID(entityItemIDIn), zoneActionProperties(zoneActionPropertiesIn) {}
         CommandType commandType;
         EntityItemID entityItemID;
-        ZonePhysicsActionProperties zpap;
+        ZonePhysicsActionProperties zoneActionProperties;
     };
     std::mutex _zoneUpdateMutex;  // guards the zoneUpdateTransactions queue from multithreaded access
     std::vector<ZoneUpdateTransaction> _zoneUpdateTransactions;  // queue of changes

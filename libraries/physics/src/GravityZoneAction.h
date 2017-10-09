@@ -27,11 +27,11 @@ class AddRemovePairGhostObject : public btGhostObject {
 
 class GravityZoneAction : public btActionInterface {
 public:
-    GravityZoneAction(const ZonePhysicsActionProperties& zpap, btDynamicsWorld* world);
+    GravityZoneAction(const ZonePhysicsActionProperties& zoneActionProperties, btDynamicsWorld* world);
 
     virtual ~GravityZoneAction();
 
-    void updateProperties(const ZonePhysicsActionProperties& zpap);
+    void updateProperties(const ZonePhysicsActionProperties& zoneActionProperties);
 
     // these are from btActionInterface
     virtual void updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) override;
@@ -41,7 +41,7 @@ protected:
     std::unique_ptr<btBoxShape> _box;
     AddRemovePairGhostObject _ghost;
     btDynamicsWorld* _world { nullptr };
-    ZonePhysicsActionProperties _zpap;
+    ZonePhysicsActionProperties _zoneActionProperties;
 };
 
 #endif // hifi_GravityZoneAction_h
