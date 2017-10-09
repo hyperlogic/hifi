@@ -56,8 +56,8 @@ GravityZoneAction::GravityZoneAction(const ZonePhysicsActionProperties& zoneActi
     _ghost.setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
     updateProperties(zoneActionProperties);
     _world = world;
-    const int16_t GRAVITY_ZONE_GHOST_GROUP = -1;
-    const int16_t GRAVITY_ZONE_GHOST_MASK = -1;
+    const int16_t GRAVITY_ZONE_GHOST_GROUP = BULLET_COLLISION_GROUP_DYNAMIC;
+    const int16_t GRAVITY_ZONE_GHOST_MASK = BULLET_COLLISION_GROUP_DYNAMIC;
     _world->addCollisionObject(&_ghost, GRAVITY_ZONE_GHOST_GROUP, GRAVITY_ZONE_GHOST_MASK);
     _world->addAction(this);
 }
@@ -111,7 +111,7 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                             signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[2]));
                         break;
                     case ZonePhysicsActionProperties::Spherical:
-                        tempVec3 = entityPosition.normalize();
+                        tempVec3 = (entityPosition - glmToBullet(_zoneActionProperties.position)).normalize();
                         tempVec3 *= signedMagnitude * _zoneActionProperties.d.spherical.gforce;
                         entityMotionState->gravityZoneAccumulate(tempVec3);
                         break;
