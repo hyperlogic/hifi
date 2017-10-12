@@ -21,7 +21,9 @@ EntityIconOverlayManager = function(entityTypes, getOverlayPropertiesFunc) {
             var entityID = entityIDs[id];
             var properties = Entities.getEntityProperties(entityID);
             var overlayProperties = {
-                position: properties.position
+                position: properties.position,
+                orientation: properties.orientation,
+                rotation: properties.rotation
             };
             if (getOverlayPropertiesFunc) {
                 var customProperties = getOverlayPropertiesFunc(entityID, properties);
@@ -120,7 +122,7 @@ EntityIconOverlayManager = function(entityTypes, getOverlayPropertiesFunc) {
             entityIDs[entityID] = entityID;
             var overlayProperties = {
                 position: properties.position,
-                rotation: Quat.fromPitchYawRollDegrees(0, 0, 270),
+                rotation: Quat.multiply(MyAvatar.orientation, Quat.fromPitchYawRollDegrees(0, 0, 270)),
                 visible: visible,
                 alpha: 0.9,
                 scale: 0.5,
