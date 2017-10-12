@@ -693,19 +693,20 @@ SelectionDisplay = (function() {
         y: 0,
         z: 0
     };
-    var yawOverlayRotation = Quat.fromVec3Degrees(yawOverlayAngles);
+    var yawOverlayRotation = Quat.multiply(MyAvatar.orientation, Quat.fromVec3Degrees(yawOverlayAngles));
+
     var pitchOverlayAngles = {
         x: 0,
         y: 90,
         z: 0
     };
-    var pitchOverlayRotation = Quat.fromVec3Degrees(pitchOverlayAngles);
+    var pitchOverlayRotation = Quat.multiply(MyAvatar.orientation, Quat.fromVec3Degrees(pitchOverlayAngles));
     var rollOverlayAngles = {
         x: 0,
         y: 180,
         z: 0
     };
-    var rollOverlayRotation = Quat.fromVec3Degrees(rollOverlayAngles);
+    var rollOverlayRotation = Quat.multiply(MyAvatar.orientation, Quat.fromVec3Degrees(rollOverlayAngles));
 
     var xRailOverlay = Overlays.addOverlay("line3d", {
         visible: false,
@@ -1209,43 +1210,38 @@ SelectionDisplay = (function() {
                    *
 
         ------------------------------*/
-
+        // takes into account the orientation of the avatar to create and use tools
+        var avatarReferencial = Quat.multiply(MyAvatar.orientation , Quat.fromVec3Degrees({
+            x: 0,
+            y: 180,
+            z: 0
+        }));
         var cameraPosition = Camera.getPosition();
         if (cameraPosition.x > objectCenter.x) {
             // must be BRF or BRN
             if (cameraPosition.z < objectCenter.z) {
 
-                yawHandleRotation = Quat.fromVec3Degrees({
+                yawHandleRotation = Quat.multiply(avatarReferencial , Quat.fromVec3Degrees({
                     x: 270,
                     y: 90,
                     z: 0
-                });
-                pitchHandleRotation = Quat.fromVec3Degrees({
+                }));
+
+                pitchHandleRotation = Quat.multiply(avatarReferencial , Quat.fromVec3Degrees({
                     x: 0,
                     y: 90,
                     z: 0
-                });
-                rollHandleRotation = Quat.fromVec3Degrees({
-                    x: 0,
-                    y: 0,
-                    z: 0
-                });
+                }));
 
-                yawNormal = {
-                    x: 0,
-                    y: 1,
-                    z: 0
-                };
-                pitchNormal = {
-                    x: 1,
-                    y: 0,
-                    z: 0
-                };
-                rollNormal = {
+                rollHandleRotation = Quat.multiply(avatarReferencial , Quat.fromVec3Degrees({
                     x: 0,
                     y: 0,
-                    z: 1
-                };
+                    z: 0
+                }));
+                
+                yawNormal = Quat.getUp(avatarReferencial);
+                pitchNormal = Quat.getFront(avatarReferencial);
+                rollNormal = Quat.getRight(avatarReferencial);
 
                 yawCorner = {
                     x: left + rotateHandleOffset,
@@ -1292,37 +1288,26 @@ SelectionDisplay = (function() {
 
             } else {
 
-                yawHandleRotation = Quat.fromVec3Degrees({
+                yawHandleRotation = Quat.multiply(avatarReferencial , Quat.fromVec3Degrees({
                     x: 270,
                     y: 0,
                     z: 0
-                });
-                pitchHandleRotation = Quat.fromVec3Degrees({
+                }));
+                pitchHandleRotation = Quat.multiply(avatarReferencial , Quat.fromVec3Degrees({
                     x: 180,
                     y: 270,
                     z: 0
-                });
-                rollHandleRotation = Quat.fromVec3Degrees({
+                }));
+                rollHandleRotation = Quat.multiply(avatarReferencial , Quat.fromVec3Degrees({
                     x: 0,
                     y: 0,
                     z: 90
-                });
+                }));
+                
+                yawNormal = Quat.getUp(avatarReferencial); 
+                pitchNormal = Quat.getFront(avatarReferencial);
+                rollNormal = Quat.getRight(avatarReferencial);
 
-                yawNormal = {
-                    x: 0,
-                    y: 1,
-                    z: 0
-                };
-                pitchNormal = {
-                    x: 1,
-                    y: 0,
-                    z: 0
-                };
-                rollNormal = {
-                    x: 0,
-                    y: 0,
-                    z: 1
-                };
 
 
                 yawCorner = {
@@ -1372,37 +1357,25 @@ SelectionDisplay = (function() {
             // must be BLF or BLN
             if (cameraPosition.z < objectCenter.z) {
 
-                yawHandleRotation = Quat.fromVec3Degrees({
+                yawHandleRotation = Quat.multiply(avatarReferencial ,Quat.fromVec3Degrees({
                     x: 270,
                     y: 180,
                     z: 0
-                });
-                pitchHandleRotation = Quat.fromVec3Degrees({
+                }));
+                pitchHandleRotation = Quat.multiply(avatarReferencial ,Quat.fromVec3Degrees({
                     x: 90,
                     y: 0,
                     z: 90
-                });
-                rollHandleRotation = Quat.fromVec3Degrees({
+                }));
+                rollHandleRotation = Quat.multiply(avatarReferencial ,Quat.fromVec3Degrees({
                     x: 0,
                     y: 0,
                     z: 180
-                });
-
-                yawNormal = {
-                    x: 0,
-                    y: 1,
-                    z: 0
-                };
-                pitchNormal = {
-                    x: 1,
-                    y: 0,
-                    z: 0
-                };
-                rollNormal = {
-                    x: 0,
-                    y: 0,
-                    z: 1
-                };
+                }));
+                
+                yawNormal = Quat.getUp(avatarReferencial); 
+                pitchNormal = Quat.getFront(avatarReferencial);
+                rollNormal = Quat.getRight(avatarReferencial);
 
                 yawCorner = {
                     x: right - rotateHandleOffset,
@@ -1447,37 +1420,26 @@ SelectionDisplay = (function() {
 
             } else {
 
-                yawHandleRotation = Quat.fromVec3Degrees({
+                yawHandleRotation = Quat.multiply(avatarReferencial ,Quat.fromVec3Degrees({
                     x: 270,
                     y: 270,
                     z: 0
-                });
-                pitchHandleRotation = Quat.fromVec3Degrees({
+                }));
+                pitchHandleRotation = Quat.multiply(avatarReferencial ,Quat.fromVec3Degrees({
                     x: 180,
                     y: 270,
                     z: 0
-                });
-                rollHandleRotation = Quat.fromVec3Degrees({
+                }));
+                rollHandleRotation = Quat.multiply(avatarReferencial ,Quat.fromVec3Degrees({
                     x: 0,
                     y: 0,
                     z: 180
-                });
+                }));
 
-                yawNormal = {
-                    x: 0,
-                    y: 1,
-                    z: 0
-                };
-                rollNormal = {
-                    x: 0,
-                    y: 0,
-                    z: 1
-                };
-                pitchNormal = {
-                    x: 1,
-                    y: 0,
-                    z: 0
-                };
+                
+                yawNormal = Quat.getUp(avatarReferencial); 
+                pitchNormal = Quat.getFront(avatarReferencial);
+                rollNormal = Quat.getRight(avatarReferencial);
 
                 yawCorner = {
                     x: right - rotateHandleOffset,
@@ -2306,13 +2268,20 @@ SelectionDisplay = (function() {
         });
 
         var grabberMoveUpOffset = 0.1;
+        var upVec = Quat.getUp(MyAvatar.orientation);
         grabberMoveUpPosition = {
-            x: position.x,
-            y: position.y + worldTop + grabberMoveUpOffset,
-            z: position.z
+            x: position.x + (grabberMoveUpOffset + worldTop) * upVec.x ,
+            y: position.y+ (grabberMoveUpOffset + worldTop) * upVec.y,
+            z: position.z + (grabberMoveUpOffset + worldTop) * upVec.z
         };
+        var avatarReferencial = Quat.multiply(MyAvatar.orientation , Quat.fromVec3Degrees({
+            x: 0,
+            y: 180,
+            z: 0
+        }));
         Overlays.editOverlay(grabberMoveUp, {
-            visible: (activeTool === null) || (mode == "TRANSLATE_UP_DOWN")
+            visible: (activeTool === null) || (mode == "TRANSLATE_UP_DOWN"),
+            rotation: avatarReferencial
         });
 
         Overlays.editOverlay(baseOfEntityProjectionOverlay, {
@@ -2558,7 +2527,7 @@ SelectionDisplay = (function() {
             upDownPickNormal = Quat.getForward(lastCameraOrientation);
             // Remove y component so the y-axis lies along the plane we picking on - this will
             // give movements that follow the mouse.
-            upDownPickNormal.y = 0;
+            
             lastXYPick = rayPlaneIntersection(pickRay, SelectionManager.worldPosition, upDownPickNormal);
 
             SelectionManager.saveProperties();
@@ -2594,9 +2563,7 @@ SelectionDisplay = (function() {
             var vector = Vec3.subtract(newIntersection, lastXYPick);
             vector = grid.snapToGrid(vector);
 
-            // we only care about the Y axis
-            vector.x = 0;
-            vector.z = 0;
+            // TODO: project vector on avatar up vector
 
             var wantDebug = false;
             if (wantDebug) {
