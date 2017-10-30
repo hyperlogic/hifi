@@ -50,6 +50,8 @@ private:
 };
 
 class RenderableModelEntityItem : public ModelEntityWrapper {
+    Q_OBJECT
+
     friend class render::entities::ModelEntityRenderer;
     using Parent = ModelEntityWrapper;
 public:
@@ -105,10 +107,13 @@ public:
     virtual QStringList getJointNames() const override;
 
     bool getMeshes(MeshProxyList& result) override;
+    const void* getCollisionMeshKey() const { return _collisionMeshKey; }
+
+signals:
+    void requestCollisionGeometryUpdate();
 
 private:
     bool needsUpdateModelBounds() const;
-    bool isAnimatingSomething() const;
     void autoResizeJointArrays();
     void copyAnimationJointDataToModel();
 
@@ -118,7 +123,6 @@ private:
     QVariantMap _originalTextures;
     bool _dimensionsInitialized { true };
     bool _needsJointSimulation { false };
-    bool _showCollisionGeometry { false };
     const void* _collisionMeshKey { nullptr };
 };
 
@@ -138,10 +142,12 @@ protected:
     virtual ItemKey getKey() override;
     virtual uint32_t metaFetchMetaSubItems(ItemIDs& subItems) override;
 
-    virtual bool needsUpdateFromTypedEntity(const TypedEntityPointer& entity) const override;
-    virtual bool needsUpdate() const override;
+    virtual bool needsRenderUpdateFromTypedEntity(const TypedEntityPointer& entity) const override;
+    virtual bool needsRenderUpdate() const override;
     virtual void doRender(RenderArgs* args) override;
-    virtual void doUpdateTyped(const ScenePointer& scene, Transaction& transaction, const TypedEntityPointer& entity) override;
+    virtual void doRenderUpdateSynchronousTyped(const ScenePointer& scene, Transaction& transaction, const TypedEntityPointer& entity) override;
+    void flagForCollisionGeometryUpdate();
+    void setCollisionMeshKey(const void* key);
 
 private:
     void animate(const TypedEntityPointer& entity);
@@ -151,7 +157,6 @@ private:
     // Transparency is handled in ModelMeshPartPayload
     virtual bool isTransparent() const override { return false; }
 
-    bool _modelJustLoaded { false };
     bool _hasModel { false };
     ::ModelPointer _model;
     GeometryResource::Pointer _compoundShapeResource;
@@ -165,6 +170,7 @@ private:
 
     bool _needsJointSimulation{ false };
     bool _showCollisionGeometry{ false };
+    bool _needsCollisionGeometryUpdate{ false };
     const void* _collisionMeshKey{ nullptr };
 
     // used on client side
@@ -180,8 +186,6 @@ private:
     uint64_t _lastAnimated { 0 };
     float _currentFrame { 0 };
 
-private slots:
-    void handleModelLoaded(bool success);
 };
 
 } } // namespace 

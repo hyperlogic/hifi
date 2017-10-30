@@ -25,7 +25,7 @@ Item {
     HifiConstants { id: hifi; }
 
     id: root;
-    property string referrerURL: "https://metaverse.highfidelity.com/marketplace?";
+    property string referrerURL: (Account.metaverseServerURL + "/marketplace?");
     readonly property int additionalDropdownHeight: usernameDropdown.height - myUsernameButton.anchors.bottomMargin;
     property alias usernameDropdownVisible: usernameDropdown.visible;
 
@@ -39,7 +39,7 @@ Item {
                 sendToParent({method: "needsLogIn"});
             } else if (walletStatus === 3) {
                 commerce.getSecurityImage();
-            } else {
+            } else if (walletStatus > 3) {
                 console.log("ERROR in EmulatedMarketplaceHeader.qml: Unknown wallet status: " + walletStatus);
             }
         }

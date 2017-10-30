@@ -30,14 +30,14 @@ PacketVersion versionForPacketType(PacketType packetType) {
         case PacketType::EntityEdit:
         case PacketType::EntityData:
         case PacketType::EntityPhysics:
-            return VERSION_ENTITIES_HAS_ZONE_GRAVITY_PROPERTIES;
+            return static_cast<PacketVersion>(EntityVersion::HasZoneGravity);
         case PacketType::EntityQuery:
             return static_cast<PacketVersion>(EntityQueryPacketVersion::JSONFilterWithFamilyTree);
         case PacketType::AvatarIdentity:
         case PacketType::AvatarData:
         case PacketType::BulkAvatarData:
         case PacketType::KillAvatar:
-            return static_cast<PacketVersion>(AvatarMixerPacketVersion::AvatarIdentityLookAtSnapping);
+            return static_cast<PacketVersion>(AvatarMixerPacketVersion::UpdatedMannequinDefaultAvatar);
         case PacketType::MessagesData:
             return static_cast<PacketVersion>(MessageDataVersion::TextOrBinaryData);
         case PacketType::ICEServerHeartbeat:
@@ -61,6 +61,9 @@ PacketVersion versionForPacketType(PacketType packetType) {
         case PacketType::DomainServerAddedNode:
             return static_cast<PacketVersion>(DomainServerAddedNodeVersion::PermissionsGrid);
 
+        case PacketType::EntityScriptCallMethod:
+            return static_cast<PacketVersion>(EntityScriptCallMethodVersion::ClientCallable);
+
         case PacketType::MixedAudio:
         case PacketType::SilentAudioFrame:
         case PacketType::InjectAudio:
@@ -68,6 +71,8 @@ PacketVersion versionForPacketType(PacketType packetType) {
         case PacketType::MicrophoneAudioWithEcho:
         case PacketType::AudioStreamStats:
             return static_cast<PacketVersion>(AudioVersion::HighDynamicRangeVolume);
+        case PacketType::ICEPing:
+            return static_cast<PacketVersion>(IcePingVersion::SendICEPeerID);
         default:
             return 17;
     }

@@ -100,7 +100,8 @@ private:
     void bakeAsset(const AssetHash& assetHash, const AssetPath& assetPath, const QString& filePath);
 
     /// Move baked content for asset to baked directory and update baked status
-    void handleCompletedBake(QString originalAssetHash, QString assetPath, QVector<QString> bakedFilePaths);
+    void handleCompletedBake(QString originalAssetHash, QString assetPath, QString bakedTempOutputDir,
+                             QVector<QString> bakedFilePaths);
     void handleFailedBake(QString originalAssetHash, QString assetPath, QString errors);
     void handleAbortedBake(QString originalAssetHash, QString assetPath);
 
@@ -126,6 +127,8 @@ private:
     bool _wasGrayscaleTextureCompressionEnabled { false  };
     bool _wasNormalTextureCompressionEnabled { false };
     bool _wasCubeTextureCompressionEnabled { false };
+
+    uint64_t _filesizeLimit;
 };
 
 #endif
