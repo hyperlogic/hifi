@@ -39,6 +39,7 @@ public:
 protected:
 
     std::unique_ptr<btBoxShape> _box;
+    float _volume { FLT_MAX };
     AddRemovePairGhostObject _ghost;
     btDynamicsWorld* _world { nullptr };
     ZonePhysicsActionProperties _zoneActionProperties;

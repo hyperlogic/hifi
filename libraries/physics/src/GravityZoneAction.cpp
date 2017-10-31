@@ -25,7 +25,7 @@ void AddRemovePairGhostObject::addOverlappingObjectInternal(btBroadphaseProxy* o
             if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
                 EntityMotionState* entityMotionState = static_cast<EntityMotionState*>(motionState);
                 entityMotionState->incrementGravityZoneOverlapCount();
-                entityMotionState->resetGravityZoneAccumulators();
+                entityMotionState->resetGravityZoneProperties();
             }
         }
     }
@@ -45,7 +45,7 @@ void AddRemovePairGhostObject::removeOverlappingObjectInternal(btBroadphaseProxy
                     // if we are leaving the last zone, set gravity back to it's original entity value.
                     btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
                     body->setGravity(entityGravity);
-                    entityMotionState->resetGravityZoneAccumulators();
+                    entityMotionState->resetGravityZoneProperties();
                 }
             }
         }
@@ -79,6 +79,7 @@ void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zone
     btVector3 btRegistrationPoint = glmToBullet(zoneActionProperties.registrationPoint);
 
     _box.reset(new btBoxShape(btDimensions * 0.5f));
+    _volume = btDimensions.getX() * btDimensions.getY() * btDimensions.getZ();
     const btVector3 ONE_HALF(0.5f, 0.5f, 0.5f);
     btVector3 registrationOffset = rotateVector(btRotation, (ONE_HALF - btRegistrationPoint) * btDimensions);
     _ghost.setWorldTransform(btTransform(btRotation, btPosition + registrationOffset));
@@ -88,7 +89,6 @@ void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zone
 
 void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) {
     btTransform invGhostTransform = _ghost.getWorldTransform().inverse();
-
     btVector3 Y_AXIS(0.0f, 1.0f, 0.0f);
     for (int i = 0; i < _ghost.getNumOverlappingObjects(); i++) {
         btCollisionObject* obj = _ghost.getOverlappingObject(i);
@@ -97,7 +97,7 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
             EntityMotionState* entityMotionState = static_cast<EntityMotionState*>(motionState);
             btVector3 entityPosition = glmToBullet(motionState->getObjectPosition());
             btVector3 localEntityPosition = invGhostTransform(entityPosition);
-            if (_box->isInside(localEntityPosition, 0.0001f)) {
+            if (_volume < entityMotionState->getGravityZoneVolume() && _box->isInside(localEntityPosition, 0.0001f)) {
                 btRigidBody* body = motionState->getRigidBody();
                 btVector3 tempVec3;
                 if (body) {
@@ -105,15 +105,15 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                     float signedMagnitude = entityGravity.dot(Y_AXIS);
                     switch (_zoneActionProperties.type) {
                     case ZonePhysicsActionProperties::Linear:
-                        entityMotionState->gravityZoneAccumulate(btVector3(
+                        entityMotionState->setGravityZoneGravityAndVolume(btVector3(
                             signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[0],
                             signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[1],
-                            signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[2]));
+                            signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[2]), _volume);
                         break;
                     case ZonePhysicsActionProperties::Spherical:
                         tempVec3 = (entityPosition - glmToBullet(_zoneActionProperties.position)).normalize();
                         tempVec3 *= signedMagnitude * _zoneActionProperties.d.spherical.gforce;
-                        entityMotionState->gravityZoneAccumulate(tempVec3);
+                        entityMotionState->setGravityZoneGravityAndVolume(tempVec3, _volume);
                         break;
                     default:
                         break;
@@ -124,13 +124,13 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
                 // we are the last overlapping zone.
                 btRigidBody* body = entityMotionState->getRigidBody();
                 if (body) {
-                    if (entityMotionState->hasGravityZoneAccumulated()) {
-                        body->setGravity(entityMotionState->getGravityZoneAccumulator());
+                    if (entityMotionState->isGravityZoneSet()) {
+                        body->setGravity(entityMotionState->getGravityZoneGravity());
                     } else {
                         body->setGravity(glmToBullet(entityMotionState->getObjectGravity()));
                     }
                 }
-                entityMotionState->resetGravityZoneAccumulators();
+                entityMotionState->resetGravityZoneProperties();
             }
         }
     }

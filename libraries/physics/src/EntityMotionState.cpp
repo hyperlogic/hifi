@@ -45,6 +45,17 @@ bool entityTreeIsLocked() {
 }
 #endif
 
+#ifdef WANT_GRAVITY_ZONE_ASSERT
+#define GZONE_ASSERT(cond)                      \
+    do {                                        \
+        if (!(cond)) {                          \
+            int* badPointer = (int*)0;          \
+            *badPointer = (int)0x0badf00d;      \
+        }                                       \
+    } while (false)
+#else
+#define GZONE_ASSERT(cond) assert(cond)
+#endif
 
 EntityMotionState::EntityMotionState(btCollisionShape* shape, EntityItemPointer entity) :
     ObjectMotionState(nullptr),
@@ -808,42 +819,47 @@ void EntityMotionState::upgradeOutgoingPriority(uint8_t priority) {
 }
 
 void EntityMotionState::incrementGravityZoneOverlapCount() {
-    assert(_gravityZoneOverlapCount >= 0);
+    GZONE_ASSERT(_gravityZoneOverlapCount >= 0);
     _gravityZoneOverlapCount++;
 }
 
 // returns true if overlap count reaches zero after the decrement.
 bool EntityMotionState::decrementGravityZoneOverlapCount() {
     _gravityZoneOverlapCount--;
-    assert(_gravityZoneOverlapCount >= 0);
+    GZONE_ASSERT(_gravityZoneOverlapCount >= 0);
     return _gravityZoneOverlapCount == 0;
 }
 
-const btVector3& EntityMotionState::getGravityZoneAccumulator() const {
-    return _gravityZoneAccumulator;
+const btVector3& EntityMotionState::getGravityZoneGravity() const {
+    GZONE_ASSERT(isGravityZoneSet());
+    return _gravityZoneGravity;
 }
 
-bool EntityMotionState::hasGravityZoneAccumulated() const {
-    return _gravityZoneAccumulatorCount > 0;
+bool EntityMotionState::isGravityZoneSet() const {
+    return _gravityZoneVolume != FLT_MAX;
+}
+
+float EntityMotionState::getGravityZoneVolume() const {
+    return _gravityZoneVolume;
 }
 
 // returns true if updateCount == overlapCount
 bool EntityMotionState::incrementGravityZoneUpdateCount() {
     _gravityZoneUpdateCount++;
-    assert(_gravityZoneUpdateCount <= _gravityZoneOverlapCount);
-    assert(_gravityZoneAccumulatorCount <= _gravityZoneOverlapCount);
+    GZONE_ASSERT(_gravityZoneUpdateCount <= _gravityZoneOverlapCount);
     return _gravityZoneUpdateCount == _gravityZoneOverlapCount;
 }
 
-void EntityMotionState::resetGravityZoneAccumulators() {
-    // reset accumulators
-    _gravityZoneAccumulatorCount = 0;
-    _gravityZoneAccumulator = btVector3(0.0f, 0.0f, 0.0f);
+void EntityMotionState::resetGravityZoneProperties() {
+    // reset properties
+    _gravityZoneGravity = btVector3(0.0f, 0.0f, 0.0f);
+    _gravityZoneVolume = FLT_MAX;
     _gravityZoneUpdateCount = 0;
 }
 
-void EntityMotionState::gravityZoneAccumulate(const btVector3& accumulate) {
-    _gravityZoneAccumulator += accumulate;
-    _gravityZoneAccumulatorCount++;
-    assert(_gravityZoneAccumulatorCount > 0);
+void EntityMotionState::setGravityZoneGravityAndVolume(const btVector3& gravity, float volume) {
+    GZONE_ASSERT(volume < _gravityZoneVolume);
+    _gravityZoneVolume = volume;
+    _gravityZoneGravity = gravity;
 }
+

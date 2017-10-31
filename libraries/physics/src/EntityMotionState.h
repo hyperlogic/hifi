@@ -88,11 +88,12 @@ public:
     // even when inside of zero or more gravity zones.
     void incrementGravityZoneOverlapCount();
     bool decrementGravityZoneOverlapCount();      // returns true if overlap count reaches zero after the decrement.
-    const btVector3& getGravityZoneAccumulator() const;
-    bool hasGravityZoneAccumulated() const;
+    const btVector3& getGravityZoneGravity() const;
+    bool isGravityZoneSet() const;
+    float getGravityZoneVolume() const;
     bool incrementGravityZoneUpdateCount();       // returns true if updateCount == overlapCount
-    void resetGravityZoneAccumulators();
-    void gravityZoneAccumulate(const btVector3& accumulate);
+    void resetGravityZoneProperties();
+    void setGravityZoneGravityAndVolume(const btVector3& gravity, float volume);
 
 protected:
     // changes _outgoingPriority only if priority is larger
@@ -138,8 +139,8 @@ protected:
     uint8_t _numInactiveUpdates { 1 };
     uint8_t _outgoingPriority { 0 };
 
-    btVector3 _gravityZoneAccumulator { 0.0f, 0.0f, 0.0f };
-    int16_t _gravityZoneAccumulatorCount { 0 };
+    btVector3 _gravityZoneGravity { 0.0f, 0.0f, 0.0f };
+    float _gravityZoneVolume { FLT_MAX };
     int16_t _gravityZoneOverlapCount { 0 };
     int16_t _gravityZoneUpdateCount { 0 };
 };
