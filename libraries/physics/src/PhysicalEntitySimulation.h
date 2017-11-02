@@ -22,6 +22,7 @@
 
 #include "PhysicsEngine.h"
 #include "EntityMotionState.h"
+#include "GravityZoneManager.h"
 
 class PhysicalEntitySimulation;
 using PhysicalEntitySimulationPointer = std::shared_ptr<PhysicalEntitySimulation>;
@@ -97,6 +98,7 @@ private:
 
     PhysicsEnginePointer _physicsEngine = nullptr;
     EntityEditPacketSender* _entityPacketSender = nullptr;
+    GravityZoneManager _gravityZoneManager;
 
     uint32_t _lastStepSendPackets { 0 };
 };

@@ -32,6 +32,10 @@ public:
     virtual ~GravityZoneAction();
 
     void updateProperties(const ZonePhysicsActionProperties& zoneActionProperties);
+    bool contains(const btVector3& point) const;
+
+    void computeAABB(glm::vec3& aabbMinOut, glm::vec3& aabbMaxOut) const;
+    float getVolume() const;
 
     // these are from btActionInterface
     virtual void updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) override;
@@ -43,6 +47,7 @@ protected:
     AddRemovePairGhostObject _ghost;
     btDynamicsWorld* _world { nullptr };
     ZonePhysicsActionProperties _zoneActionProperties;
+    btTransform _invGhostTransform;
 };
 
 #endif // hifi_GravityZoneAction_h

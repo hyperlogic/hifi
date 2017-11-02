@@ -72,7 +72,7 @@ GravityZoneAction::~GravityZoneAction() {
 void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zoneActionProperties) {
     assert(zoneActionProperties.type != ZonePhysicsActionProperties::None);
 
-    // TODO: detect "hard" and easy changes
+    // AJT: TODO: detect "hard" and easy changes
     btVector3 btPosition = glmToBullet(zoneActionProperties.position);
     btQuaternion btRotation = glmToBullet(zoneActionProperties.rotation);
     btVector3 btDimensions = glmToBullet(zoneActionProperties.dimensions);
@@ -82,13 +82,14 @@ void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zone
     _volume = btDimensions.getX() * btDimensions.getY() * btDimensions.getZ();
     const btVector3 ONE_HALF(0.5f, 0.5f, 0.5f);
     btVector3 registrationOffset = rotateVector(btRotation, (ONE_HALF - btRegistrationPoint) * btDimensions);
-    _ghost.setWorldTransform(btTransform(btRotation, btPosition + registrationOffset));
+    btTransform ghostTransform(btRotation, btPosition + registrationOffset);
+    _ghost.setWorldTransform(ghostTransform);
+    _invGhostTransform = ghostTransform.inverse();
     _ghost.setCollisionShape(_box.get());
     _zoneActionProperties = zoneActionProperties;
 }
 
 void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) {
-    btTransform invGhostTransform = _ghost.getWorldTransform().inverse();
     btVector3 Y_AXIS(0.0f, 1.0f, 0.0f);
     for (int i = 0; i < _ghost.getNumOverlappingObjects(); i++) {
         btCollisionObject* obj = _ghost.getOverlappingObject(i);
@@ -96,8 +97,7 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
         if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
             EntityMotionState* entityMotionState = static_cast<EntityMotionState*>(motionState);
             btVector3 entityPosition = glmToBullet(motionState->getObjectPosition());
-            btVector3 localEntityPosition = invGhostTransform(entityPosition);
-            if (_volume < entityMotionState->getGravityZoneVolume() && _box->isInside(localEntityPosition, 0.0001f)) {
+            if (_volume < entityMotionState->getGravityZoneVolume() && contains(entityPosition)) {
                 btRigidBody* body = motionState->getRigidBody();
                 btVector3 tempVec3;
                 if (body) {
@@ -134,6 +134,47 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
             }
         }
     }
+}
+
+bool GravityZoneAction::contains(const btVector3& point) const {
+    btVector3 localEntityPosition = _invGhostTransform(point);
+    return _box->isInside(localEntityPosition, 0.0001f);
+}
+
+void GravityZoneAction::computeAABB(glm::vec3& aabbMinOut, glm::vec3& aabbMaxOut) const {
+    aabbMinOut.x = FLT_MAX;
+    aabbMinOut.y = FLT_MAX;
+    aabbMinOut.z = FLT_MAX;
+    aabbMaxOut.x = -FLT_MAX;
+    aabbMaxOut.y = -FLT_MAX;
+    aabbMaxOut.z = -FLT_MAX;
+
+    btVector3 vertex;
+    for (int i = 0; i < _box->getNumVertices(); ++i) {
+        _box->getVertex(i, vertex);
+        if (vertex.getX() < aabbMinOut.x) {
+            aabbMinOut.x = vertex.getX();
+        }
+        if (vertex.getX() > aabbMaxOut.x) {
+            aabbMaxOut.x = vertex.getX();
+        }
+        if (vertex.getY() < aabbMinOut.y) {
+            aabbMinOut.y = vertex.getY();
+        }
+        if (vertex.getY() > aabbMaxOut.y) {
+            aabbMaxOut.y = vertex.getY();
+        }
+        if (vertex.getZ() < aabbMinOut.z) {
+            aabbMinOut.z = vertex.getZ();
+        }
+        if (vertex.getZ() > aabbMaxOut.z) {
+            aabbMaxOut.z = vertex.getZ();
+        }
+    }
+}
+
+float GravityZoneAction::getVolume() const {
+    return _volume;
 }
 
 void GravityZoneAction::debugDraw(btIDebugDraw* debugDrawer) {

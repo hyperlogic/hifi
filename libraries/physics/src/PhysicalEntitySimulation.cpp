@@ -397,18 +397,23 @@ void PhysicalEntitySimulation::applyZoneChanges(btDynamicsWorld* world) {
         auto iter = _zoneActionMap.find(zoneTransaction.entityItemID);
         if (zoneTransaction.commandType == ZoneUpdateTransaction::Remove) {
             if (iter != _zoneActionMap.end()) {
+                _gravityZoneManager.removeAction(iter->second.get());
                 _zoneActionMap.erase(iter);
             }
         } else if (zoneTransaction.commandType == ZoneUpdateTransaction::Update) {
             if (zoneTransaction.zoneActionProperties.type == ZonePhysicsActionProperties::None) {
                 if (iter != _zoneActionMap.end()) {
+                    _gravityZoneManager.removeAction(iter->second.get());
                     _zoneActionMap.erase(iter);
                 }
             } else {
                 if (iter != _zoneActionMap.end()) {
                     iter->second->updateProperties(zoneTransaction.zoneActionProperties);
+                    _gravityZoneManager.updateAction(iter->second.get());
                 } else {
-                    _zoneActionMap[zoneTransaction.entityItemID] = std::unique_ptr<GravityZoneAction>(new GravityZoneAction(zoneTransaction.zoneActionProperties, world));
+                    std::unique_ptr<GravityZoneAction> action(new GravityZoneAction(zoneTransaction.zoneActionProperties, world));
+                    _gravityZoneManager.updateAction(action.get());
+                    _zoneActionMap[zoneTransaction.entityItemID] = std::move(action);
                 }
             }
         }
