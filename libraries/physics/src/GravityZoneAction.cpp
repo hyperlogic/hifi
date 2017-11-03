@@ -14,6 +14,7 @@
 #include <QDebug>
 #include "BulletUtil.h"
 #include "EntityMotionState.h"
+#include "GLMHelpers.h"
 
 void AddRemovePairGhostObject::addOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btBroadphaseProxy* thisProxy) {
     btGhostObject::addOverlappingObjectInternal(otherProxy, thisProxy);
@@ -73,18 +74,14 @@ void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zone
     assert(zoneActionProperties.type != ZonePhysicsActionProperties::None);
 
     // AJT: TODO: detect "hard" and easy changes
-    btVector3 btPosition = glmToBullet(zoneActionProperties.position);
-    btQuaternion btRotation = glmToBullet(zoneActionProperties.rotation);
-    btVector3 btDimensions = glmToBullet(zoneActionProperties.dimensions);
-    btVector3 btRegistrationPoint = glmToBullet(zoneActionProperties.registrationPoint);
+    btVector3 btPosition = glmToBullet(zoneActionProperties.localToWorldTranslation);
+    btQuaternion btRotation = glmToBullet(zoneActionProperties.localToWorldRotation);
+    btTransform ghostTransform(btRotation, btPosition);
 
-    _box.reset(new btBoxShape(btDimensions * 0.5f));
-    _volume = btDimensions.getX() * btDimensions.getY() * btDimensions.getZ();
-    const btVector3 ONE_HALF(0.5f, 0.5f, 0.5f);
-    btVector3 registrationOffset = rotateVector(btRotation, (ONE_HALF - btRegistrationPoint) * btDimensions);
-    btTransform ghostTransform(btRotation, btPosition + registrationOffset);
+    glm::vec3 dims = zoneActionProperties.oobbMax - zoneActionProperties.oobbMin;
+    btVector3 btHalfExtents = glmToBullet(zoneActionProperties.oobbMax);
+    _box.reset(new btBoxShape(btHalfExtents));
     _ghost.setWorldTransform(ghostTransform);
-    _invGhostTransform = ghostTransform.inverse();
     _ghost.setCollisionShape(_box.get());
     _zoneActionProperties = zoneActionProperties;
 }
@@ -96,28 +93,14 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
         ObjectMotionState* motionState = static_cast<ObjectMotionState*>(obj->getUserPointer());
         if (motionState && motionState->getType() == MOTIONSTATE_TYPE_ENTITY) {
             EntityMotionState* entityMotionState = static_cast<EntityMotionState*>(motionState);
-            btVector3 entityPosition = glmToBullet(motionState->getObjectPosition());
-            if (_volume < entityMotionState->getGravityZoneVolume() && contains(entityPosition)) {
+            glm::vec3 entityPosition = motionState->getObjectPosition();
+            if (_zoneActionProperties.volume < entityMotionState->getGravityZoneVolume() && _zoneActionProperties.containsNoAABBCheck(entityPosition)) {
                 btRigidBody* body = motionState->getRigidBody();
-                btVector3 tempVec3;
                 if (body) {
                     btVector3 entityGravity = glmToBullet(motionState->getObjectGravity());
                     float signedMagnitude = entityGravity.dot(Y_AXIS);
-                    switch (_zoneActionProperties.type) {
-                    case ZonePhysicsActionProperties::Linear:
-                        entityMotionState->setGravityZoneGravityAndVolume(btVector3(
-                            signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[0],
-                            signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[1],
-                            signedMagnitude * _zoneActionProperties.d.linear.gforce * _zoneActionProperties.d.linear.up[2]), _volume);
-                        break;
-                    case ZonePhysicsActionProperties::Spherical:
-                        tempVec3 = (entityPosition - glmToBullet(_zoneActionProperties.position)).normalize();
-                        tempVec3 *= signedMagnitude * _zoneActionProperties.d.spherical.gforce;
-                        entityMotionState->setGravityZoneGravityAndVolume(tempVec3, _volume);
-                        break;
-                    default:
-                        break;
-                    }
+                    btVector3 zoneGravity = glmToBullet(_zoneActionProperties.getGravityAtPosition(entityPosition) * signedMagnitude);
+                    entityMotionState->setGravityZoneGravityAndVolume(zoneGravity, _zoneActionProperties.volume);
                 }
             }
             if (entityMotionState->incrementGravityZoneUpdateCount()) {
@@ -134,47 +117,6 @@ void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar 
             }
         }
     }
-}
-
-bool GravityZoneAction::contains(const btVector3& point) const {
-    btVector3 localEntityPosition = _invGhostTransform(point);
-    return _box->isInside(localEntityPosition, 0.0001f);
-}
-
-void GravityZoneAction::computeAABB(glm::vec3& aabbMinOut, glm::vec3& aabbMaxOut) const {
-    aabbMinOut.x = FLT_MAX;
-    aabbMinOut.y = FLT_MAX;
-    aabbMinOut.z = FLT_MAX;
-    aabbMaxOut.x = -FLT_MAX;
-    aabbMaxOut.y = -FLT_MAX;
-    aabbMaxOut.z = -FLT_MAX;
-
-    btVector3 vertex;
-    for (int i = 0; i < _box->getNumVertices(); ++i) {
-        _box->getVertex(i, vertex);
-        if (vertex.getX() < aabbMinOut.x) {
-            aabbMinOut.x = vertex.getX();
-        }
-        if (vertex.getX() > aabbMaxOut.x) {
-            aabbMaxOut.x = vertex.getX();
-        }
-        if (vertex.getY() < aabbMinOut.y) {
-            aabbMinOut.y = vertex.getY();
-        }
-        if (vertex.getY() > aabbMaxOut.y) {
-            aabbMaxOut.y = vertex.getY();
-        }
-        if (vertex.getZ() < aabbMinOut.z) {
-            aabbMinOut.z = vertex.getZ();
-        }
-        if (vertex.getZ() > aabbMaxOut.z) {
-            aabbMaxOut.z = vertex.getZ();
-        }
-    }
-}
-
-float GravityZoneAction::getVolume() const {
-    return _volume;
 }
 
 void GravityZoneAction::debugDraw(btIDebugDraw* debugDrawer) {

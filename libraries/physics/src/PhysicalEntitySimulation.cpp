@@ -17,6 +17,7 @@
 
 #include "PhysicalEntitySimulation.h"
 #include "GravityZoneAction.h"
+#include "GLMHelpers.h"
 
 PhysicalEntitySimulation::PhysicalEntitySimulation() {
 }
@@ -351,6 +352,17 @@ void PhysicalEntitySimulation::handleCollisionEvents(const CollisionEvents& coll
     }
 }
 
+// thread-safe
+glm::vec3 PhysicalEntitySimulation::getUpDirectionAtPosition(const glm::vec3& position) const {
+    std::lock_guard<std::mutex> guard(_gravityZoneCollectionMutex);
+    return _gravityZoneCollection.getUpDirectionAtPosition(position);
+}
+
+// thread-safe
+glm::vec3 PhysicalEntitySimulation::getGravityAtPosition(const glm::vec3& position) const {
+    std::lock_guard<std::mutex> guard(_gravityZoneCollectionMutex);
+    return _gravityZoneCollection.getGravityAtPosition(position);
+}
 
 void PhysicalEntitySimulation::addDynamic(EntityDynamicPointer dynamic) {
     if (_physicsEngine) {
@@ -392,27 +404,28 @@ void PhysicalEntitySimulation::applyDynamicChanges() {
 }
 
 void PhysicalEntitySimulation::applyZoneChanges(btDynamicsWorld* world) {
-    std::lock_guard<std::mutex> guard(_zoneUpdateMutex);
+    std::lock_guard<std::mutex> updateGuard(_zoneUpdateMutex);
+    std::lock_guard<std::mutex> collectionGuard(_gravityZoneCollectionMutex);
     for (auto& zoneTransaction : _zoneUpdateTransactions) {
         auto iter = _zoneActionMap.find(zoneTransaction.entityItemID);
         if (zoneTransaction.commandType == ZoneUpdateTransaction::Remove) {
             if (iter != _zoneActionMap.end()) {
-                _gravityZoneManager.removeAction(iter->second.get());
+                _gravityZoneCollection.removeZoneAction(iter->second.get());
                 _zoneActionMap.erase(iter);
             }
         } else if (zoneTransaction.commandType == ZoneUpdateTransaction::Update) {
             if (zoneTransaction.zoneActionProperties.type == ZonePhysicsActionProperties::None) {
                 if (iter != _zoneActionMap.end()) {
-                    _gravityZoneManager.removeAction(iter->second.get());
+                    _gravityZoneCollection.removeZoneAction(iter->second.get());
                     _zoneActionMap.erase(iter);
                 }
             } else {
                 if (iter != _zoneActionMap.end()) {
                     iter->second->updateProperties(zoneTransaction.zoneActionProperties);
-                    _gravityZoneManager.updateAction(iter->second.get());
+                    _gravityZoneCollection.updateZoneAction(iter->second.get());
                 } else {
                     std::unique_ptr<GravityZoneAction> action(new GravityZoneAction(zoneTransaction.zoneActionProperties, world));
-                    _gravityZoneManager.updateAction(action.get());
+                    _gravityZoneCollection.updateZoneAction(action.get());
                     _zoneActionMap[zoneTransaction.entityItemID] = std::move(action);
                 }
             }

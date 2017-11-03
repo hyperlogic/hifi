@@ -51,11 +51,74 @@ ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() con
     if (type > 0) {
         ZonePhysicsActionProperties zoneActionProperties;
         zoneActionProperties.type = (ZonePhysicsActionProperties::Type)type;
-        zoneActionProperties.position = getPosition();
-        zoneActionProperties.rotation = getRotation();
-        zoneActionProperties.dimensions = getDimensions();
-        zoneActionProperties.registrationPoint = getRegistrationPoint();
 
+        // compute transforms and bounding boxes for zone only if necessary
+        if (zoneActionProperties.type != ZonePhysicsActionProperties::None) {
+            glm::vec3 pos = getPosition();
+            glm::quat rot = getRotation();
+            glm::vec3 dims = getDimensions();
+            glm::vec3 reg = getRegistrationPoint();
+            glm::vec3 offset = dims * reg;
+
+            glm::vec3 halfExtents = dims * 0.5f;
+            glm::vec3 localCenter = halfExtents - offset;
+            glm::vec3 center = rot * localCenter + pos;
+
+            zoneActionProperties.localToWorldTranslation = center;
+            zoneActionProperties.localToWorldRotation = rot;
+            zoneActionProperties.worldToLocalRotation = glm::inverse(rot);
+            zoneActionProperties.worldToLocalTranslation = zoneActionProperties.worldToLocalRotation * -center;
+
+            // compute oobb from dimentions
+            glm::vec3 oobbMin = -halfExtents;
+            glm::vec3 oobbMax = halfExtents;
+            zoneActionProperties.oobbMin = oobbMin;
+            zoneActionProperties.oobbMax = oobbMax;
+            zoneActionProperties.volume = halfExtents.x * halfExtents.y * halfExtents.z * 8.0f;
+
+            // transform corners of oobb into world space
+            const int NUM_BOX_CORNERS = 8;
+            glm::vec3 corners[NUM_BOX_CORNERS] = {
+                rot * glm::vec3(oobbMin.x, oobbMin.y, oobbMin.z) + center,
+                rot * glm::vec3(oobbMin.x, oobbMin.y, oobbMax.z) + center,
+                rot * glm::vec3(oobbMin.x, oobbMax.y, oobbMin.z) + center,
+                rot * glm::vec3(oobbMin.x, oobbMax.y, oobbMax.z) + center,
+                rot * glm::vec3(oobbMax.x, oobbMin.y, oobbMin.z) + center,
+                rot * glm::vec3(oobbMax.x, oobbMin.y, oobbMax.z) + center,
+                rot * glm::vec3(oobbMax.x, oobbMax.y, oobbMin.z) + center,
+                rot * glm::vec3(oobbMax.x, oobbMax.y, oobbMax.z) + center
+            };
+
+            // compute aabb from corners
+            glm::vec3 aabbMin(FLT_MAX);
+            glm::vec3 aabbMax(-FLT_MAX);
+            for (int i = 0; i < NUM_BOX_CORNERS; i++) {
+                const glm::vec3& corner = corners[i];
+                if (corner.x < aabbMin.x) {
+                    aabbMin.x = corner.x;
+                }
+                if (corner.x > aabbMax.x) {
+                    aabbMax.x = corner.x;
+                }
+                if (corner.y < aabbMin.y) {
+                    aabbMin.y = corner.y;
+                }
+                if (corner.y > aabbMax.y) {
+                    aabbMax.y = corner.y;
+                }
+                if (corner.z < aabbMin.z) {
+                    aabbMin.z = corner.z;
+                }
+                if (corner.z > aabbMax.z) {
+                    aabbMax.z = corner.z;
+                }
+            }
+
+            zoneActionProperties.aabbMin = aabbMin;
+            zoneActionProperties.aabbMax = aabbMax;
+        }
+
+        // initialize d.
         switch (zoneActionProperties.type) {
         case ZonePhysicsActionProperties::Spherical:
             zoneActionProperties.d.spherical.gforce = _gravityProperties.getGForce();
@@ -73,6 +136,7 @@ ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() con
             zoneActionProperties.type = ZonePhysicsActionProperties::None;
             break;
         }
+
         return zoneActionProperties;
     } else {
         return EntityItem::getZonePhysicsActionProperties();

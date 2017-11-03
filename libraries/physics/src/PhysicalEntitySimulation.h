@@ -22,7 +22,7 @@
 
 #include "PhysicsEngine.h"
 #include "EntityMotionState.h"
-#include "GravityZoneManager.h"
+#include "GravityZoneCollection.h"
 
 class PhysicalEntitySimulation;
 using PhysicalEntitySimulationPointer = std::shared_ptr<PhysicalEntitySimulation>;
@@ -65,6 +65,12 @@ public:
 
     EntityEditPacketSender* getPacketSender() { return _entityPacketSender; }
 
+    // thread-safe
+    glm::vec3 getUpDirectionAtPosition(const glm::vec3& position) const;
+
+    // thread-safe
+    glm::vec3 getGravityAtPosition(const glm::vec3& position) const;
+
 protected:
     void queueZoneUpdateTransaction(const EntityItemID& entityItemID, const ZonePhysicsActionProperties zoneActionProperties);
     void queueZoneRemoveTransaction(const EntityItemID& entityItemID);
@@ -98,7 +104,8 @@ private:
 
     PhysicsEnginePointer _physicsEngine = nullptr;
     EntityEditPacketSender* _entityPacketSender = nullptr;
-    GravityZoneManager _gravityZoneManager;
+    mutable std::mutex _gravityZoneCollectionMutex;  // guards the gravityZoneCollection from multithreaded access
+    GravityZoneCollection _gravityZoneCollection;
 
     uint32_t _lastStepSendPackets { 0 };
 };
