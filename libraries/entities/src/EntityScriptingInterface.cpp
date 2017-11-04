@@ -1833,3 +1833,21 @@ bool EntityScriptingInterface::verifyStaticCertificateProperties(const QUuid& en
     }
     return result;
 }
+
+glm::vec3 EntityScriptingInterface::getUpDirectionAtPosition(const glm::vec3 position) {
+    EntitySimulationPointer simulation = _entityTree->getSimulation();
+    if (simulation) {
+        return simulation->getUpDirectionAtPosition(position);
+    } else {
+        return GRAVITY_ZONE_DEFAULT_UP;
+    }
+}
+
+glm::vec3 EntityScriptingInterface::getGravityAtPosition(const glm::vec3 position) {
+    EntitySimulationPointer simulation = _entityTree->getSimulation();
+    if (simulation) {
+        return simulation->getGravityAtPosition(position);
+    } else {
+        return GRAVITY_ZONE_DEFAULT_UP * GRAVITY_ZONE_DEFAULT_MAGNITUDE;
+    }
+}

@@ -66,10 +66,10 @@ public:
     EntityEditPacketSender* getPacketSender() { return _entityPacketSender; }
 
     // thread-safe
-    glm::vec3 getUpDirectionAtPosition(const glm::vec3& position) const;
+    virtual glm::vec3 getUpDirectionAtPosition(const glm::vec3& position) const override;
 
     // thread-safe
-    glm::vec3 getGravityAtPosition(const glm::vec3& position) const;
+    virtual glm::vec3 getGravityAtPosition(const glm::vec3& position) const override;
 
 protected:
     void queueZoneUpdateTransaction(const EntityItemID& entityItemID, const ZonePhysicsActionProperties zoneActionProperties);

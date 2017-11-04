@@ -84,6 +84,12 @@ public:
     /// \param entity pointer to EntityItem that needs to be put on the entitiesToDelete list and removed from others.
     virtual void prepareEntityForDelete(EntityItemPointer entity);
 
+    // thread-safe
+    virtual glm::vec3 getUpDirectionAtPosition(const glm::vec3& position) const;
+
+    // thread-safe
+    virtual glm::vec3 getGravityAtPosition(const glm::vec3& position) const;
+
 signals:
     void entityCollisionWithEntity(const EntityItemID& idA, const EntityItemID& idB, const Collision& collision);
 

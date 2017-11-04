@@ -77,6 +77,16 @@ void EntitySimulation::prepareEntityForDelete(EntityItemPointer entity) {
     }
 }
 
+// thread-safe
+glm::vec3 EntitySimulation::getUpDirectionAtPosition(const glm::vec3& position) const {
+    return GRAVITY_ZONE_DEFAULT_UP;
+}
+
+// thread-safe
+glm::vec3 EntitySimulation::getGravityAtPosition(const glm::vec3& position) const {
+    return GRAVITY_ZONE_DEFAULT_UP * GRAVITY_ZONE_DEFAULT_MAGNITUDE;
+}
+
 void EntitySimulation::addEntityInternal(EntityItemPointer entity) {
     if (entity->isMovingRelativeToParent() && !entity->getPhysicsInfo()) {
         QMutexLocker lock(&_mutex);

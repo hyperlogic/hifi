@@ -425,6 +425,26 @@ public slots:
 
     Q_INVOKABLE bool verifyStaticCertificateProperties(const QUuid& entityID);
 
+    /**jsdoc
+     * Returns up vector at at the given position in world space.
+     * This method takes zone entities that redirect gravity into account.
+     *
+     * @function Entities.getUpDirectionAtPosition
+     * @param {Vec3} position
+     * @return {Vec3} up vector in world space.
+     */
+    Q_INVOKABLE glm::vec3 getUpDirectionAtPosition(const glm::vec3 position);
+
+    /**jsdoc
+     * Returns gravity vector at at the given position in world space.
+     * This method takes zone entities that redirect gravity into account.
+     *
+     * @function Entities.getUpDirectionAtPosition
+     * @param {Vec3} position
+     * @return {Vec3} gravity vector in world space (m/sec^2).
+     */
+    Q_INVOKABLE glm::vec3 getGravityAtPosition(const glm::vec3 position);
+
 signals:
     void collisionWithEntity(const EntityItemID& idA, const EntityItemID& idB, const Collision& collision);
 
