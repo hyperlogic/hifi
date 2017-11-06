@@ -124,6 +124,8 @@ public:
         OctreeFileReplacementFromUrl,
         ChallengeOwnership,
         EntityScriptCallMethod,
+        ChallengeOwnershipRequest,
+        ChallengeOwnershipReply,
         NUM_PACKET_TYPE
     };
 
@@ -197,6 +199,7 @@ QDebug operator<<(QDebug debug, const PacketType& type);
 enum class EntityVersion : PacketVersion {
     StrokeColorProperty = 77,
     HasDynamicOwnershipTests,
+    HazeEffect,
     HasZoneGravity
 };
 
