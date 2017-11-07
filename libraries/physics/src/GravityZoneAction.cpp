@@ -79,7 +79,7 @@ void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zone
     btTransform ghostTransform(btRotation, btPosition);
 
     glm::vec3 dims = zoneActionProperties.oobbMax - zoneActionProperties.oobbMin;
-    btVector3 btHalfExtents = glmToBullet(zoneActionProperties.oobbMax);
+    btVector3 btHalfExtents = glmToBullet(dims);
     _box.reset(new btBoxShape(btHalfExtents));
     _ghost.setWorldTransform(ghostTransform);
     _ghost.setCollisionShape(_box.get());
