@@ -58,35 +58,31 @@ ZonePhysicsActionProperties ZoneEntityItem::getZonePhysicsActionProperties() con
             glm::quat rot = getRotation();
             glm::vec3 dims = getDimensions();
             glm::vec3 reg = getRegistrationPoint();
-            glm::vec3 offset = dims * reg;
 
-            glm::vec3 halfExtents = dims * 0.5f;
-            glm::vec3 localCenter = halfExtents - offset;
-            glm::vec3 center = rot * localCenter + pos;
-
-            zoneActionProperties.localToWorldTranslation = center;
+            zoneActionProperties.localToWorldTranslation = pos;
             zoneActionProperties.localToWorldRotation = rot;
             zoneActionProperties.worldToLocalRotation = glm::inverse(rot);
-            zoneActionProperties.worldToLocalTranslation = zoneActionProperties.worldToLocalRotation * -center;
+            zoneActionProperties.worldToLocalTranslation = zoneActionProperties.worldToLocalRotation * -pos;
 
             // compute oobb from dimentions
-            glm::vec3 oobbMin = -halfExtents;
-            glm::vec3 oobbMax = halfExtents;
+            glm::vec3 offset = dims * reg;
+            glm::vec3 oobbMin = -offset;
+            glm::vec3 oobbMax = dims - offset;
             zoneActionProperties.oobbMin = oobbMin;
             zoneActionProperties.oobbMax = oobbMax;
-            zoneActionProperties.volume = halfExtents.x * halfExtents.y * halfExtents.z * 8.0f;
+            zoneActionProperties.volume = dims.x * dims.y * dims.z;
 
             // transform corners of oobb into world space
             const int NUM_BOX_CORNERS = 8;
             glm::vec3 corners[NUM_BOX_CORNERS] = {
-                rot * glm::vec3(oobbMin.x, oobbMin.y, oobbMin.z) + center,
-                rot * glm::vec3(oobbMin.x, oobbMin.y, oobbMax.z) + center,
-                rot * glm::vec3(oobbMin.x, oobbMax.y, oobbMin.z) + center,
-                rot * glm::vec3(oobbMin.x, oobbMax.y, oobbMax.z) + center,
-                rot * glm::vec3(oobbMax.x, oobbMin.y, oobbMin.z) + center,
-                rot * glm::vec3(oobbMax.x, oobbMin.y, oobbMax.z) + center,
-                rot * glm::vec3(oobbMax.x, oobbMax.y, oobbMin.z) + center,
-                rot * glm::vec3(oobbMax.x, oobbMax.y, oobbMax.z) + center
+                rot * glm::vec3(oobbMin.x, oobbMin.y, oobbMin.z) + pos,
+                rot * glm::vec3(oobbMin.x, oobbMin.y, oobbMax.z) + pos,
+                rot * glm::vec3(oobbMin.x, oobbMax.y, oobbMin.z) + pos,
+                rot * glm::vec3(oobbMin.x, oobbMax.y, oobbMax.z) + pos,
+                rot * glm::vec3(oobbMax.x, oobbMin.y, oobbMin.z) + pos,
+                rot * glm::vec3(oobbMax.x, oobbMin.y, oobbMax.z) + pos,
+                rot * glm::vec3(oobbMax.x, oobbMax.y, oobbMin.z) + pos,
+                rot * glm::vec3(oobbMax.x, oobbMax.y, oobbMax.z) + pos
             };
 
             // compute aabb from corners

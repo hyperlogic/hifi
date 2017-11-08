@@ -41,9 +41,10 @@ struct ZonePhysicsActionProperties {
         default:
             return GRAVITY_ZONE_DEFAULT_UP * GRAVITY_ZONE_DEFAULT_MAGNITUDE;
         case ZonePhysicsActionProperties::Spherical: {
-            float len = glm::length(position);
+            glm::vec3 delta = position - localToWorldTranslation;
+            float len = glm::length(delta);
             if (len > EPSILON) {
-                return position * (d.spherical.gforce / len);
+                return delta * (d.spherical.gforce / len);
             } else {
                 return GRAVITY_ZONE_DEFAULT_UP * d.spherical.gforce;
             }
@@ -62,9 +63,10 @@ struct ZonePhysicsActionProperties {
         default:
             return GRAVITY_ZONE_DEFAULT_UP;
         case ZonePhysicsActionProperties::Spherical: {
-            float len = glm::length(position);
+            glm::vec3 delta = position - localToWorldTranslation;
+            float len = glm::length(delta);
             if (len > EPSILON) {
-                return position / len;
+                return delta / len;
             } else {
                 return GRAVITY_ZONE_DEFAULT_UP;
             }

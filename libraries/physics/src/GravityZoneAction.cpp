@@ -16,6 +16,10 @@
 #include "EntityMotionState.h"
 #include "GLMHelpers.h"
 
+#ifdef WANT_DEBUG_DRAW
+#include <DebugDraw.h>
+#endif
+
 void AddRemovePairGhostObject::addOverlappingObjectInternal(btBroadphaseProxy* otherProxy, btBroadphaseProxy* thisProxy) {
     btGhostObject::addOverlappingObjectInternal(otherProxy, thisProxy);
 
@@ -74,19 +78,51 @@ void GravityZoneAction::updateProperties(const ZonePhysicsActionProperties& zone
     assert(zoneActionProperties.type != ZonePhysicsActionProperties::None);
 
     // AJT: TODO: detect "hard" and easy changes
-    btVector3 btPosition = glmToBullet(zoneActionProperties.localToWorldTranslation);
+    glm::vec3 localZoneCenter = (zoneActionProperties.oobbMax + zoneActionProperties.oobbMin) * 0.5f;
+    glm::vec3 worldZoneCenter = zoneActionProperties.localToWorldRotation * localZoneCenter + zoneActionProperties.localToWorldTranslation;
+    btVector3 btPosition = glmToBullet(worldZoneCenter);
     btQuaternion btRotation = glmToBullet(zoneActionProperties.localToWorldRotation);
     btTransform ghostTransform(btRotation, btPosition);
 
-    glm::vec3 dims = zoneActionProperties.oobbMax - zoneActionProperties.oobbMin;
-    btVector3 btHalfExtents = glmToBullet(dims);
-    _box.reset(new btBoxShape(btHalfExtents));
+    btVector3 halfExtents = glmToBullet((zoneActionProperties.oobbMax - zoneActionProperties.oobbMin) * 0.5f);
+    _box.reset(new btBoxShape(halfExtents));
     _ghost.setWorldTransform(ghostTransform);
     _ghost.setCollisionShape(_box.get());
     _zoneActionProperties = zoneActionProperties;
 }
 
 void GravityZoneAction::updateAction(btCollisionWorld* collisionWorld, btScalar deltaTimeStep) {
+
+#ifdef WANT_DEBUG_DRAW
+    const glm::vec4 WHITE(1.0f);
+    const glm::vec4 GREEN(0.0f, 1.0f, 0.0f, 1.0f);
+
+    glm::quat rot = _zoneActionProperties.localToWorldRotation;
+    glm::vec3 pos = _zoneActionProperties.localToWorldTranslation;
+    DebugDraw::getInstance().addMarker(QString("zone%1").arg((uint64_t)this), rot, pos, WHITE);
+    glm::vec3 oobbMin = _zoneActionProperties.oobbMin;
+    glm::vec3 oobbMax = _zoneActionProperties.oobbMax;
+
+    // transform corners of oobb into world space
+    const int NUM_BOX_CORNERS = 8;
+    glm::vec3 corners[NUM_BOX_CORNERS] = {
+        rot * glm::vec3(oobbMin.x, oobbMin.y, oobbMin.z) + pos,
+        rot * glm::vec3(oobbMin.x, oobbMin.y, oobbMax.z) + pos,
+        rot * glm::vec3(oobbMin.x, oobbMax.y, oobbMin.z) + pos,
+        rot * glm::vec3(oobbMin.x, oobbMax.y, oobbMax.z) + pos,
+        rot * glm::vec3(oobbMax.x, oobbMin.y, oobbMin.z) + pos,
+        rot * glm::vec3(oobbMax.x, oobbMin.y, oobbMax.z) + pos,
+        rot * glm::vec3(oobbMax.x, oobbMax.y, oobbMin.z) + pos,
+        rot * glm::vec3(oobbMax.x, oobbMax.y, oobbMax.z) + pos
+    };
+    const int NUM_INDICES = 24;
+    const int indices[NUM_INDICES] = {0, 1, 1, 3, 3, 2, 2, 0, 4, 5, 5, 7, 7, 6, 6, 4, 0, 4, 1, 5, 2, 6, 3, 7};
+
+    for (int i = 0; i < NUM_INDICES; i += 2) {
+        DebugDraw::getInstance().drawRay(corners[indices[i]], corners[indices[i+1]], GREEN);
+    }
+#endif
+
     btVector3 Y_AXIS(0.0f, 1.0f, 0.0f);
     for (int i = 0; i < _ghost.getNumOverlappingObjects(); i++) {
         btCollisionObject* obj = _ghost.getOverlappingObject(i);
