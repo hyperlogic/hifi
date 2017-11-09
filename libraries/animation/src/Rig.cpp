@@ -302,9 +302,7 @@ void Rig::setModelOffset(const glm::mat4& modelOffsetMat) {
         _rigToGeometryTransform = glm::inverse(_geometryToRigTransform);
 
         // rebuild cached default poses
-        if (_animSkeleton) {
-            buildAbsoluteRigPoses(_animSkeleton->getRelativeDefaultPoses(), _absoluteDefaultPoses);
-        }
+        buildAbsoluteRigPoses(_animSkeleton->getRelativeDefaultPoses(), _absoluteDefaultPoses);
     }
 }
 
