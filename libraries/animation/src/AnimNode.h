@@ -45,6 +45,7 @@ public:
         Manipulator,
         InverseKinematics,
         DefaultPose,
+        LowVelocityFilter,
         NumTypes
     };
     using Pointer = std::shared_ptr<AnimNode>;

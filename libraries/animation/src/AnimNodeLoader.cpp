@@ -24,6 +24,7 @@
 #include "AnimManipulator.h"
 #include "AnimInverseKinematics.h"
 #include "AnimDefaultPose.h"
+#include "AnimLowVelocityFilter.h"
 
 using NodeLoaderFunc = AnimNode::Pointer (*)(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 using NodeProcessFunc = bool (*)(AnimNode::Pointer node, const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
@@ -37,6 +38,7 @@ static AnimNode::Pointer loadStateMachineNode(const QJsonObject& jsonObj, const 
 static AnimNode::Pointer loadManipulatorNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadDefaultPoseNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
+static AnimNode::Pointer loadLowVelocityFilterNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 
 // called after children have been loaded
 // returns node on success, nullptr on failure.
@@ -53,6 +55,7 @@ static const char* animNodeTypeToString(AnimNode::Type type) {
     case AnimNode::Type::Manipulator: return "manipulator";
     case AnimNode::Type::InverseKinematics: return "inverseKinematics";
     case AnimNode::Type::DefaultPose: return "defaultPose";
+    case AnimNode::Type::LowVelocityFilter: return "lowVelocityFilter";
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -113,6 +116,7 @@ static NodeLoaderFunc animNodeTypeToLoaderFunc(AnimNode::Type type) {
     case AnimNode::Type::Manipulator: return loadManipulatorNode;
     case AnimNode::Type::InverseKinematics: return loadInverseKinematicsNode;
     case AnimNode::Type::DefaultPose: return loadDefaultPoseNode;
+    case AnimNode::Type::LowVelocityFilter: return loadLowVelocityFilterNode;
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -128,6 +132,7 @@ static NodeProcessFunc animNodeTypeToProcessFunc(AnimNode::Type type) {
     case AnimNode::Type::Manipulator: return processDoNothing;
     case AnimNode::Type::InverseKinematics: return processDoNothing;
     case AnimNode::Type::DefaultPose: return processDoNothing;
+    case AnimNode::Type::LowVelocityFilter: return processDoNothing;
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -528,6 +533,11 @@ static AnimNode::Pointer loadDefaultPoseNode(const QJsonObject& jsonObj, const Q
     return node;
 }
 
+static AnimNode::Pointer loadLowVelocityFilterNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
+    auto node = std::make_shared<AnimLowVelocityFilter>(id);
+    return node;
+}
+
 void buildChildMap(std::map<QString, int>& map, AnimNode::Pointer node) {
     for (int i = 0; i < (int)node->getChildCount(); ++i) {
         map.insert(std::pair<QString, int>(node->getChild(i)->getID(), i));
@@ -696,8 +706,10 @@ AnimNode::Pointer AnimNodeLoader::load(const QByteArray& contents, const QUrl& j
 void AnimNodeLoader::onRequestDone(const QByteArray data) {
     auto node = load(data, _url);
     if (node) {
+        qDebug() << "AJT: success";
         emit success(node);
     } else {
+        qDebug() << "AJT: json parse error";
         emit error(0, "json parse error");
     }
 }
