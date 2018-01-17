@@ -328,7 +328,7 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
     }
     _maxErrorOnLastSolve = maxError;
 
-    // finally set the relative rotation of each tip to agree with absolute target rotation
+    // finally set the relative position and rotation of each tip to agree with absolute target rotation
     for (auto& target: targets) {
         int tipIndex = target.getIndex();
         int parentIndex = (tipIndex >= 0) ? _skeleton->getParentIndex(tipIndex) : -1;
@@ -338,6 +338,7 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
             const glm::quat& targetRotation = target.getRotation();
             // compute tip's new parent-relative rotation
             // Q = Qp * q   -->   q' = Qp^ * Q
+
             glm::quat newRelativeRotation = glm::inverse(absolutePoses[parentIndex].rot()) * targetRotation;
             RotationConstraint* constraint = getConstraint(tipIndex);
             if (constraint) {
@@ -348,6 +349,13 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
             }
             _relativePoses[tipIndex].rot() = newRelativeRotation;
             absolutePoses[tipIndex].rot() = targetRotation;
+        }
+        else if (parentIndex != -1 && target.getType() == IKTarget::Type::RotationAndPosition) {
+            // slam the end effector to the target position and rotaiton.
+            const AnimPose targetPose(target.getRotation(), target.getTranslation());
+            AnimPose newRelativePose = absolutePoses[parentIndex].inverse() * targetPose;
+            _relativePoses[tipIndex] = newRelativePose;
+            absolutePoses[tipIndex] = targetPose;
         }
     }
 
