@@ -351,9 +351,29 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
             absolutePoses[tipIndex].rot() = targetRotation;
         }
         else if (parentIndex != -1 && target.getType() == IKTarget::Type::RotationAndPosition) {
-            // slam the end effector to the target position and rotaiton.
+            // slam the end effector to the target position and rotation.
             const AnimPose targetPose(target.getRotation(), target.getTranslation());
+
+            // first start with the parent.
+            int grandParentIndex = (parentIndex >= 0) ? _skeleton->getParentIndex(parentIndex) : -1;
+            if (grandParentIndex != -1) {
+
+                glm::vec3 targetPos = target.getTranslation();
+                glm::vec3 tipPos = absolutePoses[tipIndex].trans();
+                glm::vec3 delta = targetPos - tipPos;
+
+                const float PARENT_TRANS_SCALE_FACTOR = 0.5f;
+
+                AnimPose parentTargetPose = absolutePoses[parentIndex];
+                parentTargetPose.trans() += delta * PARENT_TRANS_SCALE_FACTOR;
+                AnimPose newRelativePose = absolutePoses[grandParentIndex].inverse() * parentTargetPose;
+                _relativePoses[parentIndex] = newRelativePose;
+                absolutePoses[parentIndex] = parentTargetPose;
+            }
+
+            // now move the tip
             AnimPose newRelativePose = absolutePoses[parentIndex].inverse() * targetPose;
+
             _relativePoses[tipIndex] = newRelativePose;
             absolutePoses[tipIndex] = targetPose;
         }
