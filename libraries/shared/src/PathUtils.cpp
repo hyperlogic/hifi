@@ -38,7 +38,7 @@ QString TEMP_DIR_FORMAT { "%1-%2-%3" };
 
 #if !defined(Q_OS_ANDROID) && defined(DEV_BUILD)
 #if defined(Q_OS_OSX)
-static bool USE_SOURCE_TREE_RESOURCES = true;
+inline bool USE_SOURCE_TREE_RESOURCES() { return true; }
 #else
 static bool USE_SOURCE_TREE_RESOURCES() {
     static bool result = false;
