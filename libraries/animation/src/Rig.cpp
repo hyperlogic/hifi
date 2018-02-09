@@ -1829,3 +1829,61 @@ void Rig::computeAvatarBoundingCapsule(
     glm::vec3 capsuleCenter = transformPoint(_geometryToRigTransform, (0.5f * (totalExtents.maximum + totalExtents.minimum)));
     localOffsetOut = capsuleCenter - hipsPosition;
 }
+
+// TODO: avoid copy.
+// absolute rig frame
+AnimPoseVec Rig::buildNonRigidPoses(const AnimPoseVec& relBindPoses) const {
+    assert(_animSkeleton);
+    assert(_internalPoseSet._relativePoses.size() == relBindPoses.size());
+
+    // AJT: TODO SO SLOW!!!
+    AnimPoseVec result;
+    int numJoints = (int)_internalPoseSet._relativePoses.size();
+    result.reserve(numJoints);
+    for (int i = 0; i < numJoints; i++) {
+        int parentIndex = _animSkeleton->getParentIndex(i);
+        if (parentIndex >= 0) {
+            int grandParentIndex = _animSkeleton->getParentIndex(i);
+            glm::vec3 parentScale = _internalPoseSet._relativePoses[parentIndex].scale();
+            AnimPose adjustedBindPose(relBindPoses[i].scale(), relBindPoses[i].rot(), relBindPoses[i].trans() * parentScale);
+            AnimPose scaleOnly(_internalPoseSet._relativePoses[i].scale(), glm::quat(), glm::vec3());
+            result.push_back(adjustedBindPose * scaleOnly);
+        } else {
+            AnimPose scaleOnly(_internalPoseSet._relativePoses[i].scale(), glm::quat(), glm::vec3());
+            result.push_back(relBindPoses[i] * scaleOnly);
+        }
+    }
+
+    _animSkeleton->convertRelativePosesToAbsolute(result);
+    return result;
+}
+
+// absolute rig frame
+std::vector<DualQuaternion> Rig::buildRigidDualQuaternions() const {
+    int numJoints = (int)_internalPoseSet._absolutePoses.size();
+
+    AnimPose geometryToRigTransform(_geometryToRigTransform);
+
+    std::vector<AnimPose> result;
+    result.reserve(numJoints);
+    for (int i = 0; i < numJoints; i++) {
+        int parentIndex = _animSkeleton->getParentIndex(i);
+        AnimPose relPoseNoScale(_internalPoseSet._relativePoses[i].rot(), _internalPoseSet._relativePoses[i].trans());
+        if (parentIndex >= 0) {
+            // works for BlackLodge
+            result.push_back(_internalPoseSet._relativePoses[parentIndex] * relPoseNoScale);
+            // works for avatars.
+            //result.push_back(result[parentIndex] * relPoseNoScale);
+        } else {
+            result.push_back(relPoseNoScale);
+        }
+    }
+
+    // AJT: FIXME two pass because I don't trust DualQuaternion multiply
+    std::vector<DualQuaternion> result2;
+    result2.reserve(numJoints);
+    for (auto& pose : result) {
+        result2.push_back(DualQuaternion(pose.rot(), pose.trans()));
+    }
+    return result2;
+}

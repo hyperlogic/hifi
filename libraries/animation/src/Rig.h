@@ -20,6 +20,7 @@
 #include <vector>
 #include <JointData.h>
 #include <QReadWriteLock>
+#include <DualQuaternion.h>
 
 #include "AnimNode.h"
 #include "AnimNodeLoader.h"
@@ -217,6 +218,10 @@ public:
     // input assumed to be in rig space
     void computeHeadFromHMD(const AnimPose& hmdPose, glm::vec3& headPositionOut, glm::quat& headOrientationOut) const;
 
+    // used for rendering.
+    AnimPoseVec buildNonRigidPoses(const AnimPoseVec& relBindPoses) const;
+    std::vector<DualQuaternion> buildRigidDualQuaternions() const;
+
 signals:
     void onLoadComplete();
 
@@ -248,7 +253,7 @@ protected:
 
     struct PoseSet {
         AnimPoseVec _relativePoses; // geometry space relative to parent.
-        AnimPoseVec _absolutePoses; // rig space, not relative to parent.
+        AnimPoseVec _absolutePoses; // rig space, not relative to parent, also with _geometryOffset added.
         AnimPoseVec _overridePoses; // geometry space relative to parent.
         std::vector<bool> _overrideFlags;
     };

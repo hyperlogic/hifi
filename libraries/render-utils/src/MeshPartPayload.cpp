@@ -345,15 +345,8 @@ ModelMeshPartPayload::ModelMeshPartPayload(ModelPointer model, int meshIndex, in
     updateTransform(transform, offsetTransform);
     Transform renderTransform = transform;
     if (state.clusterTransforms.size() == 1) {
-#if defined(SKIN_DQ)
-        Transform transform(state.clusterTransforms[0].getRotation(),
-                            state.clusterTransforms[0].getScale(),
-                            state.clusterTransforms[0].getTranslation());
-        renderTransform = transform.worldTransform(Transform(transform));
-#else
-        renderTransform = transform.worldTransform(Transform(state.clusterTransforms[0]));
-#endif
-
+        // AJT: HACK
+        renderTransform = transform.worldTransform(Transform(state.clusterTransforms[0].toMat4(glm::vec3(1.0f))));
     }
     updateTransformForSkinnedMesh(renderTransform, transform);
 
@@ -554,25 +547,13 @@ void ModelMeshPartPayload::render(RenderArgs* args) {
 void ModelMeshPartPayload::computeAdjustedLocalBound(const std::vector<TransformType>& clusterTransforms) {
     _adjustedLocalBound = _localBound;
     if (clusterTransforms.size() > 0) {
-#if defined(SKIN_DQ)
-        Transform rootTransform(clusterTransforms[0].getRotation(),
-                                clusterTransforms[0].getScale(),
-                                clusterTransforms[0].getTranslation());
-        _adjustedLocalBound.transform(rootTransform);
-#else
-        _adjustedLocalBound.transform(clusterTransforms[0]);
-#endif
+        // AJT: HACK
+        _adjustedLocalBound.transform((glm::mat4)clusterTransforms[0].toMat4(glm::vec3(1.0f)));
 
         for (int i = 1; i < (int)clusterTransforms.size(); ++i) {
             AABox clusterBound = _localBound;
-#if defined(SKIN_DQ)
-            Transform transform(clusterTransforms[i].getRotation(),
-                                clusterTransforms[i].getScale(),
-                                clusterTransforms[i].getTranslation());
-            clusterBound.transform(transform);
-#else
-            clusterBound.transform(clusterTransforms[i]);
-#endif
+            // AJT: HACK
+            clusterBound.transform((glm::mat4)clusterTransforms[i].toMat4(glm::vec3(1.0f)));
             _adjustedLocalBound += clusterBound;
         }
     }

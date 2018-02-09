@@ -1747,7 +1747,7 @@ FBXGeometry* FBXReader::extractFBXGeometry(const QVariantHash& mapping, const QS
                 fbxCluster.inverseBindMatrix[2][3] = 0.0f;
                 fbxCluster.inverseBindMatrix[3][3] = 1.0f;
 
-                fbxCluster.inverseBindTransform = Transform(fbxCluster.inverseBindMatrix);
+                fbxCluster.bindMatrix = glm::inverse(fbxCluster.inverseBindMatrix);
 
                 extracted.mesh.clusters.append(fbxCluster);
 

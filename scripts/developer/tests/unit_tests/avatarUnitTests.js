@@ -63,3 +63,71 @@ describe("MyAvatar", function () {
 
 });
 
+// ----------------------------------------------------------------------------
+// this stuff allows the unit tests to be loaded indepenently and/or as part of testRunner.js execution
+function run() {}
+function instrument_testrunner(force) {
+    if (force || typeof describe === 'undefined') {
+        var oldPrint = print;
+        window = new OverlayWebWindow({
+            title: 'assetUnitTests.js',
+            width: 640,
+            height: 480,
+            source: 'about:blank',
+        });
+        Script.scriptEnding.connect(window, 'close');
+        window.closed.connect(Script, 'stop');
+        // wait for window (ready) and test runner (ran) both to initialize
+        var ready = false;
+        var ran = false;
+        window.webEventReceived.connect(function() { ready = true; maybeRun(); });
+        run = function() { ran = true; maybeRun(); };
+
+        window.setURL([
+            'data:text/html;text,',
+            '<body style="height:100%;width:100%;background:#eee;whitespace:pre;font-size:8px;">',
+            '<pre id=output></pre><div style="height:2px;"></div>',
+            '<body>',
+            '<script>('+function(){
+                window.addEventListener("DOMContentLoaded",function(){
+                    setTimeout(function() {
+                        EventBridge.scriptEventReceived.connect(function(msg){
+                            output.innerHTML += msg;
+                            window.scrollTo(0, 1e10);
+                            document.body.scrollTop = 1e10;
+                        });
+                        EventBridge.emitWebEvent('ready');
+                    }, 1000);
+                });
+            }+')();</script>',
+        ].join('\n'));
+        print = function() {
+            var str = [].slice.call(arguments).join(' ');
+            if (ready) {
+                window.emitScriptEvent(str + '\n');
+            } else {
+                oldPrint('!ready', str);
+            }
+        };
+
+        // Include testing library
+        Script.include('../../libraries/jasmine/jasmine.js');
+        Script.include('../../libraries/jasmine/hifi-boot.js');
+
+        function maybeRun() {
+            if (!ran || !ready) {
+                return oldPrint('doRun -- waiting for both script and web window to become available');
+            }
+            if (!force) {
+                // invoke Script.stop (after any async tests complete)
+                jasmine.getEnv().addReporter({ jasmineDone: Script.stop });
+            } else {
+                jasmine.getEnv().addReporter({ jasmineDone: function() { print("JASMINE DONE"); } });
+            }
+
+            // Run the tests
+            jasmine.getEnv().execute();
+        };
+    }
+}
+run();

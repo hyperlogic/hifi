@@ -18,11 +18,17 @@
 const int MAX_CLUSTERS = 128;
 const int INDICES_PER_VERTEX = 4;
 
-layout(std140) uniform skinClusterBuffer {
-    mat4 clusterMatrices[MAX_CLUSTERS];
+<@if SKIN_DQ@>
+
+struct NonRigidDualQuaternion {
+    mat4 nonRigidMat;
+    vec4 rigidDualQuatReal;
+    vec4 rigidDualQuatDual;
 };
 
-<@if SKIN_DQ@>
+layout(std140) uniform skinClusterBuffer {
+    NonRigidDualQuaternion clusterTransforms[MAX_CLUSTERS];
+};
 
 mat4 dualQuatToMat4(vec4 real, vec4 dual) {
     float twoRealXSq = 2.0 * real.x * real.x;
@@ -54,23 +60,17 @@ mat4 dualQuatToMat4(vec4 real, vec4 dual) {
     return mat4(col0, col1, col2, col3);
 }
 
-// dual quaternion linear blending
-void skinPosition(ivec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inPosition, out vec4 skinnedPosition) {
+void dualQuaternionLinearBlending(ivec4 skinClusterIndex, vec4 skinClusterWeight, out vec4 resultReal, out vec4 resultDual) {
 
-    // linearly blend scale and dual quaternion components
-    vec4 sAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 rAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 dAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 cAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 polarityReference = clusterMatrices[skinClusterIndex[0]][1];
+    // linearly blend
+    resultReal = vec4(0.0, 0.0, 0.0, 0.0);
+    resultDual = vec4(0.0, 0.0, 0.0, 0.0);
+    vec4 polarityReference = clusterTransforms[skinClusterIndex[0]].rigidDualQuatReal;
     for (int i = 0; i < INDICES_PER_VERTEX; i++) {
-        mat4 clusterMatrix = clusterMatrices[(skinClusterIndex[i])];
-        float clusterWeight = skinClusterWeight[i];
+        vec4 real = clusterTransforms[(skinClusterIndex[i])].rigidDualQuatReal;
+        vec4 dual = clusterTransforms[(skinClusterIndex[i])].rigidDualQuatDual;
 
-        vec4 scale = clusterMatrix[0];
-        vec4 real = clusterMatrix[1];
-        vec4 dual = clusterMatrix[2];
-        vec4 cauterizedPos = clusterMatrix[3];
+        float clusterWeight = skinClusterWeight[i];
 
         // to ensure that we rotate along the shortest arc, reverse dual quaternions with negative polarity.
         float dqClusterWeight = clusterWeight;
@@ -78,146 +78,101 @@ void skinPosition(ivec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inPositio
             dqClusterWeight = -clusterWeight;
         }
 
-        sAccum += scale * clusterWeight;
-        rAccum += real * dqClusterWeight;
-        dAccum += dual * dqClusterWeight;
-        cAccum += cauterizedPos * clusterWeight;
+        resultReal += real * dqClusterWeight;
+        resultDual += dual * dqClusterWeight;
     }
 
-    // normalize dual quaternion
-    float norm = length(rAccum);
-    rAccum /= norm;
-    dAccum /= norm;
+    // normalize
+    float norm = length(resultReal);
+    resultReal /= norm;
+    resultDual /= norm;
+}
+
+// dual quaternion linear blending
+void skinPosition(ivec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inPosition, out vec4 skinnedPosition) {
+
+    // phase one: transform by nonRigid part.
+    vec4 newPosition = vec4(0.0, 0.0, 0.0, 0.0);
+    for (int i = 0; i < INDICES_PER_VERTEX; i++) {
+        mat4 nonRigidMat = clusterTransforms[(skinClusterIndex[i])].nonRigidMat;
+        float clusterWeight = skinClusterWeight[i];
+        newPosition += nonRigidMat * inPosition * clusterWeight;
+    }
+
+    // phase two: linear blend of rigid dual quaternion.
+    vec4 rigidDualQuatReal;
+    vec4 rigidDualQuatDual;
+    dualQuaternionLinearBlending(skinClusterIndex, skinClusterWeight, rigidDualQuatReal, rigidDualQuatDual);
 
     // conversion from dual quaternion to 4x4 matrix.
-    mat4 m = dualQuatToMat4(rAccum, dAccum);
+    mat4 rigidMat = dualQuatToMat4(rigidDualQuatReal, rigidDualQuatDual);
 
-    // sAccum.w indicates the amount of cauterization for this vertex.
-    // 0 indicates no cauterization and 1 indicates full cauterization.
-    // TODO: make this cauterization smoother or implement full dual-quaternion scale support.
-    const float CAUTERIZATION_THRESHOLD = 0.1;
-    if (sAccum.w > CAUTERIZATION_THRESHOLD) {
-        skinnedPosition = cAccum;
-    } else {
-        sAccum.w = 1.0;
-        skinnedPosition = m * (sAccum * inPosition);
-    }
+    // apply rigidMat from phase two to result of phase one.
+    skinnedPosition = rigidMat * newPosition;
 }
 
 void skinPositionNormal(ivec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inPosition, vec3 inNormal,
                         out vec4 skinnedPosition, out vec3 skinnedNormal) {
 
-    // linearly blend scale and dual quaternion components
-    vec4 sAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 rAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 dAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 cAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 polarityReference = clusterMatrices[skinClusterIndex[0]][1];
-
+    // phase one: transform by nonRigid part.
+    vec4 newPosition = vec4(0.0, 0.0, 0.0, 0.0);
     for (int i = 0; i < INDICES_PER_VERTEX; i++) {
-        mat4 clusterMatrix = clusterMatrices[(skinClusterIndex[i])];
+        mat4 nonRigidMat = clusterTransforms[(skinClusterIndex[i])].nonRigidMat;
         float clusterWeight = skinClusterWeight[i];
-
-        vec4 scale = clusterMatrix[0];
-        vec4 real = clusterMatrix[1];
-        vec4 dual = clusterMatrix[2];
-        vec4 cauterizedPos = clusterMatrix[3];
-
-        // to ensure that we rotate along the shortest arc, reverse dual quaternions with negative polarity.
-        float dqClusterWeight = clusterWeight;
-        if (dot(real, polarityReference) < 0.0) {
-            dqClusterWeight = -clusterWeight;
-        }
-
-        sAccum += scale * clusterWeight;
-        rAccum += real * dqClusterWeight;
-        dAccum += dual * dqClusterWeight;
-        cAccum += cauterizedPos * clusterWeight;
+        newPosition += nonRigidMat * inPosition * clusterWeight;
     }
 
-    // normalize dual quaternion
-    float norm = length(rAccum);
-    rAccum /= norm;
-    dAccum /= norm;
+    // phase two: linear blend of rigid dual quaternion.
+    vec4 rigidDualQuatReal;
+    vec4 rigidDualQuatDual;
+    dualQuaternionLinearBlending(skinClusterIndex, skinClusterWeight, rigidDualQuatReal, rigidDualQuatDual);
 
     // conversion from dual quaternion to 4x4 matrix.
-    mat4 m = dualQuatToMat4(rAccum, dAccum);
+    mat4 rigidMat = dualQuatToMat4(rigidDualQuatReal, rigidDualQuatDual);
 
-    // sAccum.w indicates the amount of cauterization for this vertex.
-    // 0 indicates no cauterization and 1 indicates full cauterization.
-    // TODO: make this cauterization smoother or implement full dual-quaternion scale support.
-    const float CAUTERIZATION_THRESHOLD = 0.1;
-    if (sAccum.w > CAUTERIZATION_THRESHOLD) {
-        skinnedPosition = cAccum;
-    } else {
-        sAccum.w = 1.0;
-        skinnedPosition = m * (sAccum * inPosition);
-    }
+    // apply rigidMat from phase two to result of phase one.
+    skinnedPosition = rigidMat * newPosition;
 
-    skinnedNormal = vec3(m * vec4(inNormal, 0));
+    skinnedNormal = vec3(rigidMat * vec4(inNormal, 0));
 }
 
 void skinPositionNormalTangent(ivec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inPosition, vec3 inNormal, vec3 inTangent,
                                out vec4 skinnedPosition, out vec3 skinnedNormal, out vec3 skinnedTangent) {
 
-    // linearly blend scale and dual quaternion components
-    vec4 sAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 rAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 dAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 cAccum = vec4(0.0, 0.0, 0.0, 0.0);
-    vec4 polarityReference = clusterMatrices[skinClusterIndex[0]][1];
-
+    // phase one: transform by nonRigid part.
+    vec4 newPosition = vec4(0.0, 0.0, 0.0, 0.0);
     for (int i = 0; i < INDICES_PER_VERTEX; i++) {
-        mat4 clusterMatrix = clusterMatrices[(skinClusterIndex[i])];
+        mat4 nonRigidMat = clusterTransforms[(skinClusterIndex[i])].nonRigidMat;
         float clusterWeight = skinClusterWeight[i];
-
-        vec4 scale = clusterMatrix[0];
-        vec4 real = clusterMatrix[1];
-        vec4 dual = clusterMatrix[2];
-        vec4 cauterizedPos = clusterMatrix[3];
-
-        // to ensure that we rotate along the shortest arc, reverse dual quaternions with negative polarity.
-        float dqClusterWeight = clusterWeight;
-        if (dot(real, polarityReference) < 0.0) {
-            dqClusterWeight = -clusterWeight;
-        }
-
-        sAccum += scale * clusterWeight;
-        rAccum += real * dqClusterWeight;
-        dAccum += dual * dqClusterWeight;
-        cAccum += cauterizedPos * clusterWeight;
+        newPosition += nonRigidMat * inPosition * clusterWeight;
     }
 
-    // normalize dual quaternion
-    float norm = length(rAccum);
-    rAccum /= norm;
-    dAccum /= norm;
+    // phase two: linear blend of rigid dual quaternion.
+    vec4 rigidDualQuatReal;
+    vec4 rigidDualQuatDual;
+    dualQuaternionLinearBlending(skinClusterIndex, skinClusterWeight, rigidDualQuatReal, rigidDualQuatDual);
 
     // conversion from dual quaternion to 4x4 matrix.
-    mat4 m = dualQuatToMat4(rAccum, dAccum);
+    mat4 rigidMat = dualQuatToMat4(rigidDualQuatReal, rigidDualQuatDual);
 
-    // sAccum.w indicates the amount of cauterization for this vertex.
-    // 0 indicates no cauterization and 1 indicates full cauterization.
-    // TODO: make this cauterization smoother or implement full dual-quaternion scale support.
-    const float CAUTERIZATION_THRESHOLD = 0.1;
-    if (sAccum.w > CAUTERIZATION_THRESHOLD) {
-        skinnedPosition = cAccum;
-    } else {
-        sAccum.w = 1.0;
-        skinnedPosition = m * (sAccum * inPosition);
-    }
+    // apply rigidMat from phase two to result of phase one.
+    skinnedPosition = rigidMat * newPosition;
 
-    skinnedNormal = vec3(m * vec4(inNormal, 0));
-    skinnedTangent = vec3(m * vec4(inTangent, 0));
+    skinnedNormal = vec3(rigidMat * vec4(inNormal, 0));
+    skinnedTangent = vec3(rigidMat * vec4(inTangent, 0));
 }
 
 <@else@>  // SKIN_DQ
+
+layout(std140) uniform skinClusterBuffer {
+    mat4 clusterTransforms[MAX_CLUSTERS];
+};
 
 void skinPosition(ivec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inPosition, out vec4 skinnedPosition) {
     vec4 newPosition = vec4(0.0, 0.0, 0.0, 0.0);
 
     for (int i = 0; i < INDICES_PER_VERTEX; i++) {
-        mat4 clusterMatrix = clusterMatrices[(skinClusterIndex[i])];
+        mat4 clusterMatrix = clusterTransforms[(skinClusterIndex[i])];
         float clusterWeight = skinClusterWeight[i];
         newPosition += clusterMatrix * inPosition * clusterWeight;
     }
@@ -231,7 +186,7 @@ void skinPositionNormal(ivec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inP
     vec4 newNormal = vec4(0.0, 0.0, 0.0, 0.0);
 
     for (int i = 0; i < INDICES_PER_VERTEX; i++) {
-        mat4 clusterMatrix = clusterMatrices[(skinClusterIndex[i])];
+        mat4 clusterMatrix = clusterTransforms[(skinClusterIndex[i])];
         float clusterWeight = skinClusterWeight[i];
         newPosition += clusterMatrix * inPosition * clusterWeight;
         newNormal += clusterMatrix * vec4(inNormal.xyz, 0.0) * clusterWeight;
@@ -248,7 +203,7 @@ void skinPositionNormalTangent(ivec4 skinClusterIndex, vec4 skinClusterWeight, v
     vec4 newTangent = vec4(0.0, 0.0, 0.0, 0.0);
 
     for (int i = 0; i < INDICES_PER_VERTEX; i++) {
-        mat4 clusterMatrix = clusterMatrices[(skinClusterIndex[i])];
+        mat4 clusterMatrix = clusterTransforms[(skinClusterIndex[i])];
         float clusterWeight = skinClusterWeight[i];
         newPosition += clusterMatrix * inPosition * clusterWeight;
         newNormal += clusterMatrix * vec4(inNormal.xyz, 0.0) * clusterWeight;

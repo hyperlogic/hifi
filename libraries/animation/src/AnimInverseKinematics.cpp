@@ -1051,6 +1051,13 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
         }
     }
 
+    // AJT: HACK REMOVE
+    // add non scale to the ForeArm.
+    int rightForeArmJoint = _skeleton->nameToJointIndex("RightForeArm");
+    if (rightForeArmJoint >= 0 && rightForeArmJoint < _relativePoses.size()) {
+        _relativePoses[rightForeArmJoint].scale() = glm::vec3(1.0f, 1.0f, 2.0f);
+    }
+
     return _relativePoses;
 }
 

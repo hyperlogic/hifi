@@ -272,6 +272,8 @@ void Model::updateRenderItems() {
         bool isLayeredInFront = self->isLayeredInFront();
         bool isLayeredInHUD = self->isLayeredInHUD();
 
+        glm::mat4 geomToRigMatInv = glm::inverse(self->_rig.getGeometryToRigTransform());
+
         render::Transaction transaction;
         for (int i = 0; i < (int) self->_modelMeshRenderItemIDs.size(); i++) {
 
@@ -289,14 +291,8 @@ void Model::updateRenderItems() {
 
                 Transform renderTransform = modelTransform;
                 if (clusterTransforms.size() == 1) {
-#if defined(SKIN_DQ)
-                    Transform transform(clusterTransforms[0].getRotation(),
-                                        clusterTransforms[0].getScale(),
-                                        clusterTransforms[0].getTranslation());
-                    renderTransform = modelTransform.worldTransform(Transform(transform));
-#else
-                    renderTransform = modelTransform.worldTransform(Transform(clusterTransforms[0]));
-#endif
+                    glm::vec3 scale(1.0f);
+                    renderTransform = modelTransform.worldTransform(Transform(clusterTransforms[0].toMat4(scale)));
                 }
                 data.updateTransformForSkinnedMesh(renderTransform, modelTransform);
 
@@ -1274,24 +1270,67 @@ void Model::updateClusterMatrices() {
         return;
     }
 
+    glm::mat4 geomToRigMat = _rig.getGeometryToRigTransform();
+    glm::mat4 geomToRigScaleMat = createMatFromScale(extractScale(geomToRigMat));
+    glm::mat4 geomToRigNoScaleMat = geomToRigMat * glm::inverse(geomToRigScaleMat);
+
     _needsUpdateClusterMatrices = false;
     const FBXGeometry& geometry = getFBXGeometry();
     for (int i = 0; i < (int) _meshStates.size(); i++) {
         MeshState& state = _meshStates[i];
         const FBXMesh& mesh = geometry.meshes.at(i);
+
+#if defined(SKIN_DQ)
+
+        //
+        // build relative bindPoses
+        //
+        // AJT: TODO THIS CAN BE CACHED!  bind poses don't change
+        AnimPoseVec bindPoses(_rig.getJointStateCount());
         for (int j = 0; j < mesh.clusters.size(); j++) {
             const FBXCluster& cluster = mesh.clusters.at(j);
-#if defined(SKIN_DQ)
-            auto jointPose = _rig.getJointPose(cluster.jointIndex);
-            Transform jointTransform(jointPose.rot(), jointPose.scale(), jointPose.trans());
-            Transform clusterTransform;
-            Transform::mult(clusterTransform, jointTransform, cluster.inverseBindTransform);
-            state.clusterTransforms[j] = Model::TransformDualQuaternion(clusterTransform);
+            bindPoses[cluster.jointIndex] = AnimPose(cluster.bindMatrix);
+        }
+        _rig.getAnimSkeleton()->convertAbsolutePosesToRelative(bindPoses);
+
+        // non-rigid poses, abs but does not contain geomToRig transform.
+        AnimPoseVec nonRigidPoses = _rig.buildNonRigidPoses(bindPoses);
+
+        // rigid poses
+        std::vector<DualQuaternion> rigidDualQuaternions = _rig.buildRigidDualQuaternions();
+
+        qDebug() << "AJT: url = " << _url << "mesh[" << i << "]";
+
+        for (int j = 0; j < mesh.clusters.size(); j++) {
+            const FBXCluster& cluster = mesh.clusters.at(j);
+
+            // multiply out deltas from bind pose.
+            glm::mat4 nonRigidPart = geomToRigScaleMat * ((glm::mat4)nonRigidPoses[cluster.jointIndex]) * cluster.inverseBindMatrix;
+
+            // AJT: TODO WTF is dq mul broken!
+            glm::mat4 m = createMatFromQuatAndPos(rigidDualQuaternions[cluster.jointIndex].getRotation(), rigidDualQuaternions[cluster.jointIndex].getTranslation());
+            DualQuaternion rigidPart(geomToRigMat * m * cluster.inverseBindMatrix);
+            state.clusterTransforms[j] = NonRigidDualQuaternion(nonRigidPart, rigidPart);
+
+            glm::vec3 scale(1.0f);
+            AnimPose dqCluster = AnimPose(state.clusterTransforms[j].toMat4(scale));
+
+            glm::mat4 mat;
+            auto jointMatrix = _rig.getJointTransform(cluster.jointIndex);
+            glm_mat4u_mul(jointMatrix, cluster.inverseBindMatrix, mat);
+            AnimPose matCluster = AnimPose(mat);
+
+            qDebug() << "AJT:    dqCluster[" << j << "] =" << dqCluster;
+            qDebug() << "AJT:    matCluster[" << j << "] =" << matCluster;
+        }
+
 #else
+        for (int j = 0; j < mesh.clusters.size(); j++) {
+            const FBXCluster& cluster = mesh.clusters.at(j);
             auto jointMatrix = _rig.getJointTransform(cluster.jointIndex);
             glm_mat4u_mul(jointMatrix, cluster.inverseBindMatrix, state.clusterTransforms[j]);
-#endif
         }
+#endif
     }
 
     // post the blender if we're not currently waiting for one to finish

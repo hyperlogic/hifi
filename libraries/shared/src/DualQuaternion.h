@@ -14,6 +14,7 @@
 
 #include <QtGlobal>
 #include <QDebug>
+#include "Transform.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -46,6 +47,7 @@ public:
     DualQuaternion normalize() const;
     float dot(const DualQuaternion& rhs) const;
     DualQuaternion operator-() const;
+    operator glm::mat4() const;
 
 protected:
     friend QDebug operator<<(QDebug debug, const DualQuaternion& pose);
@@ -53,10 +55,19 @@ protected:
     glm::quat _dual;
 };
 
-
 inline QDebug operator<<(QDebug debug, const DualQuaternion& dq) {
     debug << "AnimPose, real = (" << dq._real.x << dq._real.y << dq._real.z << dq._real.w << "), dual = (" << dq._dual.x << dq._dual.y << dq._dual.z << dq._dual.w << ")";
     return debug;
 }
+
+class NonRigidDualQuaternion {
+public:
+    NonRigidDualQuaternion() {}
+    NonRigidDualQuaternion(const glm::mat4& nonRigid, const DualQuaternion& rigid);
+    glm::mat4 toMat4(const glm::vec3& scale) const; // AJT: TODO remove scale hack
+public:
+    glm::mat4 _nonRigid;
+    DualQuaternion _dq;
+};
 
 #endif

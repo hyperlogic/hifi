@@ -94,7 +94,7 @@ public:
     void notifyLocationChanged() override;
 
 #if defined(SKIN_DQ)
-    using TransformType = Model::TransformDualQuaternion;
+    using TransformType = NonRigidDualQuaternion;
 #else
     using TransformType = glm::mat4;
 #endif

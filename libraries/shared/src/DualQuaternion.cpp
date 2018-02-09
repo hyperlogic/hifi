@@ -90,3 +90,16 @@ float DualQuaternion::dot(const DualQuaternion& rhs) const {
 DualQuaternion DualQuaternion::operator-() const {
     return DualQuaternion(-_real, -_dual);
 }
+
+DualQuaternion::operator glm::mat4() const {
+    return createMatFromQuatAndPos(getRotation(), getTranslation());
+}
+
+NonRigidDualQuaternion::NonRigidDualQuaternion(const glm::mat4& nonRigid, const DualQuaternion& rigid) {
+    _nonRigid = nonRigid;
+    _dq = rigid;
+}
+
+glm::mat4 NonRigidDualQuaternion::toMat4(const glm::vec3& scale) const {
+    return createMatFromQuatAndPos(_dq.getRotation(), scale * _dq.getTranslation()) * _nonRigid;
+}

@@ -16,7 +16,7 @@ public:
     CauterizedMeshPartPayload(ModelPointer model, int meshIndex, int partIndex, int shapeIndex, const Transform& transform, const Transform& offsetTransform);
 
 #if defined(SKIN_DQ)
-    using TransformType = Model::TransformDualQuaternion;
+    using TransformType = NonRigidDualQuaternion;
 #else
     using TransformType = glm::mat4;
 #endif

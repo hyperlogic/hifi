@@ -104,23 +104,65 @@ void CauterizedModel::updateClusterMatrices() {
     _needsUpdateClusterMatrices = false;
     const FBXGeometry& geometry = getFBXGeometry();
 
+    glm::mat4 geomToRigMat = _rig.getGeometryToRigTransform();
+    glm::mat4 geomToRigScaleMat = createMatFromScale(extractScale(geomToRigMat));
+    glm::mat4 geomToRigNoScaleMat = geomToRigMat * glm::inverse(geomToRigScaleMat);
+
     for (int i = 0; i < (int)_meshStates.size(); i++) {
         Model::MeshState& state = _meshStates[i];
         const FBXMesh& mesh = geometry.meshes.at(i);
+
+#if defined(SKIN_DQ)
+        //
+        // build relative bindPoses
+        //
+        // AJT: TODO THIS CAN BE CACHED!  bind poses don't change
+        AnimPoseVec bindPoses(_rig.getJointStateCount());
         for (int j = 0; j < mesh.clusters.size(); j++) {
             const FBXCluster& cluster = mesh.clusters.at(j);
-#if defined(SKIN_DQ)
-            auto jointPose = _rig.getJointPose(cluster.jointIndex);
-            Transform jointTransform(jointPose.rot(), jointPose.scale(), jointPose.trans());
-            Transform clusterTransform;
-            Transform::mult(clusterTransform, jointTransform, cluster.inverseBindTransform);
-            state.clusterTransforms[j] = Model::TransformDualQuaternion(clusterTransform);
-            state.clusterTransforms[j].setCauterizationParameters(0.0f, jointPose.trans());
+            bindPoses[cluster.jointIndex] = AnimPose(cluster.bindMatrix);
+        }
+        _rig.getAnimSkeleton()->convertAbsolutePosesToRelative(bindPoses);
+
+        // non-rigid poses, abs but does not contain geomToRig transform.
+        AnimPoseVec nonRigidPoses = _rig.buildNonRigidPoses(bindPoses);
+
+        //qDebug() << "AJT: url = " << _url << "mesh[" << i << "]";
+
+        // rigid poses
+        std::vector<DualQuaternion> rigidDualQuaternions = _rig.buildRigidDualQuaternions();
+
+        for (int j = 0; j < mesh.clusters.size(); j++) {
+            const FBXCluster& cluster = mesh.clusters.at(j);
+
+            // multiply out deltas from bind pose.
+            glm::mat4 nonRigidPart = geomToRigScaleMat * ((glm::mat4)nonRigidPoses[cluster.jointIndex]) * cluster.inverseBindMatrix;
+
+            // AJT: TODO WTF is dq mul broken!
+            glm::mat4 m = createMatFromQuatAndPos(rigidDualQuaternions[cluster.jointIndex].getRotation(), rigidDualQuaternions[cluster.jointIndex].getTranslation());
+            DualQuaternion rigidPart(geomToRigMat * m * cluster.inverseBindMatrix);
+            state.clusterTransforms[j] = NonRigidDualQuaternion(nonRigidPart, rigidPart);
+
+            /*
+            glm::vec3 scale(1.0f);
+            AnimPose dqCluster = AnimPose(state.clusterTransforms[j].toMat4(scale));
+
+            glm::mat4 mat;
+            auto jointMatrix = _rig.getJointTransform(cluster.jointIndex);
+            glm_mat4u_mul(jointMatrix, cluster.inverseBindMatrix, mat);
+            AnimPose matCluster = AnimPose(mat);
+
+            qDebug() << "AJT:    dqCluster[" << j << "] =" << dqCluster;
+            qDebug() << "AJT:    matCluster[ =" << j << "] =" << matCluster;
+            */
+        }
 #else
+        for (int j = 0; j < mesh.clusters.size(); j++) {
+            const FBXCluster& cluster = mesh.clusters.at(j);
             auto jointMatrix = _rig.getJointTransform(cluster.jointIndex);
             glm_mat4u_mul(jointMatrix, cluster.inverseBindMatrix, state.clusterTransforms[j]);
-#endif
         }
+#endif
     }
 
     // as an optimization, don't build cautrizedClusterMatrices if the boneSet is empty.
@@ -143,16 +185,20 @@ void CauterizedModel::updateClusterMatrices() {
             for (int j = 0; j < mesh.clusters.size(); j++) {
                 const FBXCluster& cluster = mesh.clusters.at(j);
 
-                if (_cauterizeBoneSet.find(cluster.jointIndex) == _cauterizeBoneSet.end()) {
+                // AJT: HACK FIXME restore cauterization
+                if (true /*_cauterizeBoneSet.find(cluster.jointIndex) == _cauterizeBoneSet.end()*/) {
                     // not cauterized so just copy the value from the non-cauterized version.
                     state.clusterTransforms[j] = _meshStates[i].clusterTransforms[j];
                 } else {
 #if defined(SKIN_DQ)
+                    // AJT: TODO the hard part
+                    /*
                     Transform jointTransform(cauterizePose.rot(), cauterizePose.scale(), cauterizePose.trans());
                     Transform clusterTransform;
                     Transform::mult(clusterTransform, jointTransform, cluster.inverseBindTransform);
                     state.clusterTransforms[j] = Model::TransformDualQuaternion(clusterTransform);
                     state.clusterTransforms[j].setCauterizationParameters(1.0f, cauterizePose.trans());
+                    */
 #else
                     glm_mat4u_mul(cauterizeMatrix, cluster.inverseBindMatrix, state.clusterTransforms[j]);
 #endif
@@ -224,27 +270,17 @@ void CauterizedModel::updateRenderItems() {
 
                     Transform renderTransform = modelTransform;
                     if (clusterTransforms.size() == 1) {
-#if defined(SKIN_DQ)
-                        Transform transform(clusterTransforms[0].getRotation(),
-                                            clusterTransforms[0].getScale(),
-                                            clusterTransforms[0].getTranslation());
-                        renderTransform = modelTransform.worldTransform(transform);
-#else
-                        renderTransform = modelTransform.worldTransform(Transform(clusterTransforms[0]));
-#endif
+                        // AJT: HACK
+                        glm::vec3 scale(1.0f);
+                        renderTransform = modelTransform.worldTransform(Transform(clusterTransforms[0].toMat4(scale)));
                     }
                     data.updateTransformForSkinnedMesh(renderTransform, modelTransform);
 
                     renderTransform = modelTransform;
                     if (clusterTransformsCauterized.size() == 1) {
-#if defined(SKIN_DQ)
-                        Transform transform(clusterTransformsCauterized[0].getRotation(),
-                                            clusterTransformsCauterized[0].getScale(),
-                                            clusterTransformsCauterized[0].getTranslation());
-                        renderTransform = modelTransform.worldTransform(Transform(transform));
-#else
-                        renderTransform = modelTransform.worldTransform(Transform(clusterTransformsCauterized[0]));
-#endif
+                        // AJT: HACK
+                        glm::vec3 scale(1.0f);
+                        renderTransform = modelTransform.worldTransform(Transform(clusterTransformsCauterized[0].toMat4(scale)));
                     }
                     data.updateTransformForCauterizedMesh(renderTransform);
 
