@@ -275,6 +275,10 @@ public:
     void addMaterial(graphics::MaterialLayer material, const std::string& parentMaterialName) override;
     void removeMaterial(graphics::MaterialPointer material, const std::string& parentMaterialName) override;
 
+    virtual bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) override;
+    virtual bool isJointPinned(int index) override;
+    virtual bool clearPinOnJoint(int index) override;
+
 public slots:
 
     // FIXME - these should be migrated to use Pose data instead
@@ -405,6 +409,9 @@ protected:
     std::mutex _materialsLock;
 
     void processMaterials();
+
+    std::mutex _pinnedJointsMutex;
+    std::vector<std::tuple<int, glm::quat, glm::vec3>> _pinnedJoints;
 };
 
 #endif // hifi_Avatar_h

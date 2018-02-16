@@ -3285,41 +3285,6 @@ glm::mat4 MyAvatar::getLeftHandCalibrationMat() const {
     }
 }
 
-bool MyAvatar::pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) {
-    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
-    auto hipsIndex = getJointIndex("Hips");
-    if (index != hipsIndex) {
-        qWarning() << "Pinning is only supported for the hips joint at the moment.";
-        return false;
-    }
-
-    slamPosition(position);
-    setWorldOrientation(orientation);
-
-    auto it = std::find(_pinnedJoints.begin(), _pinnedJoints.end(), index);
-    if (it == _pinnedJoints.end()) {
-        _pinnedJoints.push_back(index);
-    }
-
-    return true;
-}
-
-bool MyAvatar::isJointPinned(int index) {
-    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
-    auto it = std::find(_pinnedJoints.begin(), _pinnedJoints.end(), index);
-    return it != _pinnedJoints.end();
-}
-
-bool MyAvatar::clearPinOnJoint(int index) {
-    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
-    auto it = std::find(_pinnedJoints.begin(), _pinnedJoints.end(), index);
-    if (it != _pinnedJoints.end()) {
-        _pinnedJoints.erase(it);
-        return true;
-    }
-    return false;
-}
-
 float MyAvatar::getIKErrorOnLastSolve() const {
     return _skeletonModel->getRig().getIKErrorOnLastSolve();
 }

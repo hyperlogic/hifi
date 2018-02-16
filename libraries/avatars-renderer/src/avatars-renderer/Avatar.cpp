@@ -425,6 +425,12 @@ void Avatar::simulate(float deltaTime, bool inView) {
             Head* head = getHead();
             if (_hasNewJointData) {
                 _skeletonModel->getRig().copyJointsFromJointData(_jointData);
+
+                {
+                    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
+                    _skeletonModel->getRig().performInverseKinematicsFromPinnedJoints(_pinnedJoints);
+                }
+
                 glm::mat4 rootTransform = glm::scale(_skeletonModel->getScale()) * glm::translate(_skeletonModel->getOffset());
                 _skeletonModel->getRig().computeExternalPoses(rootTransform);
                 _jointDataSimulationRate.increment();
@@ -1789,4 +1795,44 @@ void Avatar::processMaterials() {
             material.pop();
         }
     }
+}
+
+bool Avatar::pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) {
+    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
+
+    auto it = find_if(_pinnedJoints.begin(), _pinnedJoints.end(), [=](auto item) {
+        return get<0>(item) == index;
+    });
+
+    auto item = std::make_tuple(index, orientation, position);
+    if (it == _pinnedJoints.end()) {
+        _pinnedJoints.push_back(item);
+    } else {
+        *it = item;
+    }
+
+    return true;
+}
+
+bool Avatar::isJointPinned(int index) {
+    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
+    auto it = find_if(_pinnedJoints.begin(), _pinnedJoints.end(), [=](auto item) {
+        return get<0>(item) == index;
+    });
+
+    return it != _pinnedJoints.end();
+}
+
+bool Avatar::clearPinOnJoint(int index) {
+    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
+
+    auto it = find_if(_pinnedJoints.begin(), _pinnedJoints.end(), [=](auto item) {
+        return get<0>(item) == index;
+    });
+
+    if (it != _pinnedJoints.end()) {
+        _pinnedJoints.erase(it);
+        return true;
+    }
+    return false;
 }

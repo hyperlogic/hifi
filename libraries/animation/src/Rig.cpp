@@ -1827,3 +1827,100 @@ void Rig::computeAvatarBoundingCapsule(
     glm::vec3 capsuleCenter = transformPoint(_geometryToRigTransform, (0.5f * (totalExtents.maximum + totalExtents.minimum)));
     localOffsetOut = capsuleCenter - hipsPosition;
 }
+
+// AJT: experimental
+void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<int, glm::quat, glm::vec3>>& pinnedJoints) {
+
+    // lazy alloc
+    if (!_localIKNode) {
+        /*
+        _localIKNode = std::make_shared<AnimInverseKinematics>("localIK");
+        _localIKNode->setSolutionSource(AnimInverseKinematics::SolutionSource::RelaxToLimitCenterPoses);
+        _localIKNode->setTargetVars("Hips", "hipsPosition", "hipsRotation",
+                                    "hipsType", "hipsWeight", 1.0f, {1.0f});
+        _localIKNode->setTargetVars("RightHand", "rightHandPosition",
+        */
+        /*
+                        "data": {
+                            "solutionSource": "relaxToUnderPoses",
+                            "solutionSourceVar": "solutionSource",
+                            "targets": [
+                                {
+                                    "jointName": "Hips",
+                                    "positionVar": "hipsPosition",
+                                    "rotationVar": "hipsRotation",
+                                    "typeVar": "hipsType",
+                                    "weightVar": "hipsWeight",
+                                    "weight": 1.0,
+                                    "flexCoefficients": [1]
+                                },
+                                {
+                                    "jointName": "RightHand",
+                                    "positionVar": "rightHandPosition",
+                                    "rotationVar": "rightHandRotation",
+                                    "typeVar": "rightHandType",
+                                    "weightVar": "rightHandWeight",
+                                    "weight": 1.0,
+                                    "flexCoefficients": [1, 0.5, 0.5, 0.2, 0.01, 0.005, 0.001, 0.0, 0.0],
+                                    "poleVectorEnabledVar": "rightHandPoleVectorEnabled",
+                                    "poleReferenceVectorVar": "rightHandPoleReferenceVector",
+                                    "poleVectorVar": "rightHandPoleVector"
+                                },
+                                {
+                                    "jointName": "LeftHand",
+                                    "positionVar": "leftHandPosition",
+                                    "rotationVar": "leftHandRotation",
+                                    "typeVar": "leftHandType",
+                                    "weightVar": "leftHandWeight",
+                                    "weight": 1.0,
+                                    "flexCoefficients": [1, 0.5, 0.5, 0.2, 0.01, 0.005, 0.001, 0.0, 0.0],
+                                    "poleVectorEnabledVar": "leftHandPoleVectorEnabled",
+                                    "poleReferenceVectorVar": "leftHandPoleReferenceVector",
+                                    "poleVectorVar": "leftHandPoleVector"
+                                },
+                                {
+                                    "jointName": "RightFoot",
+                                    "positionVar": "rightFootPosition",
+                                    "rotationVar": "rightFootRotation",
+                                    "typeVar": "rightFootType",
+                                    "weightVar": "rightFootWeight",
+                                    "weight": 1.0,
+                                    "flexCoefficients": [1, 0.45, 0.45],
+                                    "poleVectorEnabledVar": "rightFootPoleVectorEnabled",
+                                    "poleReferenceVectorVar": "rightFootPoleReferenceVector",
+                                    "poleVectorVar": "rightFootPoleVector"
+                                },
+                                {
+                                    "jointName": "LeftFoot",
+                                    "positionVar": "leftFootPosition",
+                                    "rotationVar": "leftFootRotation",
+                                    "typeVar": "leftFootType",
+                                    "weightVar": "leftFootWeight",
+                                    "weight": 1.0,
+                                    "flexCoefficients": [1, 0.45, 0.45],
+                                    "poleVectorEnabledVar": "leftFootPoleVectorEnabled",
+                                    "poleReferenceVectorVar": "leftFootPoleReferenceVector",
+                                    "poleVectorVar": "leftFootPoleVector"
+                                },
+                                {
+                                    "jointName": "Spine2",
+                                    "positionVar": "spine2Position",
+                                    "rotationVar": "spine2Rotation",
+                                    "typeVar": "spine2Type",
+                                    "weightVar": "spine2Weight",
+                                    "weight": 2.0,
+                                    "flexCoefficients": [1.0, 0.5, 0.25]
+                                },
+                                {
+                                    "jointName": "Head",
+                                    "positionVar": "headPosition",
+                                    "rotationVar": "headRotation",
+                                    "typeVar": "headType",
+                                    "weightVar": "headWeight",
+                                    "weight": 4.0,
+                                    "flexCoefficients": [1, 0.5, 0.25, 0.2, 0.1]
+                                }
+                            ]
+         */
+    }
+}
