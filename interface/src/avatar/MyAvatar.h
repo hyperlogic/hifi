@@ -1554,9 +1554,6 @@ private:
     bool getIsAway() const { return _isAway; }
     void setAway(bool value);
 
-    std::mutex _pinnedJointsMutex;
-    std::vector<int> _pinnedJoints;
-
     // height of user in sensor space, when standing erect.
     ThreadSafeValueCache<float> _userHeight { DEFAULT_AVATAR_HEIGHT };
 

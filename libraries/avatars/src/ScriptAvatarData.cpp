@@ -338,3 +338,27 @@ glm::vec3 ScriptAvatarData::getAbsoluteJointTranslationInObjectFrame(int index) 
         return glm::vec3();
     }
 }
+
+bool ScriptAvatarData::pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) {
+    if (AvatarSharedPointer sharedAvatarData = _avatarData.lock()) {
+        return sharedAvatarData->pinJoint(index, position, orientation);
+    } else {
+        return false;
+    }
+}
+
+bool ScriptAvatarData::isJointPinned(int index) const {
+    if (AvatarSharedPointer sharedAvatarData = _avatarData.lock()) {
+        return sharedAvatarData->isJointPinned(index);
+    } else {
+        return false;
+    }
+}
+
+bool ScriptAvatarData::clearPinOnJoint(int index) {
+    if (AvatarSharedPointer sharedAvatarData = _avatarData.lock()) {
+        return sharedAvatarData->clearPinOnJoint(index);
+    } else {
+        return false;
+    }
+}

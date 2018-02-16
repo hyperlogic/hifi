@@ -25,8 +25,17 @@ public:
     const glm::mat4& getGeometryToRigMatrix() const { return _geometryToRigMatrix; }
     const glm::mat4& getRigToWorldMatrix() const { return _rigToWorldMatrix; }
 
+    enum ExtraDebugFlags {
+        DebugDrawSolutionSourceFlag = 0x1,
+        DebugDrawUnderPosesFlag = 0x2
+    };
+
+    uint32_t getExtraDebugFlags() const { return _extraDebugFlags; }
+    void setExtraDebugFlags(uint32_t flags) { _extraDebugFlags = flags; }
+
 protected:
 
+    uint32_t _extraDebugFlags { 0 };
     bool _enableDebugDrawIKTargets { false };
     bool _enableDebugDrawIKConstraints { false };
     bool _enableDebugDrawIKChains { false };

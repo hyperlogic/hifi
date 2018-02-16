@@ -128,7 +128,11 @@ public:
     glm::mat4 getSensorToWorldMatrix() const;
     glm::mat4 getControllerLeftHandMatrix() const;
     glm::mat4 getControllerRightHandMatrix() const;
-    
+
+    Q_INVOKABLE bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation);
+    Q_INVOKABLE bool isJointPinned(int index) const;
+    Q_INVOKABLE bool clearPinOnJoint(int index);
+
 signals:
     void displayNameChanged();
     void sessionDisplayNameChanged();

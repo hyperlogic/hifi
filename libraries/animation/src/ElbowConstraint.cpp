@@ -69,6 +69,7 @@ bool ElbowConstraint::apply(glm::quat& rotation) const {
     if (twistWasClamped) {
         twistRotation = glm::angleAxis(clampedTwistAngle, _axis);
     }
+
     // we discard all swing and only keep twist
     rotation = twistRotation * _referenceRotation;
     return true;

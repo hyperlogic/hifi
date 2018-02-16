@@ -51,6 +51,7 @@ public:
     void setTargetVars(const QString& jointName, const QString& positionVar, const QString& rotationVar,
                        const QString& typeVar, const QString& weightVar, float weight, const std::vector<float>& flexCoefficients,
                        const QString& poleVectorEnabledVar, const QString& poleReferenceVectorVar, const QString& poleVectorVar);
+    void clearTargetVar(const QString& jointName);
 
     virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimNode::Triggers& triggersOut) override;
     virtual const AnimPoseVec& overlay(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut, const AnimPoseVec& underPoses) override;
@@ -83,9 +84,10 @@ protected:
                                bool debug, JointChainInfo& jointChainInfoOut) const;
     virtual void setSkeletonInternal(AnimSkeleton::ConstPointer skeleton) override;
     void debugDrawIKChain(const JointChainInfo& jointChainInfo, const AnimContext& context) const;
-    void debugDrawRelativePoses(const AnimContext& context) const;
+    void debugDrawRelativePoses(const AnimContext& context, const AnimPoseVec& relativePoses) const;
     void debugDrawConstraints(const AnimContext& context) const;
     void debugDrawSpineSplines(const AnimContext& context, const std::vector<IKTarget>& targets) const;
+    void initIKBoneSet(const std::vector<IKTarget>& targets);
     void initRelativePosesFromSolutionSource(SolutionSource solutionSource, const AnimPoseVec& underPose);
     void blendToPoses(const AnimPoseVec& targetPoses, const AnimPoseVec& underPose, float blendFactor);
     void preconditionRelativePosesToAvoidLimbLock(const AnimContext& context, const std::vector<IKTarget>& targets);
@@ -159,6 +161,7 @@ protected:
     QString _solutionSourceVar;
 
     JointChainInfoVec _prevJointChainInfoVec;
+    std::vector<float> _ikBoneSetVec;
 };
 
 #endif // hifi_AnimInverseKinematics_h

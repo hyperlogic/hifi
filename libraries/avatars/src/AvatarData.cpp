@@ -2530,6 +2530,17 @@ glm::mat4 AvatarData::getControllerRightHandMatrix() const {
     return _controllerRightHandMatrixCache.get();
 }
 
+bool AvatarData::pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) {
+    return false;
+}
+
+bool AvatarData::isJointPinned(int index) const {
+    return false;
+}
+
+bool AvatarData::clearPinOnJoint(int index) {
+    return false;
+}
 
 QScriptValue RayToAvatarIntersectionResultToScriptValue(QScriptEngine* engine, const RayToAvatarIntersectionResult& value) {
     QScriptValue obj = engine->newObject();
