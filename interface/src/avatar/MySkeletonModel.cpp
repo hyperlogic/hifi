@@ -36,6 +36,7 @@ Rig::CharacterControllerState convertCharacterControllerState(CharacterControlle
 static AnimPose computeHipsInSensorFrame(MyAvatar* myAvatar, bool isFlying) {
     glm::mat4 worldToSensorMat = glm::inverse(myAvatar->getSensorToWorldMatrix());
 
+    /* AJT: HACK TODO disable hip pinning for now. i.e chairs are BROKEN
     // check for pinned hips.
     auto hipsIndex = myAvatar->getJointIndex("Hips");
     if (myAvatar->isJointPinned(hipsIndex)) {
@@ -44,6 +45,7 @@ static AnimPose computeHipsInSensorFrame(MyAvatar* myAvatar, bool isFlying) {
         result.scale() = glm::vec3(1.0f, 1.0f, 1.0f);
         return result;
     }
+    */
 
     glm::mat4 hipsMat = myAvatar->deriveBodyFromHMDSensor();
     glm::vec3 hipsPos = extractTranslation(hipsMat);

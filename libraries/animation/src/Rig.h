@@ -217,6 +217,10 @@ public:
     // input assumed to be in rig space
     void computeHeadFromHMD(const AnimPose& hmdPose, glm::vec3& headPositionOut, glm::quat& headOrientationOut) const;
 
+    // AJT: experimental
+    void performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<int, glm::quat, glm::vec3>>& pinnedJoints,
+                                                  float dt, const glm::mat4& rootTransform, const glm::mat4& rigToWorldTransform);
+
 signals:
     void onLoadComplete();
 
@@ -372,6 +376,10 @@ protected:
     bool _prevLeftHandPoleVectorValid { false };
 
     int _rigId;
+
+    std::shared_ptr<AnimInverseKinematics> _localIKNode;
+
+    std::vector<std::tuple<int, glm::quat, glm::vec3>> _prevPinnedJoints;
 };
 
 #endif /* defined(__hifi__Rig__) */

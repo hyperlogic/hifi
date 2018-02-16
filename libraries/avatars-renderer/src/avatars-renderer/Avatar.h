@@ -278,6 +278,10 @@ public:
 
     virtual scriptable::ScriptableModelBase getScriptableModel() override;
 
+    virtual bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) override;
+    virtual bool isJointPinned(int index) const override;
+    virtual bool clearPinOnJoint(int index) override;
+
 public slots:
 
     // FIXME - these should be migrated to use Pose data instead
@@ -408,6 +412,9 @@ protected:
     std::mutex _materialsLock;
 
     void processMaterials();
+
+    mutable std::mutex _pinnedJointsMutex;
+    std::vector<std::tuple<int, glm::quat, glm::vec3>> _pinnedJoints;
 };
 
 #endif // hifi_Avatar_h

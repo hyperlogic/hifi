@@ -699,6 +699,11 @@ public:
     virtual void addMaterial(graphics::MaterialLayer material, const std::string& parentMaterialName) {}
     virtual void removeMaterial(graphics::MaterialPointer material, const std::string& parentMaterialName) {}
 
+    // AJT: experimental
+    Q_INVOKABLE virtual bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation);
+    Q_INVOKABLE virtual bool isJointPinned(int index) const;
+    Q_INVOKABLE virtual bool clearPinOnJoint(int index);
+
 signals:
     void displayNameChanged();
     void sessionDisplayNameChanged();

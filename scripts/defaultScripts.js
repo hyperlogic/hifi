@@ -30,10 +30,12 @@ var DEFAULT_SCRIPTS_COMBINED = [
     "system/dialTone.js",
     "system/firstPersonHMD.js",
     "system/tablet-ui/tabletUI.js",
-    "system/emote.js"
+    "system/emote.js",
 ];
 var DEFAULT_SCRIPTS_SEPARATE = [
-    "system/controllers/controllerScripts.js"
+    "system/controllers/controllerScripts.js",
+    //"developer/handshake.js"
+
     //"system/chat.js"
 ];
 

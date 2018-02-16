@@ -427,7 +427,15 @@ void Avatar::simulate(float deltaTime, bool inView) {
             Head* head = getHead();
             if (_hasNewJointData) {
                 _skeletonModel->getRig().copyJointsFromJointData(_jointData);
+
                 glm::mat4 rootTransform = glm::scale(_skeletonModel->getScale()) * glm::translate(_skeletonModel->getOffset());
+                {
+                    glm::mat4 rigToWorldTransform = createMatFromQuatAndPos(_skeletonModel->getRotation(), _skeletonModel->getTranslation());
+
+                    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
+                    _skeletonModel->getRig().performInverseKinematicsFromPinnedJoints(_pinnedJoints, deltaTime, rootTransform, rigToWorldTransform);
+                }
+
                 _skeletonModel->getRig().computeExternalPoses(rootTransform);
                 _jointDataSimulationRate.increment();
 
@@ -1807,3 +1815,44 @@ scriptable::ScriptableModelBase Avatar::getScriptableModel() {
     }
     return result;
 }
+
+bool Avatar::pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) {
+    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
+
+    auto it = find_if(_pinnedJoints.begin(), _pinnedJoints.end(), [=](const std::tuple<int, glm::quat, glm::vec3>& item) {
+        return get<0>(item) == index;
+    });
+
+    auto item = std::make_tuple(index, orientation, position);
+    if (it == _pinnedJoints.end()) {
+        _pinnedJoints.push_back(item);
+    } else {
+        *it = item;
+    }
+
+    return true;
+}
+
+bool Avatar::isJointPinned(int index) const {
+    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
+    auto it = find_if(_pinnedJoints.begin(), _pinnedJoints.end(), [=](const std::tuple<int, glm::quat, glm::vec3>& item) {
+        return get<0>(item) == index;
+    });
+
+    return it != _pinnedJoints.end();
+}
+
+bool Avatar::clearPinOnJoint(int index) {
+    std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
+
+    auto it = find_if(_pinnedJoints.begin(), _pinnedJoints.end(), [=](const std::tuple<int, glm::quat, glm::vec3>& item) {
+        return get<0>(item) == index;
+    });
+
+    if (it != _pinnedJoints.end()) {
+        _pinnedJoints.erase(it);
+        return true;
+    }
+    return false;
+}
+

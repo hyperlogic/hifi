@@ -276,6 +276,8 @@ void Rig::reset(const FBXGeometry& geometry) {
         _animNode.reset();
         initAnimGraph(_animGraphURL);
     }
+
+    _localIKNode.reset();
 }
 
 bool Rig::jointStatesEmpty() {
@@ -1045,8 +1047,11 @@ void Rig::updateAnimations(float deltaTime, const glm::mat4& rootTransform, cons
         updateAnimationStateHandlers();
         _animVars.setRigToGeometryTransform(_rigToGeometryTransform);
 
+        // AJT: 10cm in z and y direction, to workaround avatar hide bug.
+        glm::mat4 offsetMat = createMatFromQuatAndPos(glm::quat(), glm::vec3(0.0f, 0.1f, 0.1f));
+
         AnimContext context(_enableDebugDrawIKTargets, _enableDebugDrawIKConstraints, _enableDebugDrawIKChains,
-                            getGeometryToRigTransform(), rigToWorldTransform);
+                            getGeometryToRigTransform(), rigToWorldTransform * offsetMat);
 
         // evaluate the animation
         AnimNode::Triggers triggersOut;
@@ -1859,4 +1864,207 @@ void Rig::computeAvatarBoundingCapsule(
 
     glm::vec3 capsuleCenter = transformPoint(_geometryToRigTransform, (0.5f * (totalExtents.maximum + totalExtents.minimum)));
     localOffsetOut = capsuleCenter - hipsPosition;
+}
+
+// AJT: experimental
+void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<int, glm::quat, glm::vec3>>& pinnedJoints,
+                                                   float dt, const glm::mat4& rootTransform, const glm::mat4& rigToWorldTransform) {
+
+    if (!_animSkeleton) {
+        return;
+    }
+
+    setModelOffset(rootTransform);
+
+    // lazy alloc
+    if (!_localIKNode) {
+        _localIKNode = std::make_shared<AnimInverseKinematics>("localIK");
+        _localIKNode->setSolutionSource(AnimInverseKinematics::SolutionSource::RelaxToUnderPoses);
+        _localIKNode->setSkeleton(_animSkeleton);
+    }
+
+    // find joints that were added or removed.
+    // AJT: TODO fix this n^2 algorithm.
+    std::vector<bool> prevFoundVec(_prevPinnedJoints.size(), false);
+    for (int i = 0; i < pinnedJoints.size(); i++) {
+        bool found = false;
+        int jointIndex = std::get<0>(pinnedJoints[i]);
+        for (int j = 0; j < _prevPinnedJoints.size(); j++) {
+            int prevJointIndex = std::get<0>(_prevPinnedJoints[j]);
+            if (prevJointIndex == jointIndex) {
+                prevFoundVec[j] = true;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            // add pinned joint
+            if (jointIndex == indexOfJoint("Hips")) {
+                _localIKNode->setTargetVars("Hips", "hipsPosition", "hipsRotation",
+                                            "hipsType", "hipsWeight", 1.0f, {1.0f},
+                                            "hipsPoleVectorEnabled", "hipsPoleReferenceVector", "hipsPoleVector");
+            } else if (jointIndex == indexOfJoint("RightHand")) {
+                _localIKNode->setTargetVars("RightHand", "rightHandPosition", "rightHandRotation",
+                                            "rightHandType", "rightHandWeight", 1.0f, {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f},
+                                            "rightHandPoleVectorEnabled", "rightHandPoleReferenceVector", "rightHandPoleVector");
+            } else if (jointIndex == indexOfJoint("RightForeArm")) {
+                _localIKNode->setTargetVars("RightForeArm", "rightForeArmPosition", "rightForeArmRotation",
+                                            "rightForeArmType", "rightForeArmWeight", 1.0f, {1.0f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                            "rightForeArmPoleVectorEnabled", "rightForeArmPoleReferenceVector", "rightForeArmPoleVector");
+            } else if (jointIndex == indexOfJoint("RightArm")) {
+                _localIKNode->setTargetVars("RightArm", "rightArmPosition", "rightArmRotation",
+                                            "rightArmType", "rightArmWeight", 1.0f, {1.5f, 0.5f, 0.1f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                            "rightArmPoleVectorEnabled", "rightArmPoleReferenceVector", "rightArmPoleVector");
+            } else if (jointIndex == indexOfJoint("RightShoulder")) {
+                _localIKNode->setTargetVars("RightShoulder", "rightShoulderPosition", "rightShoulderRotation",
+                                            "rightShoulderType", "rightShoulderWeight", 1.0f, {1.0f, 0.1f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                            "rightShoulderPoleVectorEnabled", "rightShoulderPoleReferenceVector", "rightShoulderPoleVector");
+            } else if (jointIndex == indexOfJoint("LeftHand")) {
+                _localIKNode->setTargetVars("LeftHand", "leftHandPosition", "leftHandRotation",
+                                            "leftHandType", "leftHandWeight", 1.0f, {1.0f, 0.5f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                            "leftHandPoleVectorEnabled", "leftHandPoleReferenceVector", "leftHandPoleVector");
+            } else if (jointIndex == indexOfJoint("LeftForeArm")) {
+                _localIKNode->setTargetVars("LeftForeArm", "leftForeArmPosition", "leftForeArmRotation",
+                                            "leftForeArmType", "leftForeArmWeight", 1.0f, {1.0f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                            "leftForeArmPoleVectorEnabled", "leftForeArmPoleReferenceVector", "leftForeArmPoleVector");
+            } else if (jointIndex == indexOfJoint("LeftArm")) {
+                _localIKNode->setTargetVars("LeftArm", "leftArmPosition", "leftArmRotation",
+                                            "leftArmType", "leftArmWeight", 1.0f, {1.5f, 0.5f, 0.1f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                            "leftArmPoleVectorEnabled", "leftArmPoleReferenceVector", "leftArmPoleVector");
+            } else if (jointIndex == indexOfJoint("LeftShoulder")) {
+                _localIKNode->setTargetVars("LeftShoulder", "leftShoulderPosition", "leftShoulderRotation",
+                                            "leftShoulderType", "leftShoulderWeight", 1.0f, {1.0f, 0.1f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                            "leftShoulderPoleVectorEnabled", "leftShoulderPoleReferenceVector", "leftShoulderPoleVector");
+            } else if (jointIndex == indexOfJoint("RightFoot")) {
+                _localIKNode->setTargetVars("RightFoot", "rightFootPosition", "rightFootRotation",
+                                            "rightHandType", "rightFootWeight", 1.0f, {1.0f, 0.45f, 0.45f},
+                                            "rightFootPoleVectorEnabled", "rightFootPoleReferenceVector", "rightFootPoleVector");
+            } else if (jointIndex == indexOfJoint("LeftFoot")) {
+                _localIKNode->setTargetVars("LeftFoot", "leftFootPosition", "leftFootRotation",
+                                            "leftHandType", "leftFootWeight", 1.0f, {1.0f, 0.45f, 0.45f},
+                                            "leftFootPoleVectorEnabled", "leftFootPoleReferenceVector", "leftFootPoleVector");
+            } else if (jointIndex == indexOfJoint("Spine2")) {
+                _localIKNode->setTargetVars("Spine2", "spine2Position", "spine2Rotation",
+                                            "spine2Type", "spine2Weight", 1.0f, {1.0f, 0.5f, 0.25f},
+                                            "spine2PoleVectorEnabled", "spine2PoleReferenceVector", "spine2PoleVector");
+            } else if (jointIndex == indexOfJoint("Head")) {
+                _localIKNode->setTargetVars("Head", "headPosition", "headRotation",
+                                            "headType", "headWeight", 1.0f, {1.0f, 0.5f, 0.25f, 0.2f, 0.1f},
+                                            "headPoleVectorEnabled", "headPoleReferenceVector", "headPoleVector");
+            }
+        }
+    }
+    for (int i = 0; i < prevFoundVec.size(); i++) {
+        if (!prevFoundVec[i]) {
+            int jointIndex = std::get<0>(_prevPinnedJoints[i]);
+            // removed pinned joint
+            if (jointIndex == indexOfJoint("Hips")) {
+                _localIKNode->clearTargetVar("Hips");
+            } else if (jointIndex == indexOfJoint("RightHand")) {
+                _localIKNode->clearTargetVar("RightHand");
+            } else if (jointIndex == indexOfJoint("RightForeArm")) {
+                _localIKNode->clearTargetVar("RightForeArm");
+            } else if (jointIndex == indexOfJoint("RightArm")) {
+                _localIKNode->clearTargetVar("RightArm");
+            } else if (jointIndex == indexOfJoint("RightShoulder")) {
+                _localIKNode->clearTargetVar("RightShoulder");
+            } else if (jointIndex == indexOfJoint("LeftHand")) {
+                _localIKNode->clearTargetVar("LeftHand");
+            } else if (jointIndex == indexOfJoint("LeftForeArm")) {
+                _localIKNode->clearTargetVar("LeftForeArm");
+            } else if (jointIndex == indexOfJoint("LeftArm")) {
+                _localIKNode->clearTargetVar("LeftArm");
+            } else if (jointIndex == indexOfJoint("LeftShoulder")) {
+                _localIKNode->clearTargetVar("LeftShoulder");
+            } else if (jointIndex == indexOfJoint("RightFoot")) {
+                _localIKNode->clearTargetVar("RightFoot");
+            } else if (jointIndex == indexOfJoint("LeftFoot")) {
+                _localIKNode->clearTargetVar("LeftFoot");
+            } else if (jointIndex == indexOfJoint("Spine2")) {
+                _localIKNode->clearTargetVar("Spine2");
+            } else if (jointIndex == indexOfJoint("Head")) {
+                _localIKNode->clearTargetVar("Head");
+            }
+        }
+    }
+
+    AnimVariantMap animVars;
+    animVars.setRigToGeometryTransform(_rigToGeometryTransform);
+
+    glm::mat4 worldToRigTransform = glm::inverse(rigToWorldTransform);
+    glm::quat worldToRigRot = glmExtractRotation(worldToRigTransform);
+
+    for (auto& pinnedJoint : pinnedJoints) {
+
+        int jointIndex = std::get<0>(pinnedJoint);
+        glm::vec3 worldPos = std::get<2>(pinnedJoint);
+        glm::quat worldRot = std::get<1>(pinnedJoint);
+        glm::vec3 rigPos = transformPoint(worldToRigTransform, worldPos);
+        glm::quat rigRot = worldToRigRot * worldRot;
+
+        if (jointIndex == indexOfJoint("Hips")) {
+            animVars.set("hipsType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("hipsRotation", rigRot);
+            animVars.set("hipsPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightHand")) {
+            animVars.set("rightHandType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightHandRotation", rigRot);
+            animVars.set("rightHandPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightForeArm")) {
+            animVars.set("rightForeArmType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightForeArmRotation", rigRot);
+            animVars.set("rightForeArmPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightArm")) {
+            animVars.set("rightArmType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightArmRotation", rigRot);
+            animVars.set("rightArmPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightShoulder")) {
+            animVars.set("rightShoulderType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightShoulderRotation", rigRot);
+            animVars.set("rightShoulderPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftHand")) {
+            animVars.set("leftHandType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftHandRotation", rigRot);
+            animVars.set("leftHandPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftForeArm")) {
+            animVars.set("leftForeArmType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftForeArmRotation", rigRot);
+            animVars.set("leftForeArmPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftArm")) {
+            animVars.set("leftArmType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftArmRotation", rigRot);
+            animVars.set("leftArmPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftShoulder")) {
+            animVars.set("leftShoulderType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftShoulderRotation", rigRot);
+            animVars.set("leftShoulderPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightFoot")) {
+            animVars.set("rightFootType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightFootRotation", rigRot);
+            animVars.set("rightFootPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftFoot")) {
+            animVars.set("leftFootType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftFootRotation", rigRot);
+            animVars.set("leftFootPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("Spine2")) {
+            animVars.set("spine2Type", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("spine2Rotation", rigRot);
+            animVars.set("spine2Position", rigPos);
+        } else if (jointIndex == indexOfJoint("Head")) {
+            animVars.set("headType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("headRotation", rigRot);
+            animVars.set("headPosition", rigPos);
+        }
+    }
+
+    AnimNode::Triggers triggersOut;
+    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = true;
+    const bool ENABLE_DEBUG_DRAW_IK_CONSTRAINTS = false;
+    const bool ENABLE_DEBUG_DRAW_IK_CHAINS = true;
+    AnimContext context(ENABLE_DEBUG_DRAW_IK_TARGETS, ENABLE_DEBUG_DRAW_IK_CONSTRAINTS, ENABLE_DEBUG_DRAW_IK_CHAINS,
+                        getGeometryToRigTransform(), rigToWorldTransform);
+    context.setExtraDebugFlags(0);
+    _internalPoseSet._relativePoses = _localIKNode->overlay(animVars, context, dt, triggersOut, _internalPoseSet._relativePoses);
+
+    _prevPinnedJoints = pinnedJoints;
 }

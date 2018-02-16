@@ -452,10 +452,6 @@ public:
     virtual void clearJointData(const QString& name) override;
     virtual void clearJointsData() override;
 
-    Q_INVOKABLE bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation);
-    bool isJointPinned(int index);
-    Q_INVOKABLE bool clearPinOnJoint(int index);
-
     Q_INVOKABLE float getIKErrorOnLastSolve() const;
 
     Q_INVOKABLE void useFullAvatarURL(const QUrl& fullAvatarURL, const QString& modelName = QString());
@@ -855,9 +851,6 @@ private:
     bool didTeleport();
     bool getIsAway() const { return _isAway; }
     void setAway(bool value);
-
-    std::mutex _pinnedJointsMutex;
-    std::vector<int> _pinnedJoints;
 
     // height of user in sensor space, when standing erect.
     ThreadSafeValueCache<float> _userHeight { DEFAULT_AVATAR_HEIGHT };
