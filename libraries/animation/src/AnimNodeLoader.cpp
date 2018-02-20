@@ -23,6 +23,7 @@
 #include "AnimStateMachine.h"
 #include "AnimManipulator.h"
 #include "AnimInverseKinematics.h"
+#include "AnimCharacterRig.h"
 #include "AnimDefaultPose.h"
 
 using NodeLoaderFunc = AnimNode::Pointer (*)(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
