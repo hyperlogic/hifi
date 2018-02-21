@@ -428,7 +428,7 @@ void Avatar::simulate(float deltaTime, bool inView) {
 
                 glm::mat4 rootTransform = glm::scale(_skeletonModel->getScale()) * glm::translate(_skeletonModel->getOffset());
                 {
-                    glm::mat4 rigToWorldTransform = createMatFromQuatAndPos(_skeletonModel->getRotation() * Quaternions::Y_180, _skeletonModel->getTranslation());
+                    glm::mat4 rigToWorldTransform = createMatFromQuatAndPos(_skeletonModel->getRotation(), _skeletonModel->getTranslation());
 
                     std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
                     _skeletonModel->getRig().performInverseKinematicsFromPinnedJoints(_pinnedJoints, deltaTime, rootTransform, rigToWorldTransform);

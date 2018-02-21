@@ -1847,30 +1847,42 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
         _localIKNode->setTargetVars("Hips", "hipsPosition", "hipsRotation",
                                     "hipsType", "hipsWeight", 1.0f, {1.0f},
                                     false, "", "");
+        _localIKNode->setTargetVars("RightHand", "rightHandPosition", "rightHandRotation",
+                                    "rightHandType", "rightHandWeight", 1.0f, {1.0f, 0.5f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                    false, "", "");
+
         _localIKNode->setSkeleton(_animSkeleton);
     }
 
     AnimVariantMap animVars;
     animVars.setRigToGeometryTransform(_rigToGeometryTransform);
     animVars.set("hipsType", (int)IKTarget::Type::Unknown);
+    animVars.set("rightHandTypeType", (int)IKTarget::Type::Unknown);
 
     glm::mat4 worldToRigTransform = glm::inverse(rigToWorldTransform);
     glm::quat worldToRigRot = glmExtractRotation(worldToRigTransform);
 
     for (auto& pinnedJoint : pinnedJoints) {
-        if (std::get<0>(pinnedJoint) == indexOfJoint("Hips")) {
+
+        int jointIndex = std::get<0>(pinnedJoint);
+        glm::vec3 worldPos = std::get<2>(pinnedJoint);
+        glm::quat worldRot = std::get<1>(pinnedJoint);
+        glm::vec3 rigPos = transformPoint(worldToRigTransform, worldPos);
+        glm::quat rigRot = worldToRigRot * worldRot;
+
+        if (jointIndex == indexOfJoint("Hips")) {
             animVars.set("hipsType", (int)IKTarget::Type::RotationAndPosition);
-            glm::vec3 worldPos = std::get<2>(pinnedJoint);
-            glm::quat worldRot = std::get<1>(pinnedJoint);
-            glm::vec3 rigPos = transformPoint(worldToRigTransform, worldPos);
-            glm::quat rigRot = worldToRigRot * worldRot;
             animVars.set("hipsRotation", rigRot);
             animVars.set("hipsPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightHand")) {
+            animVars.set("rightHandType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightHandRotation", rigRot);
+            animVars.set("rightHandPosition", rigPos);
         }
     }
 
     AnimNode::Triggers triggersOut;
-    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = false;
+    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = true;
     const bool ENABLE_DEBUG_DRAW_IK_CONSTRAINTS = false;
     const bool ENABLE_DEBUG_DRAW_IK_CHAINS = false;
     AnimContext context(ENABLE_DEBUG_DRAW_IK_TARGETS, ENABLE_DEBUG_DRAW_IK_CONSTRAINTS, ENABLE_DEBUG_DRAW_IK_CHAINS,

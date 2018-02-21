@@ -202,7 +202,6 @@ void AnimInverseKinematics::computeTargets(const AnimVariantMap& animVars, std::
 
                 // record the index of the hips ik target.
                 if (target.getIndex() == _hipsIndex) {
-                    qDebug() << "AJT: computeTargets() pos =" << translation << ", rot =" << rotation;
                     _hipsTargetIndex = (int)targets.size();
                 }
             }
