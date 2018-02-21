@@ -9,12 +9,20 @@
 
 Script.include("/~/system/libraries/Xform.js");
 
+
+// globals transmitted to and from web app
+var BLEND_FACTOR = 0.5;  // 0 means ik follows your controller, 1 follows theirs
+var SHOW_CONTROLLERS = false;
+var USE_LOCAL_IK = true;
+var USE_STATIC_HAND_OFFSET = true;
+var USE_HAPTICS = true;
+
 //
 // tablet app boiler plate
 //
 
 var TABLET_BUTTON_NAME = "HANDSHAKE";
-var HTML_URL = "https://s3.amazonaws.com/hifi-public/tony/html/handshake.html";
+var HTML_URL = "https://s3.amazonaws.com/hifi-public/tony/html/handshake2.html?2";
 
 var tablet = Tablet.getTablet("com.highfidelity.interface.tablet.system");
 var tabletButton = tablet.addButton({
@@ -52,10 +60,23 @@ function onScreenChanged(type, url) {
 }
 
 function onWebEventReceived(msg) {
-    if (msg.name === "SHAKE_MIX") {
-        SHAKE_MIX = parseInt(msg.value, 10) / 100;
-    } else if (msg.name === "#show-controllers") {
-        debugDrawControllers = !debugDrawControllers;
+    if (msg.name === "init-complete") {
+        var values = [{name: "blend-factor", val: BLEND_FACTOR * 100, checked: false},
+                      {name: "show-controllers", val: "on", checked: SHOW_CONTROLLERS},
+                      {name: "use-local-ik", val: "on", checked: USE_LOCAL_IK},
+                      {name: "use-static-hand-offset", val: "on", checked: USE_STATIC_HAND_OFFSET},
+                      {name: "use-haptics", val: "on", checked: USE_HAPTICS}];
+        tablet.emitScriptEvent(JSON.stringify(values));
+    } else if (msg.name === "blend-factor") {
+        BLEND_FACTOR = parseInt(msg.val, 10) / 100;
+    } else if (msg.name === "show-controllers") {
+        SHOW_CONTROLLERS = msg.checked;
+    } else if (msg.name === "use-local-ik") {
+        USE_LOCAL_IK = msg.checked;
+    } else if (msg.name === "use-static-hand-offset") {
+        USE_STATIC_HAND_OFFSET = msg.checked;
+    } else if (msg.name === "use-haptics") {
+        USE_HAPTICS = msg.checked;
     }
 }
 
@@ -88,7 +109,6 @@ var leftHandDeltaXform = new Xform({"x":-0.9791237115859985,"y":-0.1668269485235
 
 var shakeRightHandAvatarId;
 var SHAKE_TRIGGER_DISTANCE = 0.5;
-var SHAKE_MIX = 0.5;  // 0 means ik follows your controller, 1 follows theirs
 
 function tweenXform(a, b, alpha) {
     return new Xform(Quat.mix(a.rot, b.rot, alpha), Vec3.sum(Vec3.multiply(1 - alpha, a.pos), Vec3.multiply(alpha, b.pos)));
@@ -183,7 +203,7 @@ var ANIM_VARS = [
 function handTween(myHand, otherHand, handDelta) {
     var myXform = new Xform(myHand.controllerRot, myHand.controllerPos);
     var otherXform = Xform.mul(new Xform(otherHand.controllerRot, otherHand.controllerPos), handDelta);
-    return tweenXform(myXform, otherXform, SHAKE_MIX);
+    return tweenXform(myXform, otherXform, BLEND_FACTOR);
 }
 
 function init() {
@@ -287,16 +307,15 @@ function addAvatar(id, data) {
     updateAvatar(id, data);
 }
 
-var debugDrawControllers = false;
 function updateAvatar(id, data) {
 
-    if (debugDrawControllers && data.leftHand.controllerValid) {
+    if (SHOW_CONTROLLERS && data.leftHand.controllerValid) {
         DebugDraw.addMarker("leftHandController" + id, data.leftHand.controllerRot, data.leftHand.controllerPos, CYAN);
     } else {
         DebugDraw.removeMarker("leftHandController" + id);
     }
 
-    if (debugDrawControllers && data.rightHand.controllerValid) {
+    if (SHOW_CONTROLLERS && data.rightHand.controllerValid) {
         DebugDraw.addMarker("rightHandController" + id, data.rightHand.controllerRot, data.rightHand.controllerPos, MAGENTA);
     } else {
         DebugDraw.removeMarker("rightHandController" + id);
@@ -306,7 +325,7 @@ function updateAvatar(id, data) {
     if (id !== MyAvatar.SELF_ID && avatar) {
         var rightHandIndex = avatar.getJointIndex("RightHand");
         if (rightHandIndex >= 0) {
-            if (shakeRightHandAvatarId === id) {
+            if (shakeRightHandAvatarId === id && USE_LOCAL_IK) {
                 var myHand = prevAvatarMap[MyAvatar.SELF_ID].rightHand;
                 var otherHand = prevAvatarMap[shakeRightHandAvatarId].rightHand;
                 if (otherHand) {

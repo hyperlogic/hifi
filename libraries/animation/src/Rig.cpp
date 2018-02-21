@@ -1882,93 +1882,11 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
     }
 
     AnimNode::Triggers triggersOut;
-    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = true;
+    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = false;
     const bool ENABLE_DEBUG_DRAW_IK_CONSTRAINTS = false;
     const bool ENABLE_DEBUG_DRAW_IK_CHAINS = false;
     AnimContext context(ENABLE_DEBUG_DRAW_IK_TARGETS, ENABLE_DEBUG_DRAW_IK_CONSTRAINTS, ENABLE_DEBUG_DRAW_IK_CHAINS,
                         getGeometryToRigTransform(), rigToWorldTransform);
     _internalPoseSet._relativePoses = _localIKNode->overlay(animVars, context, dt, triggersOut, _internalPoseSet._relativePoses);
 
-        /*
-                        "data": {
-                            "solutionSource": "relaxToUnderPoses",
-                            "solutionSourceVar": "solutionSource",
-                            "targets": [
-                                {
-                                    "jointName": "Hips",
-                                    "positionVar": "hipsPosition",
-                                    "rotationVar": "hipsRotation",
-                                    "typeVar": "hipsType",
-                                    "weightVar": "hipsWeight",
-                                    "weight": 1.0,
-                                    "flexCoefficients": [1]
-                                },
-                                {
-                                    "jointName": "RightHand",
-                                    "positionVar": "rightHandPosition",
-                                    "rotationVar": "rightHandRotation",
-                                    "typeVar": "rightHandType",
-                                    "weightVar": "rightHandWeight",
-                                    "weight": 1.0,
-                                    "flexCoefficients": [1, 0.5, 0.5, 0.2, 0.01, 0.005, 0.001, 0.0, 0.0],
-                                    "poleVectorEnabledVar": "rightHandPoleVectorEnabled",
-                                    "poleReferenceVectorVar": "rightHandPoleReferenceVector",
-                                    "poleVectorVar": "rightHandPoleVector"
-                                },
-                                {
-                                    "jointName": "LeftHand",
-                                    "positionVar": "leftHandPosition",
-                                    "rotationVar": "leftHandRotation",
-                                    "typeVar": "leftHandType",
-                                    "weightVar": "leftHandWeight",
-                                    "weight": 1.0,
-                                    "flexCoefficients": [1, 0.5, 0.5, 0.2, 0.01, 0.005, 0.001, 0.0, 0.0],
-                                    "poleVectorEnabledVar": "leftHandPoleVectorEnabled",
-                                    "poleReferenceVectorVar": "leftHandPoleReferenceVector",
-                                    "poleVectorVar": "leftHandPoleVector"
-                                },
-                                {
-                                    "jointName": "RightFoot",
-                                    "positionVar": "rightFootPosition",
-                                    "rotationVar": "rightFootRotation",
-                                    "typeVar": "rightFootType",
-                                    "weightVar": "rightFootWeight",
-                                    "weight": 1.0,
-                                    "flexCoefficients": [1, 0.45, 0.45],
-                                    "poleVectorEnabledVar": "rightFootPoleVectorEnabled",
-                                    "poleReferenceVectorVar": "rightFootPoleReferenceVector",
-                                    "poleVectorVar": "rightFootPoleVector"
-                                },
-                                {
-                                    "jointName": "LeftFoot",
-                                    "positionVar": "leftFootPosition",
-                                    "rotationVar": "leftFootRotation",
-                                    "typeVar": "leftFootType",
-                                    "weightVar": "leftFootWeight",
-                                    "weight": 1.0,
-                                    "flexCoefficients": [1, 0.45, 0.45],
-                                    "poleVectorEnabledVar": "leftFootPoleVectorEnabled",
-                                    "poleReferenceVectorVar": "leftFootPoleReferenceVector",
-                                    "poleVectorVar": "leftFootPoleVector"
-                                },
-                                {
-                                    "jointName": "Spine2",
-                                    "positionVar": "spine2Position",
-                                    "rotationVar": "spine2Rotation",
-                                    "typeVar": "spine2Type",
-                                    "weightVar": "spine2Weight",
-                                    "weight": 2.0,
-                                    "flexCoefficients": [1.0, 0.5, 0.25]
-                                },
-                                {
-                                    "jointName": "Head",
-                                    "positionVar": "headPosition",
-                                    "rotationVar": "headRotation",
-                                    "typeVar": "headType",
-                                    "weightVar": "headWeight",
-                                    "weight": 4.0,
-                                    "flexCoefficients": [1, 0.5, 0.25, 0.2, 0.1]
-                                }
-                            ]
-         */
 }
