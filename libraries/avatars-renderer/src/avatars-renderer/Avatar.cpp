@@ -426,12 +426,14 @@ void Avatar::simulate(float deltaTime, bool inView) {
             if (_hasNewJointData) {
                 _skeletonModel->getRig().copyJointsFromJointData(_jointData);
 
+                glm::mat4 rootTransform = glm::scale(_skeletonModel->getScale()) * glm::translate(_skeletonModel->getOffset());
                 {
+                    glm::mat4 rigToWorldTransform = createMatFromQuatAndPos(_skeletonModel->getRotation() * Quaternions::Y_180, _skeletonModel->getTranslation());
+
                     std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
-                    _skeletonModel->getRig().performInverseKinematicsFromPinnedJoints(_pinnedJoints);
+                    _skeletonModel->getRig().performInverseKinematicsFromPinnedJoints(_pinnedJoints, deltaTime, rootTransform, rigToWorldTransform);
                 }
 
-                glm::mat4 rootTransform = glm::scale(_skeletonModel->getScale()) * glm::translate(_skeletonModel->getOffset());
                 _skeletonModel->getRig().computeExternalPoses(rootTransform);
                 _jointDataSimulationRate.increment();
 

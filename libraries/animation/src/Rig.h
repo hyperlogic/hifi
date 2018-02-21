@@ -218,7 +218,8 @@ public:
     void computeHeadFromHMD(const AnimPose& hmdPose, glm::vec3& headPositionOut, glm::quat& headOrientationOut) const;
 
     // AJT: experimental
-    void performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<int, glm::quat, glm::vec3>>& pinnedJoints);
+    void performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<int, glm::quat, glm::vec3>>& pinnedJoints,
+                                                  float dt, const glm::mat4& rootTransform, const glm::mat4& rigToWorldTransform);
 
 signals:
     void onLoadComplete();

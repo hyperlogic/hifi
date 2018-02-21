@@ -264,6 +264,8 @@ void Rig::reset(const FBXGeometry& geometry) {
         _animNode.reset();
         initAnimGraph(_animGraphURL);
     }
+
+    _localIKNode.reset();
 }
 
 bool Rig::jointStatesEmpty() {
@@ -1829,17 +1831,52 @@ void Rig::computeAvatarBoundingCapsule(
 }
 
 // AJT: experimental
-void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<int, glm::quat, glm::vec3>>& pinnedJoints) {
+void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<int, glm::quat, glm::vec3>>& pinnedJoints,
+                                                   float dt, const glm::mat4& rootTransform, const glm::mat4& rigToWorldTransform) {
+
+    if (!_animSkeleton) {
+        return;
+    }
+
+    setModelOffset(rootTransform);
 
     // lazy alloc
     if (!_localIKNode) {
-        /*
         _localIKNode = std::make_shared<AnimInverseKinematics>("localIK");
-        _localIKNode->setSolutionSource(AnimInverseKinematics::SolutionSource::RelaxToLimitCenterPoses);
+        _localIKNode->setSolutionSource(AnimInverseKinematics::SolutionSource::RelaxToUnderPoses);
         _localIKNode->setTargetVars("Hips", "hipsPosition", "hipsRotation",
-                                    "hipsType", "hipsWeight", 1.0f, {1.0f});
-        _localIKNode->setTargetVars("RightHand", "rightHandPosition",
-        */
+                                    "hipsType", "hipsWeight", 1.0f, {1.0f},
+                                    false, "", "");
+        _localIKNode->setSkeleton(_animSkeleton);
+    }
+
+    AnimVariantMap animVars;
+    animVars.setRigToGeometryTransform(_rigToGeometryTransform);
+    animVars.set("hipsType", (int)IKTarget::Type::Unknown);
+
+    glm::mat4 worldToRigTransform = glm::inverse(rigToWorldTransform);
+    glm::quat worldToRigRot = glmExtractRotation(worldToRigTransform);
+
+    for (auto& pinnedJoint : pinnedJoints) {
+        if (std::get<0>(pinnedJoint) == indexOfJoint("Hips")) {
+            animVars.set("hipsType", (int)IKTarget::Type::RotationAndPosition);
+            glm::vec3 worldPos = std::get<2>(pinnedJoint);
+            glm::quat worldRot = std::get<1>(pinnedJoint);
+            glm::vec3 rigPos = transformPoint(worldToRigTransform, worldPos);
+            glm::quat rigRot = worldToRigRot * worldRot;
+            animVars.set("hipsRotation", rigRot);
+            animVars.set("hipsPosition", rigPos);
+        }
+    }
+
+    AnimNode::Triggers triggersOut;
+    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = false;
+    const bool ENABLE_DEBUG_DRAW_IK_CONSTRAINTS = false;
+    const bool ENABLE_DEBUG_DRAW_IK_CHAINS = false;
+    AnimContext context(ENABLE_DEBUG_DRAW_IK_TARGETS, ENABLE_DEBUG_DRAW_IK_CONSTRAINTS, ENABLE_DEBUG_DRAW_IK_CHAINS,
+                        getGeometryToRigTransform(), rigToWorldTransform);
+    _internalPoseSet._relativePoses = _localIKNode->overlay(animVars, context, dt, triggersOut, _internalPoseSet._relativePoses);
+
         /*
                         "data": {
                             "solutionSource": "relaxToUnderPoses",
@@ -1922,5 +1959,4 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
                                 }
                             ]
          */
-    }
 }
