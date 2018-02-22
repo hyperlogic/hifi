@@ -102,10 +102,12 @@ var BLUE = {x: 0, y: 0, z: 1, w: 1};
 var CYAN = {x: 0, y: 1, z: 1, w: 1};
 var QUAT_Y_180 = {x: 0, y: 1, z: 0, w: 0};
 
-var rightHandDeltaXform = new Xform({"x":-0.9805938601493835,"y":-0.06915176659822464,"z":0.10610653460025787,"w":-0.14965057373046875},
-                                    {"x":-0.010323882102966309,"y":0.20587468147277832,"z":0.035437583923339844});
-var leftHandDeltaXform = new Xform({"x":-0.9791237115859985,"y":-0.16682694852352142,"z":-0.0822417140007019,"w":0.0819871574640274},
-                                   {"x":-0.037941932678222656,"y":0.19198226928710938,"z":0.05402088165283203});
+var STATIC_RIGHT_HAND_DELTA_XFORM = new Xform({"x":-0.9805938601493835,"y":-0.06915176659822464,"z":0.10610653460025787,"w":-0.14965057373046875},
+                                              {"x":-0.010323882102966309,"y":0.20587468147277832,"z":0.035437583923339844});
+var STATIC_LEFT_HAND_DELTA_XFORM = new Xform({"x":-0.9791237115859985,"y":-0.16682694852352142,"z":-0.0822417140007019,"w":0.0819871574640274},
+                                             {"x":-0.037941932678222656,"y":0.19198226928710938,"z":0.05402088165283203});
+var rightHandDeltaXform = STATIC_RIGHT_HAND_DELTA_XFORM;
+var leftHandDeltaXform = STATIC_LEFT_HAND_DELTA_XFORM;
 
 var shakeRightHandAvatarId;
 var SHAKE_TRIGGER_DISTANCE = 0.5;
@@ -135,48 +137,27 @@ function leftTrigger(value) {
     // TODO
 }
 
-function recordDeltaOffset(key) {
-    var avatarIds = Object.keys(prevAvatarMap);
-    if (avatarIds.length === 2) {
-        var myAvatarId = (avatarIds[0] === MyAvatar.SELF_ID) ? avatarIds[0] : avatarIds[1];
-        var otherAvatarId = (avatarIds[0] === MyAvatar.SELF_ID) ? avatarIds[1] : avatarIds[0];
-        var myJointXform = new Xform(prevAvatarMap[myAvatarId][key].jointRot,
-                                     prevAvatarMap[myAvatarId][key].jointPos);
-        var otherJointXform = new Xform(prevAvatarMap[otherAvatarId][key].jointRot,
-                                        prevAvatarMap[otherAvatarId][key].jointPos);
-        var deltaXform = Xform.mul(otherJointXform.inv(), myJointXform);
-        print("AJT: " + key + " deltaXform, rot = " + JSON.stringify(deltaXform.rot) + "pos = " + JSON.stringify(deltaXform.pos));
-
-        // can slam IK target to (otherJointXform * delta)
-    }
+function recordDeltaOffset(myHand, otherHand) {
+    var myJointXform = new Xform(myHand.jointRot, myHand.jointPos);
+    var otherJointXform = new Xform(otherHand.jointRot, otherHand.jointPos);
+    return Xform.mul(otherJointXform.inv(), myJointXform);
 }
 
 function rightTrigger(value) {
 
     if (value === 1) {
-
         if (!shakeRightHandAvatarId) {
-
-            print("AJT: prevAvatarMap[MyAvatar.SELF_ID] = " + JSON.stringify(prevAvatarMap[MyAvatar.SELF_ID]));
             if (prevAvatarMap[MyAvatar.SELF_ID]) {
                 var myHand = prevAvatarMap[MyAvatar.SELF_ID].rightHand;
-
-                print("AJT: myHand = " + JSON.stringify(myHand));
-
                 var otherId = findClosestAvatarHand('rightHand', myHand);
-
-                print("AJT: otherId = " + otherId);
                 if (otherId) {
                     var otherHand = prevAvatarMap[otherId].rightHand;
-
-                    print("AJT: otherHand = " + JSON.stringify(otherHand));
-                    print("AJT: distance = " + Vec3.distance(otherHand.jointPos, myHand.jointPos));
-
                     if (Vec3.distance(otherHand.jointPos, myHand.jointPos) < SHAKE_TRIGGER_DISTANCE) {
-
-                        recordDeltaOffset('rightHand');
-
-                        print("AJT: starting hand shake with avatar = " + otherId);
+                        if (USE_STATIC_HAND_OFFSET) {
+                            rightHandDeltaXform = STATIC_RIGHT_HAND_DELTA_XFORM;
+                        } else {
+                            rightHandDeltaXform = recordDeltaOffset(myHand, otherHand);
+                        }
                         shakeRightHandAvatarId = otherId;
                     }
                 }
@@ -185,7 +166,6 @@ function rightTrigger(value) {
     } else {
         // unset shakeRightHandAvatarId
         if (shakeRightHandAvatarId) {
-            print("AJT: stopping hand shake with avatar = " + shakeRightHandAvatarId);
             shakeRightHandAvatarId = undefined;
         }
     }
