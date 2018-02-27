@@ -95,12 +95,17 @@ function shutdownTabletApp() {
 // end tablet app boiler plate
 //
 
+function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+}
 
 var RED = {x: 1, y: 0, z: 0, w: 1};
 var MAGENTA = {x: 1, y: 0, z: 1, w: 1};
 var BLUE = {x: 0, y: 0, z: 1, w: 1};
 var CYAN = {x: 0, y: 1, z: 1, w: 1};
 var QUAT_Y_180 = {x: 0, y: 1, z: 0, w: 0};
+var LEFT_HAND = 0;
+var RIGHT_HAND = 1;
 
 var STATIC_RIGHT_HAND_DELTA_XFORM = new Xform({"x":-0.9805938601493835,"y":-0.06915176659822464,"z":0.10610653460025787,"w":-0.14965057373046875},
                                               {"x":-0.010323882102966309,"y":0.20587468147277832,"z":0.035437583923339844});
@@ -111,6 +116,51 @@ var leftHandDeltaXform = STATIC_LEFT_HAND_DELTA_XFORM;
 
 var shakeRightHandAvatarId;
 var SHAKE_TRIGGER_DISTANCE = 0.5;
+
+var HAPTIC_PULSE_FIRST_STRENGTH = 1.0;
+var HAPTIC_PULSE_FIRST_DURATION = 20.0;
+var HAPTIC_PULSE_DISTANCE = 0.01;  // 1 cm
+var HAPTIC_PULSE_DURATION = 16.0;
+var HAPTIC_PULSE_MIN_STRENGTH = 0.1;
+var HAPTIC_PULSE_MAX_STRENGTH = 0.5;
+var HAPTIC_PULSE_MIN_DISTANCE = 0.1;
+var HAPTIC_PULSE_MAX_DISTANCE = 0.5;
+
+// ctor
+function HapticBuddy(hand) {
+    this.hand = hand;
+    this.enabled = false;
+    this.lastPulseDistance = 0;
+}
+
+HapticBuddy.prototype.start = function (myHand, otherHand) {
+    if (USE_HAPTICS) {
+        Controller.triggerHapticPulse(HAPTIC_PULSE_FIRST_STRENGTH, HAPTIC_PULSE_FIRST_DURATION, this.hand);
+        this.enabled = true;
+        this.lastPulseDistance = Vec3.distance(myHand.contrtollerPos, otherHand.controllerPos);
+    }
+};
+
+HapticBuddy.prototype.update = function (myHand, otherHand) {
+    if (this.enabled) {
+        var distance = Vec3.distance(myHand.controllerPos, otherHand.controllerPos);
+        if (Math.abs(this.lastPulseDistance - distance) > HAPTIC_PULSE_DISTANCE) {
+            this.lastPulseDistance = distance;
+            // convert distance into a value from 0 to 1
+            var factor = clamp((distance - HAPTIC_PULSE_MIN_DISTANCE) / (HAPTIC_PULSE_MAX_DISTANCE - HAPTIC_PULSE_MIN_DISTANCE), 0, 1);
+            // convert factor into a strength factor
+            var strength = factor * (HAPTIC_PULSE_MAX_STRENGTH - HAPTIC_PULSE_MIN_STRENGTH) + HAPTIC_PULSE_MIN_STRENGTH;
+            print("AJT: pulse, strength = " + strength);
+            Controller.triggerHapticPulse(strength, HAPTIC_PULSE_DURATION, this.hand);
+        }
+    }
+};
+
+HapticBuddy.prototype.stop = function () {
+    this.enabled = false;
+};
+
+var rightHapticBuddy = new HapticBuddy(RIGHT_HAND);
 
 function tweenXform(a, b, alpha) {
     return new Xform(Quat.mix(a.rot, b.rot, alpha), Vec3.sum(Vec3.multiply(1 - alpha, a.pos), Vec3.multiply(alpha, b.pos)));
@@ -133,16 +183,18 @@ function findClosestAvatarHand(key, myHand) {
     return closestId;
 }
 
-function leftTrigger(value) {
-    // TODO
-}
-
 function recordDeltaOffset(myHand, otherHand) {
     var myJointXform = new Xform(myHand.jointRot, myHand.jointPos);
     var otherJointXform = new Xform(otherHand.jointRot, otherHand.jointPos);
     return Xform.mul(otherJointXform.inv(), myJointXform);
 }
 
+// Controller system callback on leftTrigger pull or release.
+function leftTrigger(value) {
+    // TODO
+}
+
+// Controller system callback on rightTrigger pull or release.
 function rightTrigger(value) {
 
     if (value === 1) {
@@ -159,6 +211,7 @@ function rightTrigger(value) {
                             rightHandDeltaXform = recordDeltaOffset(myHand, otherHand);
                         }
                         shakeRightHandAvatarId = otherId;
+                        rightHapticBuddy.start(myHand, otherHand);
                     }
                 }
             }
@@ -168,6 +221,7 @@ function rightTrigger(value) {
         if (shakeRightHandAvatarId) {
             shakeRightHandAvatarId = undefined;
         }
+        rightHapticBuddy.stop();
     }
 }
 
@@ -218,6 +272,7 @@ function init() {
                 var localTargetXform = Xform.mul(avatarXform.inv(), targetXform);
                 result.rightHandRotation = localTargetXform.rot;
                 result.rightHandPosition = localTargetXform.pos;
+                rightHapticBuddy.update(myHand, otherHand);
             }
         }
 
