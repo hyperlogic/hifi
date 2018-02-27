@@ -51,7 +51,7 @@ class ScriptAvatarData : public QObject {
     //
     // ATTACHMENT AND JOINT PROPERTIES
     //
-    Q_PROPERTY(QString skeletonModelURL READ getSkeletonModelURLFromScript)
+    Q_PROPERTY(QString skeletonModelURL READ getSkeletonModelURLFromScript NOTIFY skeletonModelURLChanged)
     Q_PROPERTY(QVector<AttachmentData> attachmentData READ getAttachmentData)
     Q_PROPERTY(QStringList jointNames READ getJointNames)
 
@@ -136,6 +136,7 @@ public:
 signals:
     void displayNameChanged();
     void sessionDisplayNameChanged();
+    void skeletonModelURLChanged();
     void lookAtSnappingChanged(bool enabled);
 
 public slots:

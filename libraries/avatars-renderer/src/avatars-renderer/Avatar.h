@@ -20,6 +20,7 @@
 #include <AvatarData.h>
 #include <ShapeInfo.h>
 #include <render/Scene.h>
+#include <graphics-scripting/Forward.h>
 #include <GLMHelpers.h>
 
 
@@ -53,7 +54,7 @@ class Texture;
 
 using AvatarPhysicsCallback = std::function<void(uint32_t)>;
 
-class Avatar : public AvatarData {
+class Avatar : public AvatarData, public scriptable::ModelProvider {
     Q_OBJECT
 
     /**jsdoc
@@ -278,6 +279,8 @@ public:
     virtual bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) override;
     virtual bool isJointPinned(int index) override;
     virtual bool clearPinOnJoint(int index) override;
+
+    virtual scriptable::ScriptableModelBase getScriptableModel() override;
 
 public slots:
 
