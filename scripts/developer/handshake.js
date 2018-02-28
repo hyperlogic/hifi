@@ -14,7 +14,7 @@ Script.include("/~/system/libraries/Xform.js");
 var BLEND_FACTOR = 0.5;  // 0 means ik follows your controller, 1 follows theirs
 var SHOW_CONTROLLERS = false;
 var USE_LOCAL_IK = true;
-var USE_STATIC_HAND_OFFSET = true;
+var USE_STATIC_HAND_OFFSET = false;
 var USE_HAPTICS = true;
 
 //
@@ -104,6 +104,7 @@ var MAGENTA = {x: 1, y: 0, z: 1, w: 1};
 var BLUE = {x: 0, y: 0, z: 1, w: 1};
 var CYAN = {x: 0, y: 1, z: 1, w: 1};
 var QUAT_Y_180 = {x: 0, y: 1, z: 0, w: 0};
+var QUAT_IDENTITY = {x: 0, y: 0, z: 0, w: 1};
 var LEFT_HAND = 0;
 var RIGHT_HAND = 1;
 
@@ -162,6 +163,31 @@ HapticBuddy.prototype.stop = function () {
 
 var rightHapticBuddy = new HapticBuddy(RIGHT_HAND);
 
+// ctor
+function SoundBuddy(url) {
+    this.sound = SoundCache.getSound(url);
+    this.injector = null;
+}
+
+SoundBuddy.prototype.play = function (options, doneCallback) {
+    if (this.sound.downloaded) {
+        if (this.injector) {
+            this.injector.setOptions(options);
+            this.injector.restart();
+        } else {
+            this.injector = Audio.playSound(this.sound, options);
+            this.injector.finished.connect(function () {
+                if (doneCallback) {
+                    doneCallback();
+                }
+            });
+        }
+    }
+};
+
+var CLAP_SOUND = "https://s3.amazonaws.com/hifi-public/tony/audio/slap.wav";
+var clapSound = new SoundBuddy(CLAP_SOUND);
+
 function tweenXform(a, b, alpha) {
     return new Xform(Quat.mix(a.rot, b.rot, alpha), Vec3.sum(Vec3.multiply(1 - alpha, a.pos), Vec3.multiply(alpha, b.pos)));
 }
@@ -183,10 +209,11 @@ function findClosestAvatarHand(key, myHand) {
     return closestId;
 }
 
-function recordDeltaOffset(myHand, otherHand) {
+function calculateDeltaOffset(myHand, otherHand) {
     var myJointXform = new Xform(myHand.jointRot, myHand.jointPos);
     var otherJointXform = new Xform(otherHand.jointRot, otherHand.jointPos);
-    return Xform.mul(otherJointXform.inv(), myJointXform);
+    var palmOffset = new Xform(QUAT_IDENTITY, Vec3.subtract(otherHand.palmPos, myHand.palmPos));
+    return Xform.mul(otherJointXform.inv(), Xform.mul(palmOffset, myJointXform));
 }
 
 // Controller system callback on leftTrigger pull or release.
@@ -208,10 +235,11 @@ function rightTrigger(value) {
                         if (USE_STATIC_HAND_OFFSET) {
                             rightHandDeltaXform = STATIC_RIGHT_HAND_DELTA_XFORM;
                         } else {
-                            rightHandDeltaXform = recordDeltaOffset(myHand, otherHand);
+                            rightHandDeltaXform = calculateDeltaOffset(myHand, otherHand);
                         }
                         shakeRightHandAvatarId = otherId;
                         rightHapticBuddy.start(myHand, otherHand);
+                        clapSound.play({position: myHand.jointPos, loop: false, localOnly: true});
                     }
                 }
             }
@@ -328,6 +356,34 @@ function fetchHandData(id, jointName, controllerMatName) {
         }
     }
 
+    var jointXform = new Xform(result.jointRot, result.jointPos);
+    var localPalmPos;
+    if (jointName === "LeftHand") {
+
+        // transform palm into frame of the hand.
+        localPalmPos = jointXform.inv().xformPoint(avatar.getLeftPalmPosition());
+
+        // adjust the palm position to better match the handshake palm position.
+        localPalmPos.y = localPalmPos.y * 0.8;
+        localPalmPos.z = localPalmPos.z * 0.4;
+
+        // transform local palm back into world space
+        result.palmPos = jointXform.xformPoint(localPalmPos);
+        result.palmRot = avatar.getLeftPalmRotation();
+    } else {
+
+        // transform palm into frame of the hand.
+        localPalmPos = jointXform.inv().xformPoint(avatar.getRightPalmPosition());
+
+        // adjust the palm position to better match the handshake palm position.
+        localPalmPos.y = localPalmPos.y * 0.8;
+        localPalmPos.z = localPalmPos.z * 0.4;
+
+        // transform local palm back into world space
+        result.palmPos = jointXform.xformPoint(localPalmPos);
+        result.palmRot = avatar.getRightPalmRotation();
+    }
+
     return result;
 }
 
@@ -352,8 +408,10 @@ function updateAvatar(id, data) {
 
     if (SHOW_CONTROLLERS && data.rightHand.controllerValid) {
         DebugDraw.addMarker("rightHandController" + id, data.rightHand.controllerRot, data.rightHand.controllerPos, MAGENTA);
+        DebugDraw.addMarker("rightHandPalm" + id, data.rightHand.palmRot, data.rightHand.palmPos, RED);
     } else {
         DebugDraw.removeMarker("rightHandController" + id);
+        DebugDraw.removeMarker("rightHandPalm" + id);
     }
 
     var avatar = AvatarManager.getAvatar(id);
