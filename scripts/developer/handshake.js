@@ -120,13 +120,16 @@ var shakeLeftHandAvatarId;
 var SHAKE_TRIGGER_DISTANCE = 0.5;
 
 var HAPTIC_PULSE_FIRST_STRENGTH = 1.0;
-var HAPTIC_PULSE_FIRST_DURATION = 20.0;
+var HAPTIC_PULSE_FIRST_DURATION = 16.0;
 var HAPTIC_PULSE_DISTANCE = 0.01;  // 1 cm
-var HAPTIC_PULSE_DURATION = 16.0;
+var HAPTIC_PULSE_DURATION = 1.0;
 var HAPTIC_PULSE_MIN_STRENGTH = 0.3;
 var HAPTIC_PULSE_MAX_STRENGTH = 0.5;
 var HAPTIC_PULSE_MIN_DISTANCE = 0.1;
 var HAPTIC_PULSE_MAX_DISTANCE = 0.5;
+
+var HAPTIC_PULSE_REMOTE_STRENGTH = 1.0;
+var HAPTIC_PULSE_REMOTE_DURATION = 1.0;
 
 // ctor
 function HapticBuddy(hand) {
@@ -236,6 +239,11 @@ function leftTrigger(value) {
                         shakeLeftHandAvatarId = otherId;
                         leftHapticBuddy.start(myHand, otherHand);
                         clapSound.play({position: myHand.jointPos, loop: false, localOnly: true});
+
+                        var msg = {type: "pulse", receiver: otherId, hand: "left"};
+                        Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
+
+                        print("AJT SEND: Hifi-Handshake = " + JSON.stringify(msg));
                     }
                 }
             }
@@ -269,6 +277,11 @@ function rightTrigger(value) {
                         shakeRightHandAvatarId = otherId;
                         rightHapticBuddy.start(myHand, otherHand);
                         clapSound.play({position: myHand.jointPos, loop: false, localOnly: true});
+
+                        var msg = {type: "pulse", receiver: otherId, hand: "right"};
+                        Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
+
+                        print("AJT SEND: Hifi-Handshake = " + JSON.stringify(msg));
                     }
                 }
             }
@@ -296,6 +309,23 @@ function handTween(myHand, otherHand, handDelta) {
     var myXform = new Xform(myHand.controllerRot, myHand.controllerPos);
     var otherXform = Xform.mul(new Xform(otherHand.controllerRot, otherHand.controllerPos), handDelta);
     return tweenXform(myXform, otherXform, BLEND_FACTOR);
+}
+
+// message should look like: {type: "pulse", receiver: uuid, hand: "left"}
+function messageHandler(channel, message, sender) {
+    if (channel === "Hifi-Handshake") {
+        print("AJT: Receive Hifi-Handshake = " + message);
+        var obj = JSON.parse(message);
+        if (obj.receiver === MyAvatar.sessionUUID) {
+            if (obj.type === "pulse") {
+                if (obj.hand === "left") {
+                    Controller.triggerHapticPulse(HAPTIC_PULSE_REMOTE_STRENGTH, HAPTIC_PULSE_REMOTE_DURATION, LEFT_HAND);
+                } else if (obj.hand === "right") {
+                    Controller.triggerHapticPulse(HAPTIC_PULSE_REMOTE_STRENGTH, HAPTIC_PULSE_REMOTE_DURATION, RIGHT_HAND);
+                }
+            }
+        }
+    }
 }
 
 function init() {
@@ -351,6 +381,9 @@ function init() {
 
     Script.update.connect(update);
     Script.scriptEnding.connect(shutdown);
+
+    Messages.subscribe("Hifi-Handshake");
+    Messages.messageReceived.connect(messageHandler);
 }
 
 function isIdentity(rot, pos) {
@@ -467,16 +500,17 @@ function updateAvatar(id, data) {
     }
 
     // local IK on other avatars hands
+    var myHand, otherHand, targetXform, otherTargetXform;
     var avatar = AvatarManager.getAvatar(id);
     if (id !== MyAvatar.SELF_ID && avatar) {
         var rightHandIndex = avatar.getJointIndex("RightHand");
         if (rightHandIndex >= 0) {
             if (shakeRightHandAvatarId === id && USE_LOCAL_IK) {
-                var myHand = prevAvatarMap[MyAvatar.SELF_ID].rightHand;
-                var otherHand = prevAvatarMap[shakeRightHandAvatarId].rightHand;
+                myHand = prevAvatarMap[MyAvatar.SELF_ID].rightHand;
+                otherHand = prevAvatarMap[shakeRightHandAvatarId].rightHand;
                 if (otherHand) {
-                    var targetXform = handTween(myHand, otherHand, rightHandDeltaXform);
-                    var otherTargetXform = Xform.mul(targetXform, rightHandDeltaXform.inv());
+                    targetXform = handTween(myHand, otherHand, rightHandDeltaXform);
+                    otherTargetXform = Xform.mul(targetXform, rightHandDeltaXform.inv());
 
                     // world frame
                     if (avatar.pinJoint) { // API, not available on some clients.
@@ -491,11 +525,11 @@ function updateAvatar(id, data) {
         var leftHandIndex = avatar.getJointIndex("LeftHand");
         if (leftHandIndex >= 0) {
             if (shakeLeftHandAvatarId === id && USE_LOCAL_IK) {
-                var myHand = prevAvatarMap[MyAvatar.SELF_ID].leftHand;
-                var otherHand = prevAvatarMap[shakeLeftHandAvatarId].leftHand;
+                myHand = prevAvatarMap[MyAvatar.SELF_ID].leftHand;
+                otherHand = prevAvatarMap[shakeLeftHandAvatarId].leftHand;
                 if (otherHand) {
-                    var targetXform = handTween(myHand, otherHand, leftHandDeltaXform);
-                    var otherTargetXform = Xform.mul(targetXform, leftHandDeltaXform.inv());
+                    targetXform = handTween(myHand, otherHand, leftHandDeltaXform);
+                    otherTargetXform = Xform.mul(targetXform, leftHandDeltaXform.inv());
 
                     // world frame
                     if (avatar.pinJoint) { // API, not available on some clients.
@@ -553,6 +587,7 @@ function update(dt) {
 }
 
 function shutdown() {
+    Messages.messageReceived.disconnect(messageHandler);
     MyAvatar.removeAnimationStateHandler(animationHandlerId);
 
     // remove all avatars
