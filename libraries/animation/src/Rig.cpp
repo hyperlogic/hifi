@@ -1856,16 +1856,16 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
     if (!_localIKNode) {
         _localIKNode = std::make_shared<AnimInverseKinematics>("localIK");
         _localIKNode->setSolutionSource(AnimInverseKinematics::SolutionSource::RelaxToUnderPoses);
+
         _localIKNode->setTargetVars("Hips", "hipsPosition", "hipsRotation",
                                     "hipsType", "hipsWeight", 1.0f, {1.0f},
-                                    false, "", "");
+                                    "hipsPoleVectorEnabled", "hipsPoleReferenceVector", "hipsPoleVector");
         _localIKNode->setTargetVars("RightHand", "rightHandPosition", "rightHandRotation",
                                     "rightHandType", "rightHandWeight", 1.0f, {1.0f, 0.5f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
-                                    false, "", "");
+                                    "rightHandPoleVectorEnabled", "rightHandPoleReferenceVector", "rightHandPoleVector");
         _localIKNode->setTargetVars("LeftHand", "leftHandPosition", "leftHandRotation",
                                     "leftHandType", "leftHandWeight", 1.0f, {1.0f, 0.5f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
-                                    false, "", "");
-
+                                    "leftHandPoleVectorEnabled", "leftHandPoleReferenceVector", "leftHandPoleVector");
         _localIKNode->setSkeleton(_animSkeleton);
     }
 
