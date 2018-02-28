@@ -1862,6 +1862,9 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
         _localIKNode->setTargetVars("RightHand", "rightHandPosition", "rightHandRotation",
                                     "rightHandType", "rightHandWeight", 1.0f, {1.0f, 0.5f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
                                     false, "", "");
+        _localIKNode->setTargetVars("LeftHand", "leftHandPosition", "leftHandRotation",
+                                    "leftHandType", "leftHandWeight", 1.0f, {1.0f, 0.5f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                    false, "", "");
 
         _localIKNode->setSkeleton(_animSkeleton);
     }
@@ -1890,6 +1893,10 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
             animVars.set("rightHandType", (int)IKTarget::Type::RotationAndPosition);
             animVars.set("rightHandRotation", rigRot);
             animVars.set("rightHandPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftHand")) {
+            animVars.set("leftHandType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftHandRotation", rigRot);
+            animVars.set("leftHandPosition", rigPos);
         }
     }
 

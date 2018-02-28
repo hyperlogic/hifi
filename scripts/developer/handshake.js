@@ -116,13 +116,14 @@ var rightHandDeltaXform = STATIC_RIGHT_HAND_DELTA_XFORM;
 var leftHandDeltaXform = STATIC_LEFT_HAND_DELTA_XFORM;
 
 var shakeRightHandAvatarId;
+var shakeLeftHandAvatarId;
 var SHAKE_TRIGGER_DISTANCE = 0.5;
 
 var HAPTIC_PULSE_FIRST_STRENGTH = 1.0;
 var HAPTIC_PULSE_FIRST_DURATION = 20.0;
 var HAPTIC_PULSE_DISTANCE = 0.01;  // 1 cm
 var HAPTIC_PULSE_DURATION = 16.0;
-var HAPTIC_PULSE_MIN_STRENGTH = 0.1;
+var HAPTIC_PULSE_MIN_STRENGTH = 0.3;
 var HAPTIC_PULSE_MAX_STRENGTH = 0.5;
 var HAPTIC_PULSE_MIN_DISTANCE = 0.1;
 var HAPTIC_PULSE_MAX_DISTANCE = 0.5;
@@ -151,7 +152,6 @@ HapticBuddy.prototype.update = function (myHand, otherHand) {
             var factor = clamp((distance - HAPTIC_PULSE_MIN_DISTANCE) / (HAPTIC_PULSE_MAX_DISTANCE - HAPTIC_PULSE_MIN_DISTANCE), 0, 1);
             // convert factor into a strength factor
             var strength = factor * (HAPTIC_PULSE_MAX_STRENGTH - HAPTIC_PULSE_MIN_STRENGTH) + HAPTIC_PULSE_MIN_STRENGTH;
-            print("AJT: pulse, strength = " + strength);
             Controller.triggerHapticPulse(strength, HAPTIC_PULSE_DURATION, this.hand);
         }
     }
@@ -162,6 +162,7 @@ HapticBuddy.prototype.stop = function () {
 };
 
 var rightHapticBuddy = new HapticBuddy(RIGHT_HAND);
+var leftHapticBuddy = new HapticBuddy(LEFT_HAND);
 
 // ctor
 function SoundBuddy(url) {
@@ -218,12 +219,39 @@ function calculateDeltaOffset(myHand, otherHand) {
 
 // Controller system callback on leftTrigger pull or release.
 function leftTrigger(value) {
-    // TODO
+    if (value === 1) {
+        if (!shakeLeftHandAvatarId) {
+            if (prevAvatarMap[MyAvatar.SELF_ID]) {
+                var myHand = prevAvatarMap[MyAvatar.SELF_ID].leftHand;
+                var otherId = findClosestAvatarHand('leftHand', myHand);
+                if (otherId) {
+                    var otherHand = prevAvatarMap[otherId].leftHand;
+                    if (Vec3.distance(otherHand.jointPos, myHand.jointPos) < SHAKE_TRIGGER_DISTANCE) {
+                        Messages.sendMessage("Hifi-Hand-Disabler", "left");
+                        if (USE_STATIC_HAND_OFFSET) {
+                            leftHandDeltaXform = STATIC_LEFT_HAND_DELTA_XFORM;
+                        } else {
+                            leftHandDeltaXform = calculateDeltaOffset(myHand, otherHand);
+                        }
+                        shakeLeftHandAvatarId = otherId;
+                        leftHapticBuddy.start(myHand, otherHand);
+                        clapSound.play({position: myHand.jointPos, loop: false, localOnly: true});
+                    }
+                }
+            }
+        }
+    } else {
+        // unset shakeLeftHandAvatarId
+        if (shakeLeftHandAvatarId) {
+            shakeLeftHandAvatarId = undefined;
+        }
+        leftHapticBuddy.stop();
+        Messages.sendMessage("Hifi-Hand-Disabler", "none");
+    }
 }
 
 // Controller system callback on rightTrigger pull or release.
 function rightTrigger(value) {
-
     if (value === 1) {
         if (!shakeRightHandAvatarId) {
             if (prevAvatarMap[MyAvatar.SELF_ID]) {
@@ -232,6 +260,7 @@ function rightTrigger(value) {
                 if (otherId) {
                     var otherHand = prevAvatarMap[otherId].rightHand;
                     if (Vec3.distance(otherHand.jointPos, myHand.jointPos) < SHAKE_TRIGGER_DISTANCE) {
+                        Messages.sendMessage("Hifi-Hand-Disabler", "right");
                         if (USE_STATIC_HAND_OFFSET) {
                             rightHandDeltaXform = STATIC_RIGHT_HAND_DELTA_XFORM;
                         } else {
@@ -250,6 +279,7 @@ function rightTrigger(value) {
             shakeRightHandAvatarId = undefined;
         }
         rightHapticBuddy.stop();
+        Messages.sendMessage("Hifi-Hand-Disabler", "none");
     }
 }
 
@@ -275,8 +305,6 @@ function init() {
 
     animationHandlerId = MyAvatar.addAnimationStateHandler(function (props) {
 
-        // print("AJT: stateHandler props = " + JSON.stringify(props));
-
         var result = {};
         if (props.leftHandRotation) {
             result.leftHandRotation = props.leftHandRotation;
@@ -291,16 +319,30 @@ function init() {
             result.rightHandPosition = props.rightHandPosition;
         }
 
+        var otherHand, myHand, targetXform, localTargetXform;
+        var avatarXform = new Xform(Quat.multiply(MyAvatar.orientation, QUAT_Y_180), MyAvatar.position);
+
         if (shakeRightHandAvatarId && props.rightHandRotation && props.rightHandPosition) {
-            var otherHand = prevAvatarMap[shakeRightHandAvatarId].rightHand;
-            var myHand = prevAvatarMap[MyAvatar.SELF_ID].rightHand;
+            otherHand = prevAvatarMap[shakeRightHandAvatarId].rightHand;
+            myHand = prevAvatarMap[MyAvatar.SELF_ID].rightHand;
             if (otherHand) {
-                var avatarXform = new Xform(Quat.multiply(MyAvatar.orientation, QUAT_Y_180), MyAvatar.position);
-                var targetXform = handTween(myHand, otherHand, rightHandDeltaXform);
-                var localTargetXform = Xform.mul(avatarXform.inv(), targetXform);
+                targetXform = handTween(myHand, otherHand, rightHandDeltaXform);
+                localTargetXform = Xform.mul(avatarXform.inv(), targetXform);
                 result.rightHandRotation = localTargetXform.rot;
                 result.rightHandPosition = localTargetXform.pos;
                 rightHapticBuddy.update(myHand, otherHand);
+            }
+        }
+
+        if (shakeLeftHandAvatarId && props.leftHandRotation && props.leftHandPosition) {
+            otherHand = prevAvatarMap[shakeLeftHandAvatarId].leftHand;
+            myHand = prevAvatarMap[MyAvatar.SELF_ID].leftHand;
+            if (otherHand) {
+                targetXform = handTween(myHand, otherHand, leftHandDeltaXform);
+                localTargetXform = Xform.mul(avatarXform.inv(), targetXform);
+                result.leftHandRotation = localTargetXform.rot;
+                result.leftHandPosition = localTargetXform.pos;
+                leftHapticBuddy.update(myHand, otherHand);
             }
         }
 
@@ -410,8 +452,10 @@ function updateAvatar(id, data) {
 
     if (SHOW_CONTROLLERS && data.leftHand.controllerValid) {
         DebugDraw.addMarker("leftHandController" + id, data.leftHand.controllerRot, data.leftHand.controllerPos, CYAN);
+        DebugDraw.addMarker("leftHandPalm" + id, data.leftHand.palmRot, data.leftHand.palmPos, BLUE);
     } else {
         DebugDraw.removeMarker("leftHandController" + id);
+        DebugDraw.removeMarker("leftHandPalm" + id);
     }
 
     if (SHOW_CONTROLLERS && data.rightHand.controllerValid) {
@@ -422,6 +466,7 @@ function updateAvatar(id, data) {
         DebugDraw.removeMarker("rightHandPalm" + id);
     }
 
+    // local IK on other avatars hands
     var avatar = AvatarManager.getAvatar(id);
     if (id !== MyAvatar.SELF_ID && avatar) {
         var rightHandIndex = avatar.getJointIndex("RightHand");
@@ -442,6 +487,25 @@ function updateAvatar(id, data) {
                 avatar.clearPinOnJoint(rightHandIndex);
             }
         }
+
+        var leftHandIndex = avatar.getJointIndex("LeftHand");
+        if (leftHandIndex >= 0) {
+            if (shakeLeftHandAvatarId === id && USE_LOCAL_IK) {
+                var myHand = prevAvatarMap[MyAvatar.SELF_ID].leftHand;
+                var otherHand = prevAvatarMap[shakeLeftHandAvatarId].leftHand;
+                if (otherHand) {
+                    var targetXform = handTween(myHand, otherHand, leftHandDeltaXform);
+                    var otherTargetXform = Xform.mul(targetXform, leftHandDeltaXform.inv());
+
+                    // world frame
+                    if (avatar.pinJoint) { // API, not available on some clients.
+                        avatar.pinJoint(leftHandIndex, otherTargetXform.pos, otherTargetXform.rot);
+                    }
+                }
+            } else {
+                avatar.clearPinOnJoint(leftHandIndex);
+            }
+        }
     }
 }
 
@@ -457,7 +521,7 @@ var prevAvatarMap = {};
 
 function update(dt) {
     var AVATAR_RANGE = 5; // meters
-    var avatarIds = AvatarManager.getAvatarIdentifiers(); // AvatarManager.getAvatarsInRange(MyAvatar.position, AVATAR_RANGE);
+    var avatarIds = AvatarManager.getAvatarsInRange(MyAvatar.position, AVATAR_RANGE);
     var avatarMap = {};
     avatarIds.forEach(function (id) {
         if (id === null || id === MyAvatar.sessionUUID) {
