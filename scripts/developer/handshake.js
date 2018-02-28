@@ -138,7 +138,7 @@ HapticBuddy.prototype.start = function (myHand, otherHand) {
     if (USE_HAPTICS) {
         Controller.triggerHapticPulse(HAPTIC_PULSE_FIRST_STRENGTH, HAPTIC_PULSE_FIRST_DURATION, this.hand);
         this.enabled = true;
-        this.lastPulseDistance = Vec3.distance(myHand.contrtollerPos, otherHand.controllerPos);
+        this.lastPulseDistance = Vec3.distance(myHand.controllerPos, otherHand.controllerPos);
     }
 };
 
@@ -353,19 +353,27 @@ function fetchHandData(id, jointName, controllerMatName) {
             result.controllerRot = worldControllerXform.rot;
             result.controllerPos = worldControllerXform.pos;
             result.controllerValid = true;
+        } else {
+            result.controllerRot = result.jointRot;
+            result.controllerPos = result.jointPos;
+            result.controllerValid = false;
         }
     }
 
     var jointXform = new Xform(result.jointRot, result.jointPos);
     var localPalmPos;
+
+    var PALM_Y_OFFSET_FACTOR = 0.8;
+    var PALM_Z_OFFSET_FACTOR = 0.4;
+
     if (jointName === "LeftHand") {
 
         // transform palm into frame of the hand.
         localPalmPos = jointXform.inv().xformPoint(avatar.getLeftPalmPosition());
 
         // adjust the palm position to better match the handshake palm position.
-        localPalmPos.y = localPalmPos.y * 0.8;
-        localPalmPos.z = localPalmPos.z * 0.4;
+        localPalmPos.y = localPalmPos.y * PALM_Y_OFFSET_FACTOR;
+        localPalmPos.z = localPalmPos.z * PALM_Z_OFFSET_FACTOR;
 
         // transform local palm back into world space
         result.palmPos = jointXform.xformPoint(localPalmPos);
@@ -376,8 +384,8 @@ function fetchHandData(id, jointName, controllerMatName) {
         localPalmPos = jointXform.inv().xformPoint(avatar.getRightPalmPosition());
 
         // adjust the palm position to better match the handshake palm position.
-        localPalmPos.y = localPalmPos.y * 0.8;
-        localPalmPos.z = localPalmPos.z * 0.4;
+        localPalmPos.y = localPalmPos.y * PALM_Y_OFFSET_FACTOR;
+        localPalmPos.z = localPalmPos.z * PALM_Z_OFFSET_FACTOR;
 
         // transform local palm back into world space
         result.palmPos = jointXform.xformPoint(localPalmPos);
