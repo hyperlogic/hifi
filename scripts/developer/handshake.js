@@ -207,6 +207,79 @@
         });
     };
 
+    GrabbableJointScanner.prototype.fetchHandData = function (id, jointName, controllerMatName) {
+        var avatar = id ? AvatarManager.getAvatar(id) : MyAvatar;
+        var jointIndex = avatar.getJointIndex(jointName);
+        var mat = avatar[controllerMatName];
+        var result = {
+            controllerRot: {x: 0, y: 0, z: 0, w: 1},
+            controllerPos: {x: 0, y: 0, z: 0},
+            controllerValid: false,
+            jointRot: {x: 0, y: 0, z: 0, w: 1},
+            jointPos: {x: 0, y: 0, z: 0},
+            jointValid: false
+        };
+
+        if (jointIndex >= 0) {
+            // transform joint into world space
+            var avatarXform = new Xform(avatar.orientation, avatar.position);
+            var localXform = new Xform(avatar.getAbsoluteJointRotationInObjectFrame(jointIndex),
+                                       avatar.getAbsoluteJointTranslationInObjectFrame(jointIndex));
+            var worldXform = Xform.mul(avatarXform, localXform);
+            result.jointRot = worldXform.rot;
+            result.jointPos = worldXform.pos;
+            result.jointValid = true;
+
+            // check to see if hand controller is valid
+            var localControllerXform = new Xform(Mat4.extractRotation(mat),
+                                                 Mat4.extractTranslation(mat));
+            if (!isIdentity(localControllerXform.rot, localControllerXform.pos)) {
+                var worldControllerXform = Xform.mul(avatarXform, localControllerXform);
+                result.controllerRot = worldControllerXform.rot;
+                result.controllerPos = worldControllerXform.pos;
+                result.controllerValid = true;
+            } else {
+                result.controllerRot = result.jointRot;
+                result.controllerPos = result.jointPos;
+                result.controllerValid = false;
+            }
+        }
+
+        var jointXform = new Xform(result.jointRot, result.jointPos);
+        var localPalmPos;
+
+        var PALM_Y_OFFSET_FACTOR = 0.8;
+        var PALM_Z_OFFSET_FACTOR = 0.4;
+
+        if (jointName === "LeftHand") {
+
+            // transform palm into frame of the hand.
+            localPalmPos = jointXform.inv().xformPoint(avatar.getLeftPalmPosition());
+
+            // adjust the palm position to better match the handshake palm position.
+            localPalmPos.y = localPalmPos.y * PALM_Y_OFFSET_FACTOR;
+            localPalmPos.z = localPalmPos.z * PALM_Z_OFFSET_FACTOR;
+
+            // transform local palm back into world space
+            result.palmPos = jointXform.xformPoint(localPalmPos);
+            result.palmRot = avatar.getLeftPalmRotation();
+        } else {
+
+            // transform palm into frame of the hand.
+            localPalmPos = jointXform.inv().xformPoint(avatar.getRightPalmPosition());
+
+            // adjust the palm position to better match the handshake palm position.
+            localPalmPos.y = localPalmPos.y * PALM_Y_OFFSET_FACTOR;
+            localPalmPos.z = localPalmPos.z * PALM_Z_OFFSET_FACTOR;
+
+            // transform local palm back into world space
+            result.palmPos = jointXform.xformPoint(localPalmPos);
+            result.palmRot = avatar.getRightPalmRotation();
+        }
+
+        return result;
+    };
+
     GrabbableJointScanner.prototype.scan = function () {
 
         var AVATAR_RANGE = 5; // meters
@@ -218,8 +291,8 @@
                 id = MyAvatar.SELF_ID;
             }
             avatarMap[id] = {
-                leftHand: fetchHandData(id, "LeftHand", "controllerLeftHandMatrix"),
-                rightHand: fetchHandData(id, "RightHand", "controllerRightHandMatrix")
+                leftHand: self.fetchHandData(id, "LeftHand", "controllerLeftHandMatrix"),
+                rightHand: self.fetchHandData(id, "RightHand", "controllerRightHandMatrix")
             };
         });
 
@@ -248,7 +321,28 @@
         this.prevAvatarMap = avatarMap;
     };
 
-    // {myHand, otherHand, otherId}
+    /* {
+     *   myHandInfo: {
+     *     ikName: string,
+     *     controllerRot: quat,
+     *     controllerPos: vec3,
+     *     controllerValid: bool,
+     *     jointRot: quat,
+     *     jointPos: pos,
+     *     jointValid: bool
+     *   },
+     *   otherId: uuid,
+     *   otherJointInfo: {
+     *     ikName: string,
+     *     controllerRot: quat,
+     *     controllerPos: vec3,
+     *     controllerValid: bool,
+     *     jointRot: quat,
+     *     jointPos: pos,
+     *     jointValid: bool
+     *   }
+     * }
+     */
     GrabbableJointScanner.prototype.findGrabbableJoint = function (hand) {
 
         var key = hand === LEFT_HAND ? "leftHand" : "rightHand";
@@ -280,7 +374,7 @@
 
         var otherHand = this.prevAvatarMap[closestId][key];
         if (Vec3.distance(otherHand.jointPos, myHand.jointPos) < SHAKE_TRIGGER_DISTANCE) {
-            return {myHand: myHand, otherHand: otherHand, otherId: closestId};
+            return {myHandInfo: myHand, otherJointInfo: otherHand, otherId: closestId};
         } else {
             return null;
         }
@@ -301,19 +395,19 @@
     function leftTrigger(value) {
         if (value === 1) {
             if (!shakeLeftHandAvatarId) {
-                var jointInfo = scanner.findGrabbableJoint(LEFT_HAND);
-                if (jointInfo) {
+                var grabData = scanner.findGrabbableJoint(LEFT_HAND);
+                if (grabData) {
                     Messages.sendMessage("Hifi-Hand-Disabler", "left");
                     if (USE_STATIC_HAND_OFFSET) {
                         leftHandDeltaXform = STATIC_LEFT_HAND_DELTA_XFORM;
                     } else {
-                        leftHandDeltaXform = calculateDeltaOffset(jointInfo.myHand, jointInfo.otherHand);
+                        leftHandDeltaXform = calculateDeltaOffset(grabData.myHandInfo, grabData.otherJointInfo);
                     }
-                    shakeLeftHandAvatarId = jointInfo.otherId;
-                    leftHapticBuddy.start(jointInfo.myHand, jointInfo.otherHand);
-                    clapSound.play({position: jointInfo.myHand.jointPos, loop: false, localOnly: true});
+                    shakeLeftHandAvatarId = grabData.otherId;
+                    leftHapticBuddy.start(grabData.myHandInfo, grabData.otherJointInfo);
+                    clapSound.play({position: grabData.myHandInfo.jointPos, loop: false, localOnly: true});
 
-                    var msg = {type: "pulse", receiver: jointInfo.otherId, hand: "left"};
+                    var msg = {type: "pulse", receiver: grabData.otherId, hand: "left"};
                     Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
 
                     print("AJT SEND: Hifi-Handshake = " + JSON.stringify(msg));
@@ -335,20 +429,20 @@
         if (value === 1) {
             print("AJT: right trigger, shakeRightHandAvatarId = " + shakeRightHandAvatarId);
             if (!shakeRightHandAvatarId) {
-                var jointInfo = scanner.findGrabbableJoint(RIGHT_HAND);
-                print("AJT: right trigger jointInfo = " + JSON.stringify(jointInfo));
-                if (jointInfo) {
+                var grabData = scanner.findGrabbableJoint(RIGHT_HAND);
+                print("AJT: right trigger grabData = " + JSON.stringify(grabData));
+                if (grabData) {
                     Messages.sendMessage("Hifi-Hand-Disabler", "right");
                     if (USE_STATIC_HAND_OFFSET) {
                         rightHandDeltaXform = STATIC_RIGHT_HAND_DELTA_XFORM;
                     } else {
-                        rightHandDeltaXform = calculateDeltaOffset(jointInfo.myHand, jointInfo.otherHand);
+                        rightHandDeltaXform = calculateDeltaOffset(grabData.myHandInfo, grabData.otherJointInfo);
                     }
-                    shakeRightHandAvatarId = jointInfo.otherId;
-                    rightHapticBuddy.start(jointInfo.myHand, jointInfo.otherHand);
-                    clapSound.play({position: jointInfo.myHand.jointPos, loop: false, localOnly: true});
+                    shakeRightHandAvatarId = grabData.otherId;
+                    rightHapticBuddy.start(grabData.myHandInfo, grabData.otherJointInfo);
+                    clapSound.play({position: grabData.myHandInfo.jointPos, loop: false, localOnly: true});
 
-                    var msg = {type: "pulse", receiver: jointInfo.otherId, hand: "right"};
+                    var msg = {type: "pulse", receiver: grabData.otherId, hand: "right"};
                     Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
 
                     print("AJT SEND: Hifi-Handshake = " + JSON.stringify(msg));
@@ -465,79 +559,6 @@
                 Math.abs(pos.x) < EPSILON &&
                 Math.abs(pos.y) < EPSILON &&
                 Math.abs(pos.z) < EPSILON);
-    }
-
-    function fetchHandData(id, jointName, controllerMatName) {
-        var avatar = id ? AvatarManager.getAvatar(id) : MyAvatar;
-        var jointIndex = avatar.getJointIndex(jointName);
-        var mat = avatar[controllerMatName];
-        var result = {
-            controllerRot: {x: 0, y: 0, z: 0, w: 1},
-            controllerPos: {x: 0, y: 0, z: 0},
-            controllerValid: false,
-            jointRot: {x: 0, y: 0, z: 0, w: 1},
-            jointPos: {x: 0, y: 0, z: 0},
-            jointValid: false
-        };
-
-        if (jointIndex >= 0) {
-            // transform joint into world space
-            var avatarXform = new Xform(avatar.orientation, avatar.position);
-            var localXform = new Xform(avatar.getAbsoluteJointRotationInObjectFrame(jointIndex),
-                                       avatar.getAbsoluteJointTranslationInObjectFrame(jointIndex));
-            var worldXform = Xform.mul(avatarXform, localXform);
-            result.jointRot = worldXform.rot;
-            result.jointPos = worldXform.pos;
-            result.jointValid = true;
-
-            // check to see if hand controller is valid
-            var localControllerXform = new Xform(Mat4.extractRotation(mat),
-                                                 Mat4.extractTranslation(mat));
-            if (!isIdentity(localControllerXform.rot, localControllerXform.pos)) {
-                var worldControllerXform = Xform.mul(avatarXform, localControllerXform);
-                result.controllerRot = worldControllerXform.rot;
-                result.controllerPos = worldControllerXform.pos;
-                result.controllerValid = true;
-            } else {
-                result.controllerRot = result.jointRot;
-                result.controllerPos = result.jointPos;
-                result.controllerValid = false;
-            }
-        }
-
-        var jointXform = new Xform(result.jointRot, result.jointPos);
-        var localPalmPos;
-
-        var PALM_Y_OFFSET_FACTOR = 0.8;
-        var PALM_Z_OFFSET_FACTOR = 0.4;
-
-        if (jointName === "LeftHand") {
-
-            // transform palm into frame of the hand.
-            localPalmPos = jointXform.inv().xformPoint(avatar.getLeftPalmPosition());
-
-            // adjust the palm position to better match the handshake palm position.
-            localPalmPos.y = localPalmPos.y * PALM_Y_OFFSET_FACTOR;
-            localPalmPos.z = localPalmPos.z * PALM_Z_OFFSET_FACTOR;
-
-            // transform local palm back into world space
-            result.palmPos = jointXform.xformPoint(localPalmPos);
-            result.palmRot = avatar.getLeftPalmRotation();
-        } else {
-
-            // transform palm into frame of the hand.
-            localPalmPos = jointXform.inv().xformPoint(avatar.getRightPalmPosition());
-
-            // adjust the palm position to better match the handshake palm position.
-            localPalmPos.y = localPalmPos.y * PALM_Y_OFFSET_FACTOR;
-            localPalmPos.z = localPalmPos.z * PALM_Z_OFFSET_FACTOR;
-
-            // transform local palm back into world space
-            result.palmPos = jointXform.xformPoint(localPalmPos);
-            result.palmRot = avatar.getRightPalmRotation();
-        }
-
-        return result;
     }
 
     function addAvatar(id, data) {
