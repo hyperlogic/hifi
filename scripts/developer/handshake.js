@@ -251,25 +251,18 @@
     // {myHand, otherHand, otherId}
     GrabbableJointScanner.prototype.findGrabbableJoint = function (hand) {
 
-        print("AJT: got here 1");
         var key = hand === LEFT_HAND ? "leftHand" : "rightHand";
-
-        print("AJT: got here 2");
 
         var myHand = this.prevAvatarMap[MyAvatar.SELF_ID][key];
         if (!myHand) {
             return null;
         }
 
-        print("AJT: got here 3");
-
         var avatarIds = Object.keys(this.prevAvatarMap);
         var closestId;
         var closestDist = Number.MAX_VALUE;
         var self = this;
         avatarIds.forEach(function (id) {
-
-            print("AJT: got here 4, id = " + id);
             if (id !== MyAvatar.SELF_ID) {
                 var hand = self.prevAvatarMap[id][key];
                 var dist = Vec3.distance(myHand.jointPos, hand.jointPos);
@@ -279,22 +272,16 @@
                 }
             }
         });
-        print("AJT: got here 5 = closestId" + closestId);
+
 
         if (!closestId) {
             return null;
         }
 
-        print("AJT: got here 6 = closestId" + closestId);
-
         var otherHand = this.prevAvatarMap[closestId][key];
         if (Vec3.distance(otherHand.jointPos, myHand.jointPos) < SHAKE_TRIGGER_DISTANCE) {
-
-            print("AJT: got here 7 found result");
-
             return {myHand: myHand, otherHand: otherHand, otherId: closestId};
         } else {
-            print("AJT: got here 7 too far");
             return null;
         }
     };
