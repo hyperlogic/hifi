@@ -1860,19 +1860,73 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
         _localIKNode->setTargetVars("Hips", "hipsPosition", "hipsRotation",
                                     "hipsType", "hipsWeight", 1.0f, {1.0f},
                                     "hipsPoleVectorEnabled", "hipsPoleReferenceVector", "hipsPoleVector");
+
         _localIKNode->setTargetVars("RightHand", "rightHandPosition", "rightHandRotation",
                                     "rightHandType", "rightHandWeight", 1.0f, {1.0f, 0.5f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
                                     "rightHandPoleVectorEnabled", "rightHandPoleReferenceVector", "rightHandPoleVector");
+
+        _localIKNode->setTargetVars("RightForeArm", "RightForeArmPosition", "RightForeArmRotation",
+                                    "RightForeArmType", "RightForeArmWeight", 1.0f, {1.0f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                    "RightForeArmPoleVectorEnabled", "RightForeArmPoleReferenceVector", "RightForeArmPoleVector");
+
+        _localIKNode->setTargetVars("RightArm", "rightArmPosition", "rightArmRotation",
+                                    "rightArmType", "rightArmWeight", 1.0f, {1.5f, 0.5f, 0.1f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                    "rightArmPoleVectorEnabled", "rightArmPoleReferenceVector", "rightArmPoleVector");
+
+        _localIKNode->setTargetVars("RightShoulder", "rightShoulderPosition", "rightShoulderRotation",
+                                    "rightShoulderType", "rightShoulderWeight", 1.0f, {1.0f, 0.1f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                    "rightShoulderPoleVectorEnabled", "rightShoulderPoleReferenceVector", "rightShoulderPoleVector");
+
         _localIKNode->setTargetVars("LeftHand", "leftHandPosition", "leftHandRotation",
                                     "leftHandType", "leftHandWeight", 1.0f, {1.0f, 0.5f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
                                     "leftHandPoleVectorEnabled", "leftHandPoleReferenceVector", "leftHandPoleVector");
+
+        _localIKNode->setTargetVars("LeftForeArm", "LeftForeArmPosition", "LeftForeArmRotation",
+                                    "LeftForeArmType", "LeftForeArmWeight", 1.0f, {1.0f, 0.5f, 0.2f, 0.01f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                    "LeftForeArmPoleVectorEnabled", "LeftForeArmPoleReferenceVector", "LeftForeArmPoleVector");
+
+        _localIKNode->setTargetVars("LeftArm", "leftArmPosition", "leftArmRotation",
+                                    "leftArmType", "leftArmWeight", 1.0f, {1.5f, 0.5f, 0.1f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                    "leftArmPoleVectorEnabled", "leftArmPoleReferenceVector", "leftArmPoleVector");
+
+        _localIKNode->setTargetVars("LeftShoulder", "leftShoulderPosition", "leftShoulderRotation",
+                                    "leftShoulderType", "leftShoulderWeight", 1.0f, {1.0f, 0.1f, 0.005f, 0.001f, 0.0f, 0.0f},
+                                    "leftShoulderPoleVectorEnabled", "leftShoulderPoleReferenceVector", "leftShoulderPoleVector");
+
+        _localIKNode->setTargetVars("RightFoot", "rightFootPosition", "rightFootRotation",
+                                    "rightHandType", "rightFootWeight", 1.0f, {1.0f, 0.45f, 0.45f},
+                                    "rightFootPoleVectorEnabled", "rightFootPoleReferenceVector", "rightFootPoleVector");
+
+        _localIKNode->setTargetVars("LeftFoot", "leftFootPosition", "leftFootRotation",
+                                    "leftHandType", "leftFootWeight", 1.0f, {1.0f, 0.45f, 0.45f},
+                                    "leftFootPoleVectorEnabled", "leftFootPoleReferenceVector", "leftFootPoleVector");
+
+        _localIKNode->setTargetVars("Spine2", "spine2Position", "spine2Rotation",
+                                    "spine2Type", "spine2Weight", 1.0f, {1.0f, 0.5f, 0.25f},
+                                    "spine2PoleVectorEnabled", "spine2PoleReferenceVector", "spine2PoleVector");
+
+        _localIKNode->setTargetVars("Head", "headPosition", "headRotation",
+                                    "headType", "headWeight", 1.0f, {1.0f, 0.5f, 0.25f, 0.2f, 0.1f},
+                                    "headPoleVectorEnabled", "headPoleReferenceVector", "headPoleVector");
+
         _localIKNode->setSkeleton(_animSkeleton);
     }
 
     AnimVariantMap animVars;
     animVars.setRigToGeometryTransform(_rigToGeometryTransform);
     animVars.set("hipsType", (int)IKTarget::Type::Unknown);
-    animVars.set("rightHandTypeType", (int)IKTarget::Type::Unknown);
+    animVars.set("rightHandType", (int)IKTarget::Type::Unknown);
+    animVars.set("rightForeArmType", (int)IKTarget::Type::Unknown);
+    animVars.set("rightArmType", (int)IKTarget::Type::Unknown);
+    animVars.set("rightShoulderType", (int)IKTarget::Type::Unknown);
+    animVars.set("leftHandType", (int)IKTarget::Type::Unknown);
+    animVars.set("leftForeArmType", (int)IKTarget::Type::Unknown);
+    animVars.set("leftArmType", (int)IKTarget::Type::Unknown);
+    animVars.set("leftShoulderType", (int)IKTarget::Type::Unknown);
+    animVars.set("rightFootType", (int)IKTarget::Type::Unknown);
+    animVars.set("leftFootType", (int)IKTarget::Type::Unknown);
+    animVars.set("spine2Type", (int)IKTarget::Type::Unknown);
+    animVars.set("headType", (int)IKTarget::Type::Unknown);
 
     glm::mat4 worldToRigTransform = glm::inverse(rigToWorldTransform);
     glm::quat worldToRigRot = glmExtractRotation(worldToRigTransform);
@@ -1893,19 +1947,62 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
             animVars.set("rightHandType", (int)IKTarget::Type::RotationAndPosition);
             animVars.set("rightHandRotation", rigRot);
             animVars.set("rightHandPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightForeArm")) {
+            animVars.set("rightForeArmType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightForeArmRotation", rigRot);
+            animVars.set("rightForeArmPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightArm")) {
+            animVars.set("rightArmType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightArmRotation", rigRot);
+            animVars.set("rightArmPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightShoulder")) {
+            animVars.set("rightShoulderType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightShoulderRotation", rigRot);
+            animVars.set("rightShoulderPosition", rigPos);
         } else if (jointIndex == indexOfJoint("LeftHand")) {
             animVars.set("leftHandType", (int)IKTarget::Type::RotationAndPosition);
             animVars.set("leftHandRotation", rigRot);
             animVars.set("leftHandPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftForeArm")) {
+            animVars.set("leftForeArmType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftForeArmRotation", rigRot);
+            animVars.set("leftForeArmPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftArm")) {
+            animVars.set("leftArmType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftArmRotation", rigRot);
+            animVars.set("leftArmPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftShoulder")) {
+            animVars.set("leftShoulderType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftShoulderRotation", rigRot);
+            animVars.set("leftShoulderPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("RightFoot")) {
+            animVars.set("rightFootType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("rightFootRotation", rigRot);
+            animVars.set("rightFootPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("LeftFoot")) {
+            animVars.set("leftFootType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("leftFootRotation", rigRot);
+            animVars.set("leftFootPosition", rigPos);
+        } else if (jointIndex == indexOfJoint("Spine2")) {
+            animVars.set("spine2Type", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("spine2Rotation", rigRot);
+            animVars.set("spine2Position", rigPos);
+        } else if (jointIndex == indexOfJoint("Head")) {
+            animVars.set("headType", (int)IKTarget::Type::RotationAndPosition);
+            animVars.set("headRotation", rigRot);
+            animVars.set("headPosition", rigPos);
         }
     }
 
     AnimNode::Triggers triggersOut;
-    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = false;
+    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = true;
     const bool ENABLE_DEBUG_DRAW_IK_CONSTRAINTS = false;
-    const bool ENABLE_DEBUG_DRAW_IK_CHAINS = false;
+    const bool ENABLE_DEBUG_DRAW_IK_CHAINS = true;
     AnimContext context(ENABLE_DEBUG_DRAW_IK_TARGETS, ENABLE_DEBUG_DRAW_IK_CONSTRAINTS, ENABLE_DEBUG_DRAW_IK_CHAINS,
                         getGeometryToRigTransform(), rigToWorldTransform);
+    context._enableDebugLocalIK = false;
+    context._enableDebugDrawSolutionSource = false;
+    context._enableDebugDrawUnderPoses = false;
     _internalPoseSet._relativePoses = _localIKNode->overlay(animVars, context, dt, triggersOut, _internalPoseSet._relativePoses);
 
 }

@@ -464,12 +464,13 @@
 
     // Controller system callback on leftTrigger pull or release.
     function leftTrigger(value) {
+        var jointInfo;
         if (value === 1) {
             if (!shakeLeftHandKey) {
                 var key = scanner.findGrabbableJoint(LEFT_HAND, SHAKE_TRIGGER_DISTANCE);
                 if (key) {
                     var myHand = scanner.getMyHand(LEFT_HAND);
-                    var jointInfo = scanner.getJointInfo(key);
+                    jointInfo = scanner.getJointInfo(key);
 
                     Messages.sendMessage("Hifi-Hand-Disabler", "left");
 
@@ -496,6 +497,9 @@
         } else {
             // unset shakeLeftHandKey
             if (shakeLeftHandKey) {
+                var avatar = AvatarManager.getAvatar(shakeLeftHandKey.avatarId);
+                jointInfo = scanner.getJointInfo(shakeLeftHandKey);
+                avatar.clearPinOnJoint(jointInfo.jointIndex);
                 shakeLeftHandKey = undefined;
             }
             leftHapticBuddy.stop();
@@ -505,14 +509,18 @@
 
     // Controller system callback on rightTrigger pull or release.
     function rightTrigger(value) {
+        var jointInfo;
         if (value === 1) {
             if (!shakeRightHandKey) {
                 print("AJT: rightTrigger");
                 var key = scanner.findGrabbableJoint(RIGHT_HAND, SHAKE_TRIGGER_DISTANCE);
-                print("AJT: findGrabbableJoint() key = " + JSON.stringify(key));
+                print("AJT:     findGrabbableJoint() key = " + JSON.stringify(key));
                 if (key) {
-                    var myHand = scanner.getMyHand(LEFT_HAND);
-                    var jointInfo = scanner.getJointInfo(key);
+                    var myHand = scanner.getMyHand(RIGHT_HAND);
+                    jointInfo = scanner.getJointInfo(key);
+
+                    print("AJT:     myHand = " + JSON.stringify(myHand));
+                    print("AJT:     jointInfo = " + JSON.stringify(jointInfo));
 
                     Messages.sendMessage("Hifi-Hand-Disabler", "right");
 
@@ -525,6 +533,8 @@
                     } else {
                         rightHandDeltaXform = calculateDeltaOffset(myHand, jointInfo);
                     }
+
+                    print("AJT:     rightHandDeltaXform = " + JSON.stringify(rightHandDeltaXform));
 
                     shakeRightHandKey = key;
                     rightHapticBuddy.start(myHand, jointInfo);
@@ -539,6 +549,9 @@
         } else {
             // unset shakeRightHandKey
             if (shakeRightHandKey) {
+                var avatar = AvatarManager.getAvatar(shakeRightHandKey.avatarId);
+                jointInfo = scanner.getJointInfo(shakeRightHandKey);
+                avatar.clearPinOnJoint(jointInfo.jointIndex);
                 shakeRightHandKey = undefined;
             }
             rightHapticBuddy.stop();
@@ -615,6 +628,7 @@
             }
 
             if (shakeLeftHandKey && props.leftHandRotation && props.leftHandPosition) {
+
                 myHand = scanner.getMyHand(LEFT_HAND);
                 jointInfo = scanner.getJointInfo(shakeLeftHandKey);
                 if (myHand && jointInfo) {
@@ -683,24 +697,24 @@
         var myHand, jointInfo, targetXform, otherTargetXform;
         var avatar = AvatarManager.getAvatar(id);
         if (id !== MyAvatar.SELF_ID && avatar) {
-            if (shakeRightHandKey === id && USE_LOCAL_IK) {
+            if (shakeRightHandKey && shakeRightHandKey.avatarId === id && USE_LOCAL_IK) {
+                print("AJT: updateAvatar() shakeRightHandKey = " + shakeRightHandKey);
                 myHand = scanner.getMyHand(RIGHT_HAND);
                 jointInfo = scanner.getJointInfo(shakeRightHandKey);
+
+                print("AJT:    myHand = " + JSON.stringify(myHand));
+                print("AJT:    jointInfo = " + JSON.stringify(jointInfo));
+
                 if (myHand && jointInfo) {
                     targetXform = handTween(myHand, jointInfo, rightHandDeltaXform);
                     otherTargetXform = Xform.mul(targetXform, rightHandDeltaXform.inv());
 
                     // world frame
-                    if (avatar.pinJoint) { // API, not available on some clients.
-                        var rightHandIndex = avatar.getJointIndex("RightHand");
-                        avatar.pinJoint(rightHandIndex, otherTargetXform.pos, otherTargetXform.rot);
-                    }
+                    avatar.pinJoint(jointInfo.jointIndex, otherTargetXform.pos, otherTargetXform.rot);
                 }
-            } else {
-                avatar.clearPinOnJoint(rightHandIndex);
             }
 
-            if (shakeLeftHandKey === id && USE_LOCAL_IK) {
+            if (shakeLeftHandKey && shakeLeftHandKey.avatarId === id && USE_LOCAL_IK) {
                 myHand = scanner.getMyHand(LEFT_HAND);
                 jointInfo = scanner.getJointInfo(shakeLeftHandKey);
                 if (myHand && jointInfo) {
@@ -708,13 +722,8 @@
                     otherTargetXform = Xform.mul(targetXform, leftHandDeltaXform.inv());
 
                     // world frame
-                    if (avatar.pinJoint) { // API, not available on some clients.
-                        var leftHandIndex = avatar.getJointIndex("LeftHand");
-                        avatar.pinJoint(leftHandIndex, otherTargetXform.pos, otherTargetXform.rot);
-                    }
+                    avatar.pinJoint(jointInfo.jointIndex, otherTargetXform.pos, otherTargetXform.rot);
                 }
-            } else {
-                avatar.clearPinOnJoint(leftHandIndex);
             }
         }
     }

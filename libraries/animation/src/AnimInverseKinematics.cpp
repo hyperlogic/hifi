@@ -102,7 +102,7 @@ AnimInverseKinematics::~AnimInverseKinematics() {
     // remove markers
     for (int i = 0; i < MAX_TARGET_MARKERS; i++) {
         QString name = QString("ikTarget%1").arg(i);
-        DebugDraw::getInstance().removeMyAvatarMarker(name);
+        DebugDraw::getInstance().removeMarker(name);
     }
 }
 
@@ -253,7 +253,18 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
         if (numLoops == MAX_IK_LOOPS) {
             for (size_t i = 0; i < _prevJointChainInfoVec.size(); i++) {
                 if (_prevJointChainInfoVec[i].timer > 0.0f) {
+
+                    if (context._enableDebugLocalIK) {
+                        qDebug() << "AJT: last iteration, chain[" << i << "]:";
+                        qDebug() << "AJT:    timer = " << _prevJointChainInfoVec[i].timer;
+                    }
+
                     float alpha = (JOINT_CHAIN_INTERP_TIME - _prevJointChainInfoVec[i].timer) / JOINT_CHAIN_INTERP_TIME;
+
+                    if (context._enableDebugLocalIK) {
+                        qDebug() << "AJT:    alpha = " << alpha;
+                    }
+
                     size_t chainSize = std::min(_prevJointChainInfoVec[i].jointInfoVec.size(), jointChainInfoVec[i].jointInfoVec.size());
                     for (size_t j = 0; j < chainSize; j++) {
                         jointChainInfoVec[i].jointInfoVec[j].rot = safeMix(_prevJointChainInfoVec[i].jointInfoVec[j].rot, jointChainInfoVec[i].jointInfoVec[j].rot, alpha);
@@ -263,9 +274,15 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
                     // if joint chain was just disabled, ramp the weight toward zero.
                     if (_prevJointChainInfoVec[i].target.getType() != IKTarget::Type::Unknown &&
                         jointChainInfoVec[i].target.getType() == IKTarget::Type::Unknown) {
+
                         IKTarget newTarget = _prevJointChainInfoVec[i].target;
                         newTarget.setWeight((1.0f - alpha) * _prevJointChainInfoVec[i].target.getWeight());
                         jointChainInfoVec[i].target = newTarget;
+
+                        if (context._enableDebugLocalIK) {
+                            qDebug() << "AJT:    chain disabled, weight = " << newTarget.getWeight();
+                        }
+
                     }
                 }
             }
@@ -355,12 +372,22 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
     for (size_t i = 0; i < jointChainInfoVec.size(); i++) {
         _prevJointChainInfoVec[i].timer = _prevJointChainInfoVec[i].timer - dt;
         if (_prevJointChainInfoVec[i].timer <= 0.0f) {
+
+            if (context._enableDebugLocalIK) {
+                qDebug() << "AJT: copy into _prev, chain[" << i << "]:, timer = " << _prevJointChainInfoVec[i].timer;
+            }
+
             _prevJointChainInfoVec[i] = jointChainInfoVec[i];
             _prevJointChainInfoVec[i].target = targets[i];
             // store relative poses into unknown/rotation only joint chains.
             // so we have something to interpolate from if this chain is activated.
             IKTarget::Type type = _prevJointChainInfoVec[i].target.getType();
             if (type == IKTarget::Type::Unknown || type == IKTarget::Type::RotationOnly) {
+
+                if (context._enableDebugLocalIK) {
+                    qDebug() << "AJT:    <-- relative poses" << _prevJointChainInfoVec[i].timer;
+                }
+
                 for (size_t j = 0; j < _prevJointChainInfoVec[i].jointInfoVec.size(); j++) {
                     auto& info = _prevJointChainInfoVec[i].jointInfoVec[j];
                     if (info.jointIndex >= 0) {
@@ -890,12 +917,20 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
         dt = MAX_OVERLAY_DT;
     }
 
+    // build a list of targets from _targetVarVec
+    std::vector<IKTarget> targets;
+    {
+        PROFILE_RANGE_EX(simulation_animation, "ik/computeTargets", 0xffff00ff, 0);
+        computeTargets(animVars, targets, underPoses);
+    }
+
     if (_relativePoses.size() != underPoses.size()) {
         loadPoses(underPoses);
     } else {
 
         PROFILE_RANGE_EX(simulation_animation, "ik/relax", 0xffff00ff, 0);
 
+        initIKBoneSet(targets);
         initRelativePosesFromSolutionSource((SolutionSource)solutionSource, underPoses);
 
         if (!underPoses.empty()) {
@@ -912,16 +947,13 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
 
     if (!_relativePoses.empty()) {
 
-        // build a list of targets from _targetVarVec
-        std::vector<IKTarget> targets;
-        {
-            PROFILE_RANGE_EX(simulation_animation, "ik/computeTargets", 0xffff00ff, 0);
-            computeTargets(animVars, targets, underPoses);
-        }
-
         if (targets.empty()) {
             _relativePoses = underPoses;
         } else {
+
+            if (context._enableDebugLocalIK) {
+                qDebug() << "AJT: overlay";
+            }
 
             JointChainInfoVec jointChainInfoVec(targets.size());
             {
@@ -947,7 +979,23 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
                     if (_prevJointChainInfoVec[i].timer <= 0.0f &&
                         (jointChainInfoVec[i].target.getType() != _prevJointChainInfoVec[i].target.getType() ||
                          jointChainInfoVec[i].target.getPoleVectorEnabled() != _prevJointChainInfoVec[i].target.getPoleVectorEnabled())) {
+
+                        if (context._enableDebugLocalIK) {
+                            qDebug() << "AJT:    chain changed, chain[" << i << "]";
+                        }
+
                         _prevJointChainInfoVec[i].timer = JOINT_CHAIN_INTERP_TIME;
+
+                        if (context._enableDebugLocalIK) {
+
+                            qDebug() << "AJT:    timer = " << _prevJointChainInfoVec[i].timer;
+
+                            if (jointChainInfoVec[i].target.getType() != _prevJointChainInfoVec[i].target.getType()) {
+                                qDebug() << "AJT:    type changed! to " << (int)jointChainInfoVec[i].target.getType();
+                            } else {
+                                qDebug() << "AJT:    pole vector enabled! to " << (int)jointChainInfoVec[i].target.getPoleVectorEnabled();
+                            }
+                        }
                     }
                 }
             }
@@ -1002,6 +1050,10 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
             {
                 PROFILE_RANGE_EX(simulation_animation, "ik/debugDraw", 0xffff00ff, 0);
 
+                if (context._enableDebugDrawUnderPoses) {
+                    debugDrawRelativePoses(context, underPoses);
+                }
+
                 // debug render ik targets
                 if (context.getEnableDebugDrawIKTargets()) {
                     const vec4 WHITE(1.0f);
@@ -1010,26 +1062,29 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
                     int targetNum = 0;
 
                     for (auto& target : targets) {
-                        glm::mat4 geomTargetMat = createMatFromQuatAndPos(target.getRotation(), target.getTranslation());
-                        glm::mat4 avatarTargetMat = rigToAvatarMat * context.getGeometryToRigMatrix() * geomTargetMat;
+                        // don't debug draw disabled targets.
+                        if (target.getType() != IKTarget::Type::Unknown) {
+                            glm::mat4 geomTargetMat = createMatFromQuatAndPos(target.getRotation(), target.getTranslation());
+                            glm::mat4 worldTargetMat = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix() * geomTargetMat;
 
-                        QString name = QString("ikTarget%1").arg(targetNum);
-                        DebugDraw::getInstance().addMyAvatarMarker(name, glmExtractRotation(avatarTargetMat), extractTranslation(avatarTargetMat), WHITE);
+                            QString name = QString("ikTarget%1").arg(targetNum);
+                            DebugDraw::getInstance().addMarker(name, glmExtractRotation(worldTargetMat), extractTranslation(worldTargetMat), WHITE);
+                        }
                         targetNum++;
                     }
 
                     // draw secondary ik targets
                     for (auto& iter : _secondaryTargetsInRigFrame) {
-                        glm::mat4 avatarTargetMat = rigToAvatarMat * (glm::mat4)iter.second;
+                        glm::mat4 worldTargetMat = context.getRigToWorldMatrix() * (glm::mat4)iter.second;
                         QString name = QString("ikTarget%1").arg(targetNum);
-                        DebugDraw::getInstance().addMyAvatarMarker(name, glmExtractRotation(avatarTargetMat), extractTranslation(avatarTargetMat), GREEN);
+                        DebugDraw::getInstance().addMarker(name, glmExtractRotation(worldTargetMat), extractTranslation(worldTargetMat), GREEN);
                         targetNum++;
                     }
                 } else if (context.getEnableDebugDrawIKTargets() != _previousEnableDebugIKTargets) {
                     // remove markers if they were added last frame.
                     for (int i = 0; i < MAX_TARGET_MARKERS; i++) {
                         QString name = QString("ikTarget%1").arg(i);
-                        DebugDraw::getInstance().removeMyAvatarMarker(name);
+                        DebugDraw::getInstance().removeMarker(name);
                     }
                 }
 
@@ -1041,6 +1096,10 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
 
                 setSecondaryTargets(context);
                 preconditionRelativePosesToAvoidLimbLock(context, targets);
+
+                if (context._enableDebugDrawSolutionSource) {
+                    debugDrawRelativePoses(context, _relativePoses);
+                }
 
                 solve(context, targets, dt, jointChainInfoVec);
             }
@@ -1513,8 +1572,8 @@ static glm::vec3 sphericalToCartesian(float phi, float theta) {
     return glm::vec3(sin_phi * cosf(theta), cos_phi, sin_phi * sinf(theta));
 }
 
-void AnimInverseKinematics::debugDrawRelativePoses(const AnimContext& context) const {
-    AnimPoseVec poses = _relativePoses;
+void AnimInverseKinematics::debugDrawRelativePoses(const AnimContext& context, const AnimPoseVec& relativePoses) const {
+    AnimPoseVec poses = relativePoses;
 
     // convert relative poses to absolute
     _skeleton->convertRelativePosesToAbsolute(poses);
@@ -1723,7 +1782,7 @@ void AnimInverseKinematics::blendToPoses(const AnimPoseVec& targetPoses, const A
     // relax toward poses
     int numJoints = (int)_relativePoses.size();
     for (int i = 0; i < numJoints; ++i) {
-        if (_rotationAccumulators[i].isDirty()) {
+        if (_ikBoneSetVec[i] > 0.0f) {
             // this joint is affected by IK --> blend toward the targetPoses rotation
             _relativePoses[i].rot() = safeLerp(_relativePoses[i].rot(), targetPoses[i].rot(), blendFactor);
         } else {
@@ -1828,6 +1887,28 @@ void AnimInverseKinematics::setSecondaryTargets(const AnimContext& context) {
         glm::vec3 origTrans = _relativePoses[iter.first].trans();
         _relativePoses[iter.first] = parentAbsPose.inverse() * absPose;
         _relativePoses[iter.first].trans() = origTrans;
+    }
+}
+
+void AnimInverseKinematics::initIKBoneSet(const std::vector<IKTarget>& targets) {
+
+    if (_relativePoses.size() == 0) {
+        return;
+    }
+
+    // start off all zero.
+    _ikBoneSetVec = std::vector<float>(_relativePoses.size(), 0.0f);
+
+    // set all bones affected by IK targets to 1.0.
+    for (size_t i = 0; i < targets.size(); i++) {
+        if (targets[i].getType() != IKTarget::Type::Unknown && targets[i].getType() != IKTarget::Type::RotationOnly) {
+            size_t chainDepth = (size_t)_skeleton->getChainDepth(targets[i].getIndex());
+            int index = targets[i].getIndex();
+            for (size_t j = 0; j < chainDepth; j++) {
+                _ikBoneSetVec[index] = 1.0f;
+                index = _skeleton->getParentIndex(index);
+            }
+        }
     }
 }
 

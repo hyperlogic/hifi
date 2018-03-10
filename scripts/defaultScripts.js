@@ -34,7 +34,7 @@ var DEFAULT_SCRIPTS_COMBINED = [
 ];
 var DEFAULT_SCRIPTS_SEPARATE = [
     "system/controllers/controllerScripts.js",
-    "developer/handshake.js"
+    //"developer/handshake.js"
 
     //"system/chat.js"
 ];

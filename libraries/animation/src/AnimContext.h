@@ -25,6 +25,11 @@ public:
     const glm::mat4& getGeometryToRigMatrix() const { return _geometryToRigMatrix; }
     const glm::mat4& getRigToWorldMatrix() const { return _rigToWorldMatrix; }
 
+    // AJT: HACK
+    bool _enableDebugLocalIK { false };
+    bool _enableDebugDrawSolutionSource { false };
+    bool _enableDebugDrawUnderPoses { false };
+
 protected:
 
     bool _enableDebugDrawIKTargets { false };
