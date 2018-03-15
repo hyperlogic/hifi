@@ -162,9 +162,6 @@ protected:
 
     JointChainInfoVec _prevJointChainInfoVec;
     std::vector<float> _ikBoneSetVec;
-
-    int _debugDrawChainIndex { 0 };
-    float _debugDrawChainIndexTimer { 0.0f };
 };
 
 #endif // hifi_AnimInverseKinematics_h

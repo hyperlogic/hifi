@@ -237,23 +237,12 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
     }
 
     const int MAX_IK_LOOPS = 16;
-
-    _debugDrawChainIndexTimer -= dt;
-    if (_debugDrawChainIndexTimer <= 0.0f) {
-        const float DEBUG_DRAW_CHAIN_INDEX_ANIM_TIME = 1.0f;
-        _debugDrawChainIndexTimer = DEBUG_DRAW_CHAIN_INDEX_ANIM_TIME;
-        _debugDrawChainIndex = ((_debugDrawChainIndex + 1) % MAX_IK_LOOPS) + 1;
-    }
-
-    // AJT: DRAW LAST ITERATION
-    _debugDrawChainIndex = MAX_IK_LOOPS;
-
     float maxError = 0.0f;
     int numLoops = 0;
     while (numLoops < MAX_IK_LOOPS) {
         ++numLoops;
 
-        bool debug = context.getEnableDebugDrawIKChains() && (numLoops == _debugDrawChainIndex);
+        bool debug = context.getEnableDebugDrawIKChains() && (numLoops == MAX_IK_LOOPS);
 
         // solve all targets
         for (size_t i = 0; i < targets.size(); i++) {
@@ -325,10 +314,6 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
                 _relativePoses[i].trans() = _translationAccumulators[i].getAverage();
                 _translationAccumulators[i].clear();
             }
-        }
-
-        if (numLoops == _debugDrawChainIndex) {
-            debugDrawRelativePoses(context, _relativePoses);
         }
 
         // update the absolutePoses
@@ -1030,7 +1015,7 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
             {
                 PROFILE_RANGE_EX(simulation_animation, "ik/debugDraw", 0xffff00ff, 0);
 
-                if (context._enableDebugDrawUnderPoses) {
+                if (context.getExtraDebugFlags() & AnimContext::DebugDrawUnderPosesFlag) {
                     debugDrawRelativePoses(context, underPoses);
                 }
 
@@ -1077,7 +1062,7 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
                 setSecondaryTargets(context);
                 preconditionRelativePosesToAvoidLimbLock(context, targets);
 
-                if (context._enableDebugDrawSolutionSource) {
+                if (context.getExtraDebugFlags() & AnimContext::DebugDrawSolutionSourceFlag) {
                     debugDrawRelativePoses(context, _relativePoses);
                 }
 

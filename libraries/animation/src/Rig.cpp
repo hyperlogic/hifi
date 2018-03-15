@@ -2042,9 +2042,7 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
     const bool ENABLE_DEBUG_DRAW_IK_CHAINS = true;
     AnimContext context(ENABLE_DEBUG_DRAW_IK_TARGETS, ENABLE_DEBUG_DRAW_IK_CONSTRAINTS, ENABLE_DEBUG_DRAW_IK_CHAINS,
                         getGeometryToRigTransform(), rigToWorldTransform);
-    context._enableDebugLocalIK = false;
-    context._enableDebugDrawSolutionSource = false;
-    context._enableDebugDrawUnderPoses = false;
+    context.setExtraDebugFlags(0);
     _internalPoseSet._relativePoses = _localIKNode->overlay(animVars, context, dt, triggersOut, _internalPoseSet._relativePoses);
 
     _prevPinnedJoints = pinnedJoints;
