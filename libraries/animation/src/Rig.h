@@ -373,6 +373,8 @@ protected:
     int _rigId;
 
     std::shared_ptr<AnimInverseKinematics> _localIKNode;
+
+    std::vector<std::tuple<int, glm::quat, glm::vec3>> _prevPinnedJoints;
 };
 
 #endif /* defined(__hifi__Rig__) */

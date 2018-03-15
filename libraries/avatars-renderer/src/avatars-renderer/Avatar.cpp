@@ -1820,7 +1820,7 @@ bool Avatar::pinJoint(int index, const glm::vec3& position, const glm::quat& ori
     return true;
 }
 
-bool Avatar::isJointPinned(int index) {
+bool Avatar::isJointPinned(int index) const {
     std::lock_guard<std::mutex> guard(_pinnedJointsMutex);
     auto it = find_if(_pinnedJoints.begin(), _pinnedJoints.end(), [=](const std::tuple<int, glm::quat, glm::vec3>& item) {
         return get<0>(item) == index;

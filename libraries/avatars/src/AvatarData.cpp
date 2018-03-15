@@ -2499,7 +2499,7 @@ bool AvatarData::pinJoint(int index, const glm::vec3& position, const glm::quat&
     return false;
 }
 
-bool AvatarData::isJointPinned(int index) {
+bool AvatarData::isJointPinned(int index) const {
     return false;
 }
 

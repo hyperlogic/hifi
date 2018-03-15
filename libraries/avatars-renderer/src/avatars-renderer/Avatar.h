@@ -277,7 +277,7 @@ public:
     void removeMaterial(graphics::MaterialPointer material, const std::string& parentMaterialName) override;
 
     virtual bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) override;
-    virtual bool isJointPinned(int index) override;
+    virtual bool isJointPinned(int index) const override;
     virtual bool clearPinOnJoint(int index) override;
 
     virtual scriptable::ScriptableModelBase getScriptableModel() override;
@@ -413,7 +413,7 @@ protected:
 
     void processMaterials();
 
-    std::mutex _pinnedJointsMutex;
+    mutable std::mutex _pinnedJointsMutex;
     std::vector<std::tuple<int, glm::quat, glm::vec3>> _pinnedJoints;
 };
 

@@ -130,7 +130,7 @@ public:
     glm::mat4 getControllerRightHandMatrix() const;
 
     Q_INVOKABLE bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation);
-    Q_INVOKABLE bool isJointPinned(int index);
+    Q_INVOKABLE bool isJointPinned(int index) const;
     Q_INVOKABLE bool clearPinOnJoint(int index);
 
 signals:

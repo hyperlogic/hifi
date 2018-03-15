@@ -347,7 +347,7 @@ bool ScriptAvatarData::pinJoint(int index, const glm::vec3& position, const glm:
     }
 }
 
-bool ScriptAvatarData::isJointPinned(int index) {
+bool ScriptAvatarData::isJointPinned(int index) const {
     if (AvatarSharedPointer sharedAvatarData = _avatarData.lock()) {
         return sharedAvatarData->isJointPinned(index);
     } else {

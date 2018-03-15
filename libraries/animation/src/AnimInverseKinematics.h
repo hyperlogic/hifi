@@ -51,6 +51,7 @@ public:
     void setTargetVars(const QString& jointName, const QString& positionVar, const QString& rotationVar,
                        const QString& typeVar, const QString& weightVar, float weight, const std::vector<float>& flexCoefficients,
                        const QString& poleVectorEnabledVar, const QString& poleReferenceVectorVar, const QString& poleVectorVar);
+    void clearTargetVar(const QString& jointName);
 
     virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimNode::Triggers& triggersOut) override;
     virtual const AnimPoseVec& overlay(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut, const AnimPoseVec& underPoses) override;
@@ -161,6 +162,9 @@ protected:
 
     JointChainInfoVec _prevJointChainInfoVec;
     std::vector<float> _ikBoneSetVec;
+
+    int _debugDrawChainIndex { 0 };
+    float _debugDrawChainIndexTimer { 0.0f };
 };
 
 #endif // hifi_AnimInverseKinematics_h

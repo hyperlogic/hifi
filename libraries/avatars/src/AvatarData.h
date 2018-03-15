@@ -701,7 +701,7 @@ public:
 
     // AJT: experimental
     Q_INVOKABLE virtual bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation);
-    Q_INVOKABLE virtual bool isJointPinned(int index);
+    Q_INVOKABLE virtual bool isJointPinned(int index) const;
     Q_INVOKABLE virtual bool clearPinOnJoint(int index);
 
 signals:
