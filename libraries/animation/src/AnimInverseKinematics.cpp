@@ -273,18 +273,7 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
         if (numLoops == MAX_IK_LOOPS) {
             for (size_t i = 0; i < _prevJointChainInfoVec.size(); i++) {
                 if (_prevJointChainInfoVec[i].timer > 0.0f) {
-
-                    if (context._enableDebugLocalIK) {
-                        qDebug() << "AJT: last iteration, chain[" << i << "]:";
-                        qDebug() << "AJT:    timer = " << _prevJointChainInfoVec[i].timer;
-                    }
-
                     float alpha = (JOINT_CHAIN_INTERP_TIME - _prevJointChainInfoVec[i].timer) / JOINT_CHAIN_INTERP_TIME;
-
-                    if (context._enableDebugLocalIK) {
-                        qDebug() << "AJT:    alpha = " << alpha;
-                    }
-
                     size_t chainSize = std::min(_prevJointChainInfoVec[i].jointInfoVec.size(), jointChainInfoVec[i].jointInfoVec.size());
                     for (size_t j = 0; j < chainSize; j++) {
                         jointChainInfoVec[i].jointInfoVec[j].rot = safeMix(_prevJointChainInfoVec[i].jointInfoVec[j].rot, jointChainInfoVec[i].jointInfoVec[j].rot, alpha);
@@ -298,11 +287,6 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
                         IKTarget newTarget = _prevJointChainInfoVec[i].target;
                         newTarget.setWeight((1.0f - alpha) * _prevJointChainInfoVec[i].target.getWeight());
                         jointChainInfoVec[i].target = newTarget;
-
-                        if (context._enableDebugLocalIK) {
-                            qDebug() << "AJT:    chain disabled, weight = " << newTarget.getWeight();
-                        }
-
                     }
                 }
             }
@@ -396,22 +380,12 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
     for (size_t i = 0; i < jointChainInfoVec.size(); i++) {
         _prevJointChainInfoVec[i].timer = _prevJointChainInfoVec[i].timer - dt;
         if (_prevJointChainInfoVec[i].timer <= 0.0f) {
-
-            if (context._enableDebugLocalIK) {
-                qDebug() << "AJT: copy into _prev, chain[" << i << "]:, timer = " << _prevJointChainInfoVec[i].timer;
-            }
-
             _prevJointChainInfoVec[i] = jointChainInfoVec[i];
             _prevJointChainInfoVec[i].target = targets[i];
             // store relative poses into unknown/rotation only joint chains.
             // so we have something to interpolate from if this chain is activated.
             IKTarget::Type type = _prevJointChainInfoVec[i].target.getType();
             if (type == IKTarget::Type::Unknown || type == IKTarget::Type::RotationOnly) {
-
-                if (context._enableDebugLocalIK) {
-                    qDebug() << "AJT:    <-- relative poses" << _prevJointChainInfoVec[i].timer;
-                }
-
                 for (size_t j = 0; j < _prevJointChainInfoVec[i].jointInfoVec.size(); j++) {
                     auto& info = _prevJointChainInfoVec[i].jointInfoVec[j];
                     if (info.jointIndex >= 0) {
@@ -456,6 +430,7 @@ void AnimInverseKinematics::solveTargetWithCCD(const AnimContext& context, const
     // the tip's parent-relative as we proceed up the chain
     glm::quat tipParentOrientation = absolutePoses[pivotIndex].rot();
 
+    // AJT: REMOVE THIS CODE?
     // NOTE: if this code is removed, the head will remain rigid, causing the spine/hips to thrust forward backward
     // as the head is nodded.
     if (targetType == IKTarget::Type::HmdHead ||
@@ -475,8 +450,6 @@ void AnimInverseKinematics::solveTargetWithCCD(const AnimContext& context, const
         RotationConstraint* constraint = getConstraint(tipIndex);
         bool constrained = false;
 
-        // AJT: DISABLE, perhaps this is incorrect
-        /*
         if (constraint) {
             constrained = constraint->apply(tipRelativeRotation);
             if (constrained) {
@@ -484,7 +457,6 @@ void AnimInverseKinematics::solveTargetWithCCD(const AnimContext& context, const
                 tipRelativeRotation = tipRelativeRotation;
             }
         }
-        */
 
         glm::vec3 tipRelativeTranslation = _relativePoses[target.getIndex()].trans();
         jointChainInfoOut.jointInfoVec[chainDepth] = { tipRelativeRotation, tipRelativeTranslation, tipIndex, constrained };
@@ -535,6 +507,8 @@ void AnimInverseKinematics::solveTargetWithCCD(const AnimContext& context, const
             if (axisLength > MIN_AXIS_LENGTH) {
                 // compute angle of rotation that brings tip closer to target
                 axis /= axisLength;
+
+                // AJT: DISABLE THIS CODE?
                 float cosAngle = glm::clamp(glm::dot(leverArm, targetLine) / (glm::length(leverArm) * glm::length(targetLine)), -1.0f, 1.0f);
                 float angle = acosf(cosAngle);
                 const float MIN_ADJUSTMENT_ANGLE = 1.0e-4f;
@@ -549,8 +523,6 @@ void AnimInverseKinematics::solveTargetWithCCD(const AnimContext& context, const
                     // make to achieve its target orientation.
                     glm::quat tipRelativeRotation = glm::inverse(deltaRotation * tipParentOrientation) * target.getRotation();
 
-                    // AJT: DISABLE
-                    /*
                     // enforce tip's constraint
                     RotationConstraint* constraint = getConstraint(tipIndex);
                     if (constraint) {
@@ -568,7 +540,6 @@ void AnimInverseKinematics::solveTargetWithCCD(const AnimContext& context, const
                             deltaRotation = safeLerp(glm::quat(), twistPart, LIMIT_LEAK_FRACTION);
                         }
                     }
-                    */
                 }
             }
         } else if (targetType == IKTarget::Type::HmdHead) {
@@ -585,27 +556,12 @@ void AnimInverseKinematics::solveTargetWithCCD(const AnimContext& context, const
                                           deltaRotation *
                                           absolutePoses[pivotIndex].rot());
 
-        glm::quat AJT_TEMP = newRot;
-
         // enforce pivot's constraint
         RotationConstraint* constraint = getConstraint(pivotIndex);
         bool constrained = false;
         if (constraint) {
             constrained = constraint->apply(newRot);
-            if (constrained && debug) {
-
-                // AJT: debug right elbow!
-                QString jointName = _skeleton->getJointName(pivotIndex);
-                if (jointName == "RightForeArm") {
-                    ElbowConstraint* eConstraint = dynamic_cast<ElbowConstraint*>(constraint);
-                    if (eConstraint) {
-                        eConstraint->debugMe();
-                        constraint->apply(AJT_TEMP);
-                    } else {
-                        qDebug() << "AJT: WTF NOT ELBOW!!!";
-                    }
-                }
-
+            if (constrained) {
                 // the constraint will modify the local rotation of the tip so we must
                 // compute the corresponding model-frame deltaRotation
                 // Q' = Qp^ * dQ * Q  -->  dQ =   Qp * Q' * Q^
@@ -984,8 +940,7 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
             std::map<int, RotationConstraint*>::iterator constraintItr = _constraints.begin();
             while (constraintItr != _constraints.end()) {
                 int index = constraintItr->first;
-                // AJT: DISABLE THIS TO DETERMINE IF THIS IS THE CAUSE OF HAND GLITCHES (IT IS NOT)
-                //constraintItr->second->dynamicallyAdjustLimits(underPoses[index].rot());
+                constraintItr->second->dynamicallyAdjustLimits(underPoses[index].rot());
                 ++constraintItr;
             }
         }
@@ -996,11 +951,6 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
         if (targets.empty()) {
             _relativePoses = underPoses;
         } else {
-
-            if (context._enableDebugLocalIK) {
-                qDebug() << "AJT: overlay";
-            }
-
             JointChainInfoVec jointChainInfoVec(targets.size());
             {
                 PROFILE_RANGE_EX(simulation_animation, "ik/jointChainInfo", 0xffff00ff, 0);
@@ -1025,23 +975,7 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
                     if (_prevJointChainInfoVec[i].timer <= 0.0f &&
                         (jointChainInfoVec[i].target.getType() != _prevJointChainInfoVec[i].target.getType() ||
                          jointChainInfoVec[i].target.getPoleVectorEnabled() != _prevJointChainInfoVec[i].target.getPoleVectorEnabled())) {
-
-                        if (context._enableDebugLocalIK) {
-                            qDebug() << "AJT:    chain changed, chain[" << i << "]";
-                        }
-
                         _prevJointChainInfoVec[i].timer = JOINT_CHAIN_INTERP_TIME;
-
-                        if (context._enableDebugLocalIK) {
-
-                            qDebug() << "AJT:    timer = " << _prevJointChainInfoVec[i].timer;
-
-                            if (jointChainInfoVec[i].target.getType() != _prevJointChainInfoVec[i].target.getType()) {
-                                qDebug() << "AJT:    type changed! to " << (int)jointChainInfoVec[i].target.getType();
-                            } else {
-                                qDebug() << "AJT:    pole vector enabled! to " << (int)jointChainInfoVec[i].target.getPoleVectorEnabled();
-                            }
-                        }
                     }
                 }
             }
@@ -1517,8 +1451,7 @@ void AnimInverseKinematics::initConstraints() {
             }
             eConstraint->setAngleLimits(minAngle, maxAngle);
 
-            // AJT: DISABLE KNEE JOINT, TO ISOLATE ELBOW JOINT
-            //constraint = static_cast<RotationConstraint*>(eConstraint);
+            constraint = static_cast<RotationConstraint*>(eConstraint);
         } else if (0 == baseName.compare("Foot", Qt::CaseSensitive)) {
             SwingTwistConstraint* stConstraint = new SwingTwistConstraint();
             stConstraint->setReferenceRotation(_defaultRelativePoses[i].rot());

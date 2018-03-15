@@ -1035,7 +1035,7 @@ void Rig::updateAnimations(float deltaTime, const glm::mat4& rootTransform, cons
         updateAnimationStateHandlers();
         _animVars.setRigToGeometryTransform(_rigToGeometryTransform);
 
-        // AJT: 10cm in z and y direction.
+        // AJT: 10cm in z and y direction, to workaround avatar hide bug.
         glm::mat4 offsetMat = createMatFromQuatAndPos(glm::quat(), glm::vec3(0.0f, 0.1f, 0.1f));
 
         AnimContext context(_enableDebugDrawIKTargets, _enableDebugDrawIKConstraints, _enableDebugDrawIKChains,
