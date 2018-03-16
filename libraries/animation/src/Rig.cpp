@@ -2058,7 +2058,7 @@ void Rig::performInverseKinematicsFromPinnedJoints(const std::vector<std::tuple<
     }
 
     AnimNode::Triggers triggersOut;
-    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = true;
+    const bool ENABLE_DEBUG_DRAW_IK_TARGETS = false;
     const bool ENABLE_DEBUG_DRAW_IK_CONSTRAINTS = false;
     const bool ENABLE_DEBUG_DRAW_IK_CHAINS = true;
     AnimContext context(ENABLE_DEBUG_DRAW_IK_TARGETS, ENABLE_DEBUG_DRAW_IK_CONSTRAINTS, ENABLE_DEBUG_DRAW_IK_CHAINS,
