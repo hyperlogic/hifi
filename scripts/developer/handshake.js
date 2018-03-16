@@ -14,6 +14,7 @@
     var USE_LOCAL_IK = true;
     var USE_STATIC_HAND_OFFSET = false;
     var USE_HAPTICS = true;
+    var ALLOW_LIMB_GRABBING = false;
 
     //
     // tablet app boiler plate
@@ -192,25 +193,31 @@
     var clapSound = new SoundBuddy(CLAP_SOUND);
 
     var GRABBABLE_JOINT_NAMES = [
-        "Hips",
-        "RightUpLeg",
-        "RightLeg",
-        "RightFoot",
-        "LeftUpLeg",
-        "LeftLeg",
-        "LeftFoot",
-        "Spine2",
-        "Neck",
-        "Head",
-        "RightShoulder",
-        "RightArm",
-        "RightForeArm",
         "RightHand",
-        "LeftShoulder",
-        "LeftArm",
-        "LeftForeArm",
         "LeftHand"
     ];
+    if (ALLOW_LIMB_GRABBING) {
+        GRABBABLE_JOINT_NAMES = GRABBABLE_JOINT_NAMES.concat([
+            "Hips",
+            "RightUpLeg",
+            "RightLeg",
+            "RightFoot",
+            "LeftUpLeg",
+            "LeftLeg",
+            "LeftFoot",
+            "Spine2",
+            "Neck",
+            "Head",
+            "RightShoulder",
+            "RightArm",
+            "RightForeArm",
+            "RightHand",
+            "LeftShoulder",
+            "LeftArm",
+            "LeftForeArm",
+            "LeftHand"
+        ]);
+    }
 
     // ctor
     function GrabbableJointScanner(addAvatarCb, updateAvatarCb, removeAvatarCb) {
