@@ -264,6 +264,7 @@ protected:
 
     glm::mat4 _geometryToRigTransform;
     glm::mat4 _rigToGeometryTransform;
+    glm::mat4 _rigToWorldTransform;  // AJT: REMOVE for debugging
 
     int _rootJointIndex { -1 };
 

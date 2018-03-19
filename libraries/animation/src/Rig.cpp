@@ -1048,6 +1048,8 @@ void Rig::updateAnimations(float deltaTime, const glm::mat4& rootTransform, cons
         AnimContext context(_enableDebugDrawIKTargets, _enableDebugDrawIKConstraints, _enableDebugDrawIKChains,
                             getGeometryToRigTransform(), rigToWorldTransform);
 
+        _rigToWorldTransform = rigToWorldTransform;  // AJT: REMOVE
+
         // evaluate the animation
         AnimNode::Triggers triggersOut;
 
@@ -1466,6 +1468,7 @@ static glm::quat quatLerp(const glm::quat& q1, const glm::quat& q2, float alpha)
 }
 
 glm::vec3 Rig::calculateElbowPoleVector(int handIndex, int elbowIndex, int armIndex, int hipsIndex, bool isLeft) const {
+
     AnimPose hipsPose = _externalPoseSet._absolutePoses[hipsIndex];
     AnimPose handPose = _externalPoseSet._absolutePoses[handIndex];
     AnimPose elbowPose = _externalPoseSet._absolutePoses[elbowIndex];
@@ -1496,6 +1499,71 @@ glm::vec3 Rig::calculateElbowPoleVector(int handIndex, int elbowIndex, int armIn
     glm::quat elbowToHandDelta = handPose.rot() * glm::inverse(elbowPose.rot());
     const float WRIST_POLE_ADJUST_FACTOR = 0.5f;
     glm::quat poleAdjust = quatLerp(Quaternions::IDENTITY, elbowToHandDelta, WRIST_POLE_ADJUST_FACTOR);
+
+    //
+    // new heurstic
+    //
+
+    {
+        float sign = isLeft ? 1.0f : -1.0f;
+        const float CONE_ANGLE = PI / 3.0f;
+        glm::vec3 n = hipsPose.rot() * (sign * Vectors::UNIT_X);
+        glm::vec3 u = hipsPose.rot() * Vectors::UNIT_Y;
+        glm::vec3 v = glm::cross(n, u);
+
+        glm::vec3 h = glm::normalize(handPose.trans() - armPose.trans());
+
+        // project h onto cone formed by n and CONE_THETA, then rotate 90 degrees about the cone axis.
+        float phi = acosf(glm::dot(h, n));
+        float theta = atan2f(glm::dot(h, u), glm::dot(h, v)) - sign * PI / 2.0f;
+        float uu = sinf(CONE_ANGLE) * sinf(theta);
+        float vv = sinf(CONE_ANGLE) * cosf(theta);
+        float nn = cosf(CONE_ANGLE);
+
+        glm::vec3 coneVector = u * uu + v * vv + n * nn;
+
+        if (false) {
+            DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, armPose.trans()),
+                                             transformPoint(_rigToWorldTransform, armPose.trans() + n),
+                                             glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+            DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, armPose.trans()),
+                                             transformPoint(_rigToWorldTransform, armPose.trans() + u),
+                                             glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+            DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, armPose.trans()),
+                                                      transformPoint(_rigToWorldTransform, armPose.trans() + v),
+                                                      glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+
+            DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, armPose.trans()),
+                                             transformPoint(_rigToWorldTransform, armPose.trans() + coneVector),
+                                             glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+            DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, armPose.trans()),
+                                             transformPoint(_rigToWorldTransform, armPose.trans() + h),
+                                             glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        }
+
+        const glm::vec3 OUTWARD_PALM_OFFSET = -0.25f * Vectors::UNIT_Z;
+        glm::vec3 d = handPose.rot() * glm::normalize(sign * Vectors::UNIT_X + OUTWARD_PALM_OFFSET);
+
+        float alpha = glm::clamp(phi / CONE_ANGLE, 0.0f, 1.0f);
+
+        if (false) {
+            DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, armPose.trans()),
+                                             transformPoint(_rigToWorldTransform, armPose.trans() + d),
+                                             glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+            DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, handPose.trans()),
+                                             transformPoint(_rigToWorldTransform, handPose.trans() + d),
+                                             glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        }
+
+        glm::vec3 result = lerp(d, coneVector, alpha);
+
+        DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, handPose.trans()),
+                                         transformPoint(_rigToWorldTransform, handPose.trans() + result),
+                                         glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        return result;
+    }
 
     return glm::normalize(poleAdjust * poleVector);
 }
