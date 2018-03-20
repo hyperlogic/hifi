@@ -1562,7 +1562,10 @@ glm::vec3 Rig::calculateElbowPoleVector(int handIndex, int elbowIndex, int armIn
         DebugDraw::getInstance().drawRay(transformPoint(_rigToWorldTransform, handPose.trans()),
                                          transformPoint(_rigToWorldTransform, handPose.trans() + result),
                                          glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-        return result;
+
+        if (_useNewElbowModel) {
+            return result;
+        }
     }
 
     return glm::normalize(poleAdjust * poleVector);

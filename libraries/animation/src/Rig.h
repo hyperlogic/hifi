@@ -217,6 +217,9 @@ public:
     // input assumed to be in rig space
     void computeHeadFromHMD(const AnimPose& hmdPose, glm::vec3& headPositionOut, glm::quat& headOrientationOut) const;
 
+    // AJT: HACK REMOVE
+    bool _useNewElbowModel { false };
+
 signals:
     void onLoadComplete();
 

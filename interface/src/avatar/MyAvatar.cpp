@@ -1114,7 +1114,10 @@ void MyAvatar::setEnableDebugDrawIKChains(bool isEnabled) {
 }
 
 void MyAvatar::setEnableMeshVisible(bool isEnabled) {
-    _skeletonModel->setVisibleInScene(isEnabled, qApp->getMain3DScene(), render::ItemKey::TAG_BITS_NONE, true);
+    // AJT: HACK.
+    _skeletonModel->getRig()._useNewElbowModel = isEnabled;
+
+    //_skeletonModel->setVisibleInScene(isEnabled, qApp->getMain3DScene(), render::ItemKey::TAG_BITS_NONE, true);
 }
 
 void MyAvatar::setEnableInverseKinematics(bool isEnabled) {
