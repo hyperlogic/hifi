@@ -102,10 +102,7 @@
     var HAPTIC_PULSE_FIRST_DURATION = 16.0;
     var HAPTIC_PULSE_DISTANCE = 0.01;  // 1 cm
 
-    var HAPTIC_PULSE_MIN_STRENGTH = 0.3;
     var HAPTIC_PULSE_MAX_STRENGTH = 0.5;
-    var HAPTIC_PULSE_MIN_DISTANCE = 0.1;
-    var HAPTIC_PULSE_MAX_DISTANCE = 0.5;
 
     // used by GrabLink
     var HAPTIC_PULSE_STRENGTH = 1.0;
@@ -182,6 +179,9 @@
     // key is {avatarId: uuid, jointName: string};
     // state element of {alone, leader, follower, peer, reject}
     function GrabLink(myKey, otherKey) {
+
+        print("AJT: new GrabLink(" + this.myKey.jointName + ", " + JSON.stringify(this.otherKey) + ")");
+
         this.myKey = myKey;
         this.otherKey = otherKey;
         this.state = "alone";
@@ -269,7 +269,7 @@
     GrabLink.prototype.changeState = function (newState) {
         if (this.state !== newState) {
 
-            print("AJT: GrabLink: myJoint = " + this.myKey.jointName + ", otherKey = " + JSON.stringify(this.otherKey) + ", (" + this.state + " -> " + newState + ")");
+            print("AJT: GrabLink(" + this.myKey.jointName + ", " + JSON.stringify(this.otherKey) + "), changeState " + this.state + " -> " + newState);
 
             // exit the old state
             this.states[this.state].exit.apply(this);
