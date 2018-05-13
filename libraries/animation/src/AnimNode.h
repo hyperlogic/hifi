@@ -45,6 +45,8 @@ public:
         Manipulator,
         InverseKinematics,
         DefaultPose,
+        TwoBoneIK,
+        SplineIK,
         NumTypes
     };
     using Pointer = std::shared_ptr<AnimNode>;
