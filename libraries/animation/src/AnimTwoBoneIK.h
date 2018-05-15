@@ -18,7 +18,9 @@ class AnimTwoBoneIK : public AnimNode {
 public:
     friend class AnimTests;
 
-    AnimTwoBoneIK(const QString& id, float alpha);
+    AnimTwoBoneIK(const QString& id, float alpha, const QString& alphaVar,
+                  const QString& baseJointName, const QString& midJointName, const QString& tipJointName,
+                  const QString& endEffectorRotationVar, const QString& endEffectorPositionVar);
     virtual ~AnimTwoBoneIK() override;
 
     virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut) override;
@@ -32,13 +34,16 @@ protected:
 
     AnimPoseVec _poses;
 
-    QString _baseBoneName;
-    QString _midBoneName;
-    QString _tipBoneName;
+    float _alpha;
+    QString _alphaVar;
 
-    int _baseBoneIndex { -1 };
-    int _midBoneIndex { -1 };
-    int _tipBoneIndex { -1 };
+    QString _baseJointName;
+    QString _midJointName;
+    QString _tipJointName;
+
+    int _baseJointIndex { -1 };
+    int _midJointIndex { -1 };
+    int _tipJointIndex { -1 };
 
     QString _endEffectorRotationVar;
     QString _endEffectorPositionVar;
