@@ -9,13 +9,27 @@
 //
 
 #include "AnimTwoBoneIK.h"
+
+#include <DebugDraw.h>
+
 #include "AnimationLogging.h"
 #include "AnimUtil.h"
 
-AnimTwoBoneIK::AnimTwoBoneIK(const QString& id, float alpha) :
-    AnimNode(AnimNode::Type::TwoBoneIK, id) {
+AnimTwoBoneIK::AnimTwoBoneIK(const QString& id, float alpha, const QString& alphaVar,
+                             const QString& baseJointName, const QString& midJointName, const QString& tipJointName,
+                             const QString& endEffectorRotationVar, const QString& endEffectorPositionVar) :
+    AnimNode(AnimNode::Type::TwoBoneIK, id),
+    _alpha(alpha),
+    _alphaVar(alphaVar),
+    _baseJointName(baseJointName),
+    _midJointName(midJointName),
+    _tipJointName(tipJointName),
+    _endEffectorRotationVar(endEffectorRotationVar),
+    _endEffectorPositionVar(endEffectorPositionVar)
+{
 
 }
+
 
 AnimTwoBoneIK::~AnimTwoBoneIK() {
 
@@ -23,29 +37,46 @@ AnimTwoBoneIK::~AnimTwoBoneIK() {
 
 const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut) {
 
+    assert(_children.size() == 1);
+    if (_children.size() != 1) {
+        return _poses;
+    }
+
     // evalute underPoses
     AnimPoseVec underPoses = _children[0]->evaluate(animVars, context, dt, triggersOut);
 
+    // if we don't have a skeleton, or jointName lookup failed.
+    if (!_skeleton || _baseJointIndex == -1 || _midJointIndex == -1 || _tipJointIndex == -1 || underPoses.size() == 0) {
+        // pass underPoses through unmodified.
+        _poses = underPoses;
+        return _poses;
+    }
+
+    // AJT: TODO use alpha.
+    float alpha = animVars.lookup(_alphaVar, _alpha);
+
     // don't perform IK if we have bad indices.
-    if (_tipBoneIndex == -1 || _midBoneIndex == -1 || _baseBoneIndex == -1) {
+    if (_tipJointIndex == -1 || _midJointIndex == -1 || _baseJointIndex == -1) {
         _poses = underPoses;
         return underPoses;
     }
 
     // get default tip pose from underPoses (geom space)
-    AnimPose absTipUnderPose = _skeleton->getAbsolutePose(_tipBoneIndex, underPoses);
+    AnimPose absTipUnderPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
 
     // look up end effector from animVars, make sure to convert into geom space.
     AnimPose absTipPose(animVars.lookupRigToGeometry(_endEffectorRotationVar, absTipUnderPose.rot()),
                         animVars.lookupRigToGeometry(_endEffectorPositionVar, absTipUnderPose.trans()));
 
     // get default mid and base poses from underPoses (geom space)
-    AnimPose absMidPose = _skeleton->getAbsolutePose(_midBoneIndex, underPoses);
-    AnimPose absBasePose = _skeleton->getAbsolutePose(_baseBoneIndex, underPoses);
+    AnimPose absMidPose = _skeleton->getAbsolutePose(_midJointIndex, underPoses);
+    AnimPose absBasePose = _skeleton->getAbsolutePose(_baseJointIndex, underPoses);
 
-    float r0 = glm::length(underPoses[_baseBoneIndex].trans());
-    float r1 = glm::length(underPoses[_midBoneIndex].trans());
+    float r0 = glm::length(underPoses[_baseJointIndex].trans());
+    float r1 = glm::length(underPoses[_midJointIndex].trans());
     float d = glm::length(absTipPose.trans() - absBasePose.trans());
+
+    //qDebug() << "AJT: r0 = " << r0 << ", r1 = " << r1 << ", d = " << d;
 
     glm::vec3 newMidPos;
     if (d > r0 + r1) {
@@ -61,13 +92,23 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         float x = (d * d - r1 * r1 + r0 * r0) / (2.0f * d);
         float y = sqrtf((-d + r1 - r0) * (-d - r1 + r0) * (-d + r1 + r0) * (-d + r1 + r0)) / (2.0f * d);
 
+
+        //qDebug() << "AJT: x = " << x << ", y = " << y;
+
         // convert (x, y) back into geom space using the u, v axes.
         newMidPos = u * x + v * y + absBasePose.trans();
     }
 
-    // TODO: debug draw.
+    // AJT: TODO: REMOVE: debug draw.
+    glm::mat4 geomToWorld = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
+    glm::vec3 basePos = transformPoint(geomToWorld, absBasePose.trans());
+    glm::vec3 midPos = transformPoint(geomToWorld, newMidPos);
+    glm::vec3 tipPos = transformPoint(geomToWorld, absTipPose.trans());
+    DebugDraw::getInstance().drawRay(basePos, midPos, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    DebugDraw::getInstance().drawRay(midPos, tipPos, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
 
-    return underPoses;
+    _poses = underPoses;
+    return _poses;
 }
 
 // for AnimDebugDraw rendering
@@ -84,18 +125,18 @@ void AnimTwoBoneIK::lookUpIndices() {
     assert(_skeleton);
 
     // look up bone indices by name in AnimSkeleton
-    _baseBoneIndex = _skeleton->nameToJointIndex(_baseBoneName);
-    _midBoneIndex = _skeleton->nameToJointIndex(_midBoneName);
-    _tipBoneIndex = _skeleton->nameToJointIndex(_tipBoneName);
+    _baseJointIndex = _skeleton->nameToJointIndex(_baseJointName);
+    _midJointIndex = _skeleton->nameToJointIndex(_midJointName);
+    _tipJointIndex = _skeleton->nameToJointIndex(_tipJointName);
 
     // issue a warning if bones are not found in skeleton
-    if (_baseBoneIndex == -1) {
-        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find base-bone with name" << _baseBoneName;
+    if (_baseJointIndex == -1) {
+        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find base-bone with name" << _baseJointName;
     }
-    if (_midBoneIndex == -1) {
-        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find mid-bone with name" << _midBoneName;
+    if (_midJointIndex == -1) {
+        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find mid-bone with name" << _midJointName;
     }
-    if (_tipBoneIndex == -1) {
-        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find tip-bone with name" << _tipBoneName;
+    if (_tipJointIndex == -1) {
+        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find tip-bone with name" << _tipJointName;
     }
 }

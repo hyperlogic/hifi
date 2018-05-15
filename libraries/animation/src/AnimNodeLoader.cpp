@@ -25,6 +25,8 @@
 #include "AnimManipulator.h"
 #include "AnimInverseKinematics.h"
 #include "AnimDefaultPose.h"
+#include "AnimTwoBoneIK.h"
+#include "AnimSplineIK.h"
 
 using NodeLoaderFunc = AnimNode::Pointer (*)(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 using NodeProcessFunc = bool (*)(AnimNode::Pointer node, const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
@@ -38,6 +40,8 @@ static AnimNode::Pointer loadStateMachineNode(const QJsonObject& jsonObj, const 
 static AnimNode::Pointer loadManipulatorNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadDefaultPoseNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
+static AnimNode::Pointer loadTwoBoneIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
+static AnimNode::Pointer loadSplineIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 
 static const float ANIM_GRAPH_LOAD_PRIORITY = 10.0f;
 
@@ -56,6 +60,8 @@ static const char* animNodeTypeToString(AnimNode::Type type) {
     case AnimNode::Type::Manipulator: return "manipulator";
     case AnimNode::Type::InverseKinematics: return "inverseKinematics";
     case AnimNode::Type::DefaultPose: return "defaultPose";
+    case AnimNode::Type::TwoBoneIK: return "twoBoneIK";
+    case AnimNode::Type::SplineIK: return "splineIK";
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -116,6 +122,8 @@ static NodeLoaderFunc animNodeTypeToLoaderFunc(AnimNode::Type type) {
     case AnimNode::Type::Manipulator: return loadManipulatorNode;
     case AnimNode::Type::InverseKinematics: return loadInverseKinematicsNode;
     case AnimNode::Type::DefaultPose: return loadDefaultPoseNode;
+    case AnimNode::Type::TwoBoneIK: return loadTwoBoneIKNode;
+    case AnimNode::Type::SplineIK: return loadSplineIKNode;
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -131,6 +139,8 @@ static NodeProcessFunc animNodeTypeToProcessFunc(AnimNode::Type type) {
     case AnimNode::Type::Manipulator: return processDoNothing;
     case AnimNode::Type::InverseKinematics: return processDoNothing;
     case AnimNode::Type::DefaultPose: return processDoNothing;
+    case AnimNode::Type::TwoBoneIK: return processDoNothing;
+    case AnimNode::Type::SplineIK: return processDoNothing;
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -527,6 +537,26 @@ AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QS
 }
 
 static AnimNode::Pointer loadDefaultPoseNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
+    auto node = std::make_shared<AnimDefaultPose>(id);
+    return node;
+}
+
+static AnimNode::Pointer loadTwoBoneIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
+    READ_FLOAT(alpha, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(alphaVar, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(baseJointName, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(midJointName, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(tipJointName, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(endEffectorRotationVar, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(endEffectorPositionVar, jsonObj, id, jsonUrl, nullptr);
+
+    auto node = std::make_shared<AnimTwoBoneIK>(id, alpha, alphaVar, baseJointName, midJointName, tipJointName,
+                                                endEffectorRotationVar, endEffectorPositionVar);
+    return node;
+}
+
+static AnimNode::Pointer loadSplineIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
+    // AJT: TODO FIXME
     auto node = std::make_shared<AnimDefaultPose>(id);
     return node;
 }
