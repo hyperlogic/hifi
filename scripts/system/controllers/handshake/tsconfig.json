@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "none",
+        "watch": true,
+        "lib": ["es5"]
+    },
+    "files": [
+        "handshake.ts"
+    ],
+    "include": [
+        "handshakeHifiStub.d.ts"
+    ]
+}
