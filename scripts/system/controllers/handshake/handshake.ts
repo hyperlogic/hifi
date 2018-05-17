@@ -8,9 +8,6 @@
 
     Script.include("/~/system/libraries/Xform.js");
 
-    // helper
-    var AJT_SOLO_DEBUG = false;
-    var AJT_SOLO_DEBUG_TIME = 10.0;
     var ALLOW_LIMB_GRABBING = false;
 
     // globals transmitted to and from web app
@@ -719,13 +716,6 @@
             var myOtherXform = Xform.mul(otherXform, this.relXform);
             var myTargetXform = tweenXform(myXform, myOtherXform, blendFactor);
             this.pinJoint(this.myKey, this.myJointInfo, myTargetXform);
-
-            if (AJT_SOLO_DEBUG && this.timeInState > AJT_SOLO_DEBUG_TIME) {
-                print("AJT: fake a trigger press");
-                // fake a trigger press
-                this.triggerPress();
-            }
-
             var distance = Vec3.distance(myXform.pos, myTargetXform.pos);
 
             this.updateRejectHaptics();
@@ -779,12 +769,6 @@
 
             this.updateStressHaptics();
 
-            if (AJT_SOLO_DEBUG && this.timeInState > AJT_SOLO_DEBUG_TIME) {
-                print("AJT: fake a trigger release");
-                // fake a trigger release
-                this.triggerRelease();
-            }
-
             if (Vec3.distance(myXform.pos, myTargetXform.pos) > REJECT_DISTANCE) {
                 this.sendRejectMessage();
                 this.reject();
@@ -831,13 +815,6 @@
             var otherMyXform = Xform.mul(myXform, this.relXform.inv());
             var otherTargetXform = tweenXform(otherMyXform, otherXform, blendFactor);
             this.pinJoint(this.otherKey, this.otherJointInfo, otherTargetXform);
-
-            if (AJT_SOLO_DEBUG && this.timeInState > AJT_SOLO_DEBUG_TIME) {
-                print("AJT: fake a trigger release");
-                // fake a trigger release
-                this.triggerRelease();
-            }
-
             this.updateRejectHaptics();
 
             // AJT: TODO: should we reject?
