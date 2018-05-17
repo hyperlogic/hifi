@@ -490,7 +490,7 @@
         }
 
         playClap(): void {
-            clapSound.play({position: this.myJointInfo.jointPos, loop: false, localOnly: true});
+            clapSound.play({position: this.myJointInfo.jointPos, loop: false});
         }
 
         getHapticBuddy(): HapticBuddy {
@@ -695,7 +695,6 @@
                 this.sendReleaseMessage();
             } else if (this.state === "alone") {
                 // AJT_G: alone -> follower
-                this.playClap();
                 this.hapticPulse();
                 this.disableControllerDispatcher();
             } else {
@@ -1162,11 +1161,11 @@
 
             print("AJT: messageHandler, msg = " + message);
 
-            var obj = JSON.parse(message);
+            var obj: GrabMessage = JSON.parse(message);
             if (obj.receiver === MyAvatar.sessionUUID) {
                 var myKey = {avatarId: MyAvatar.SELF_ID, jointName: obj.grabbedJoint};
                 var otherKey = {avatarId: sender, jointName: obj.grabbingJoint};
-                var grabLink;
+                var grabLink: GrabLink;
                 if (obj.type === "grab") {
                     grabLink = GrabLink.findOrCreateLink(myKey, otherKey);
                     var relXform = new Xform(obj.relXform.rot, obj.relXform.pos);
@@ -1186,6 +1185,8 @@
                         print("AJT: WARNING, messageHandler() reject, could not find gripLink for " + obj.grabbedJoint);
                     }
                 }
+            } else {
+                // AJT: TODO: two other avatars are grabbing each other.
             }
         }
     }

@@ -399,7 +399,7 @@
             Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
         };
         GrabLink.prototype.playClap = function () {
-            clapSound.play({ position: this.myJointInfo.jointPos, loop: false, localOnly: true });
+            clapSound.play({ position: this.myJointInfo.jointPos, loop: false });
         };
         GrabLink.prototype.getHapticBuddy = function () {
             if (this.myKey.jointName === "RightHand") {
@@ -583,7 +583,6 @@
             }
             else if (this.state === "alone") {
                 // AJT_G: alone -> follower
-                this.playClap();
                 this.hapticPulse();
                 this.disableControllerDispatcher();
             }
@@ -1029,6 +1028,9 @@
                         print("AJT: WARNING, messageHandler() reject, could not find gripLink for " + obj.grabbedJoint);
                     }
                 }
+            }
+            else {
+                // AJT: TODO: two other avatars are grabbing each other.
             }
         }
     }
