@@ -224,9 +224,9 @@
     // It has an internal state machine to keep track of when to enable/disable IK and play sound effects.
     // state element of {alone, leader, follower, peer, reject}
     class GrabLink {
-        static grabLinkMapMap: { [myJointName: string]: { [otherJointName: string]: GrabLink } };
-        static rightControllerDispatcherEnabled: boolean;
-        static leftControllerDispatcherEnabled: boolean;
+        static grabLinkMapMap: { [myJointName: string]: { [otherJointName: string]: GrabLink } } = {};
+        static rightControllerDispatcherEnabled: boolean = false;
+        static leftControllerDispatcherEnabled: boolean = false;
 
         protected myKey: GrabKey;
         protected otherKey: GrabKey;

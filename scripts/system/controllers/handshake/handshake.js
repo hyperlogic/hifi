@@ -740,6 +740,9 @@
         GrabLink.prototype.rejectExit = function () {
             // do nothing
         };
+        GrabLink.grabLinkMapMap = {};
+        GrabLink.rightControllerDispatcherEnabled = false;
+        GrabLink.leftControllerDispatcherEnabled = false;
         return GrabLink;
     }());
     var GRABBABLE_JOINT_NAMES = [

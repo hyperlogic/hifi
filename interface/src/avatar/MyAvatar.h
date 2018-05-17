@@ -769,24 +769,6 @@ public:
     virtual void clearJointsData() override;
 
     /**jsdoc
-     * @function MyAvatar.pinJoint
-     * @param {number} index
-     * @param {Vec3} position
-     * @param {Quat} orientation
-     * @returns {boolean}
-     */
-    Q_INVOKABLE bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation);
-
-    bool isJointPinned(int index);
-
-    /**jsdoc
-     * @function MyAvatar.clearPinOnJoint
-     * @param {number} index
-     * @returns {boolean} 
-     */
-    Q_INVOKABLE bool clearPinOnJoint(int index);
-
-    /**jsdoc
      * @function MyAvatar.getIKErrorOnLastSolve
      * @returns {number} 
      */

@@ -361,9 +361,28 @@ public:
 
     virtual scriptable::ScriptableModelBase getScriptableModel() override;
 
-    virtual bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) override;
-    virtual bool isJointPinned(int index) const override;
-    virtual bool clearPinOnJoint(int index) override;
+    /**jsdoc
+     * @function MyAvatar.pinJoint
+     * @param {number} index
+     * @param {Vec3} position
+     * @param {Quat} orientation
+     * @returns {boolean}
+     */
+    Q_INVOKABLE virtual bool pinJoint(int index, const glm::vec3& position, const glm::quat& orientation) override;
+
+    /**jsdoc
+     * @function MyAvatar.isJointPinned
+     * @param {number} index
+     * @returns {boolean}
+     */
+    Q_INVOKABLE virtual bool isJointPinned(int index) const override;
+
+    /**jsdoc
+     * @function MyAvatar.clearPinOnJoint
+     * @param {number} index
+     * @returns {boolean}
+     */
+    Q_INVOKABLE virtual bool clearPinOnJoint(int index) override;
 
 public slots:
 
