@@ -190,3 +190,9 @@ declare interface AnimVars {
     leftHandRotation?: quat;
     leftHandPosition?: vec3;
 }
+
+declare var console: {
+    log(msg: string);
+    warn(msg: string);
+    error(msg: string);
+}

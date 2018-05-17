@@ -157,7 +157,7 @@
     // state element of {alone, leader, follower, peer, reject}
     var GrabLink = /** @class */ (function () {
         function GrabLink(myKey, otherKey) {
-            print("AJT: new GrabLink(" + myKey.jointName + ", " + JSON.stringify(otherKey) + ")");
+            console.warn("AJT: new GrabLink(" + myKey.jointName + ", " + JSON.stringify(otherKey) + ")");
             this.myKey = myKey;
             this.otherKey = otherKey;
             this.state = "alone";
@@ -234,7 +234,7 @@
         };
         GrabLink.prototype.changeState = function (newState) {
             if (this.state !== newState) {
-                print("AJT: GrabLink(" + this.myKey.jointName + ", " + JSON.stringify(this.otherKey) + "), changeState " + this.state + " -> " + newState);
+                console.warn("AJT: GrabLink(" + this.myKey.jointName + ", " + JSON.stringify(this.otherKey) + "), changeState " + this.state + " -> " + newState);
                 // exit the old state
                 this.states[this.state].exit.apply(this);
                 // enter the new state
@@ -256,32 +256,32 @@
             }
         };
         GrabLink.prototype.clearPinOnJoint = function (key) {
-            print("AJT: clearPinOnJoint key = " + JSON.stringify(key));
+            console.warn("AJT: clearPinOnJoint key = " + JSON.stringify(key));
             if (key.avatarId === this.myKey.avatarId) {
-                print("AJT: clearPinOnJoint myAvatar!");
+                console.warn("AJT: clearPinOnJoint myAvatar!");
                 // AJT: TODO for now we only support hands for MyAvatar
                 if (key.jointName === "LeftHand") {
-                    print("AJT: clearPinOnJoint, myAvatar, leftHand");
+                    console.warn("AJT: clearPinOnJoint, myAvatar, leftHand");
                     myAvatarLeftHandXform = undefined;
                 }
                 else if (key.jointName === "RightHand") {
-                    print("AJT: clearPinOnJoint, myAvatar, rightHand");
+                    console.warn("AJT: clearPinOnJoint, myAvatar, rightHand");
                     myAvatarRightHandXform = undefined;
                 }
             }
             else if (key.avatarId === this.otherKey.avatarId) {
-                print("AJT: clearPinOnJoint other avatar!");
+                console.warn("AJT: clearPinOnJoint other avatar!");
                 var avatar = AvatarManager.getAvatar(this.otherKey.avatarId);
                 if (avatar) {
-                    print("AJT: clearPinOnJoint, otherAvatar, jointIndex = " + this.otherJointInfo.jointIndex);
+                    console.warn("AJT: clearPinOnJoint, otherAvatar, jointIndex = " + this.otherJointInfo.jointIndex);
                     avatar.clearPinOnJoint(this.otherJointInfo.jointIndex);
                 }
                 else {
-                    print("AJT: WARNING: clearPinOnJoint() no avatar found");
+                    console.warn("AJT: WARNING: clearPinOnJoint() no avatar found");
                 }
             }
             else {
-                print("AJT: WARNING: clearPinOnJoint() bad key");
+                console.warn("AJT: WARNING: clearPinOnJoint() bad key");
             }
         };
         GrabLink.prototype.pinJoint = function (key, jointInfo, targetXform) {
@@ -302,7 +302,7 @@
                 }
             }
             else {
-                print("AJT: WARNING: pinJoint unknown avatarId, key " + JSON.stringify(key) + ", myKey = " + JSON.stringify(this.myKey) + ", otherKey = " + JSON.stringify(this.otherKey));
+                console.warn("AJT: WARNING: pinJoint unknown avatarId, key " + JSON.stringify(key) + ", myKey = " + JSON.stringify(this.myKey) + ", otherKey = " + JSON.stringify(this.otherKey));
             }
         };
         GrabLink.prototype.computeDeltaXform = function () {
@@ -319,22 +319,22 @@
             // enable controller dispatcher script for this hand.
             if (this.myKey.jointName === "LeftHand") {
                 if (GrabLink.rightControllerDispatcherEnabled) {
-                    print("AJT: send disable none");
+                    console.warn("AJT: send disable none");
                     Messages.sendMessage("Hifi-Hand-Disabler", "none");
                 }
                 else {
-                    print("AJT: send disable right");
+                    console.warn("AJT: send disable right");
                     Messages.sendMessage("Hifi-Hand-Disabler", "right");
                 }
                 GrabLink.leftControllerDispatcherEnabled = true;
             }
             else if (this.myKey.jointName === "RightHand") {
                 if (GrabLink.leftControllerDispatcherEnabled) {
-                    print("AJT: send disable none");
+                    console.warn("AJT: send disable none");
                     Messages.sendMessage("Hifi-Hand-Disabler", "none");
                 }
                 else {
-                    print("AJT: send disable left");
+                    console.warn("AJT: send disable left");
                     Messages.sendMessage("Hifi-Hand-Disabler", "left");
                 }
                 GrabLink.rightControllerDispatcherEnabled = true;
@@ -344,22 +344,22 @@
             // disable controller dispatcher script for this hand.
             if (this.myKey.jointName === "LeftHand") {
                 if (GrabLink.rightControllerDispatcherEnabled) {
-                    print("AJT: send disable left");
+                    console.warn("AJT: send disable left");
                     Messages.sendMessage("Hifi-Hand-Disabler", "left");
                 }
                 else {
-                    print("AJT: send disable both");
+                    console.warn("AJT: send disable both");
                     Messages.sendMessage("Hifi-Hand-Disabler", "both");
                 }
                 GrabLink.leftControllerDispatcherEnabled = false;
             }
             else if (this.myKey.jointName === "RightHand") {
                 if (GrabLink.leftControllerDispatcherEnabled) {
-                    print("AJT: send disable right");
+                    console.warn("AJT: send disable right");
                     Messages.sendMessage("Hifi-Hand-Disabler", "right");
                 }
                 else {
-                    print("AJT: send disable both");
+                    console.warn("AJT: send disable both");
                     Messages.sendMessage("Hifi-Hand-Disabler", "both");
                 }
                 GrabLink.rightControllerDispatcherEnabled = false;
@@ -373,7 +373,7 @@
                 grabbedJoint: this.otherKey.jointName,
                 relXform: this.relXform
             };
-            print("AJT: sendGrabMessage, msg = " + JSON.stringify(msg));
+            console.warn("AJT: sendGrabMessage, msg = " + JSON.stringify(msg));
             Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
         };
         GrabLink.prototype.sendReleaseMessage = function () {
@@ -384,7 +384,7 @@
                 grabbedJoint: this.otherKey.jointName,
                 relXform: this.relXform
             };
-            print("AJT: sendReleaseMessage, msg = " + JSON.stringify(msg));
+            console.warn("AJT: sendReleaseMessage, msg = " + JSON.stringify(msg));
             Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
         };
         GrabLink.prototype.sendRejectMessage = function () {
@@ -395,7 +395,7 @@
                 grabbedJoint: this.otherKey.jointName,
                 relXform: this.relXform
             };
-            print("AJT: sendReleaseMessage, msg = " + JSON.stringify(msg));
+            console.warn("AJT: sendReleaseMessage, msg = " + JSON.stringify(msg));
             Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
         };
         GrabLink.prototype.playClap = function () {
@@ -465,7 +465,7 @@
             this.otherJointInfo = scanner.getJointInfo(this.otherKey);
         };
         GrabLink.prototype.receivedGrab = function (relXform) {
-            print("AJT: receivedGrab, relXform = " + JSON.stringify(relXform));
+            console.warn("AJT: receivedGrab, relXform = " + JSON.stringify(relXform));
             this.updateJointInfo();
             switch (this.state) {
                 case "alone":
@@ -477,12 +477,12 @@
                     this.changeState("peer");
                     break;
                 default:
-                    print("AJT: WARNING GrabLink.receivedGrab: illegal transition, state = " + this.state);
+                    console.warn("AJT: WARNING GrabLink.receivedGrab: illegal transition, state = " + this.state);
                     break;
             }
         };
         GrabLink.prototype.receivedRelease = function () {
-            print("AJT: receivedRelease");
+            console.warn("AJT: receivedRelease");
             this.updateJointInfo();
             switch (this.state) {
                 case "follower":
@@ -492,12 +492,12 @@
                     this.changeState("leader");
                     break;
                 default:
-                    print("AJT: WARNING GrabLink.receivedRelease: illegal transition, state = " + this.state);
+                    console.warn("AJT: WARNING GrabLink.receivedRelease: illegal transition, state = " + this.state);
                     break;
             }
         };
         GrabLink.prototype.reject = function () {
-            print("AJT: reject");
+            console.warn("AJT: reject");
             this.updateJointInfo();
             switch (this.state) {
                 case "follower":
@@ -506,7 +506,7 @@
                     this.changeState("reject");
                     break;
                 default:
-                    print("AJT: WARNING GrabLink.reject: illegal transition, state = " + this.state);
+                    console.warn("AJT: WARNING GrabLink.reject: illegal transition, state = " + this.state);
                     break;
             }
         };
@@ -520,7 +520,7 @@
                     this.changeState("peer");
                     break;
                 default:
-                    print("AJT: WARNING GrabLink.triggerGrab: illegal transition, state = " + this.state);
+                    console.warn("AJT: WARNING GrabLink.triggerGrab: illegal transition, state = " + this.state);
                     break;
             }
         };
@@ -534,7 +534,7 @@
                     this.changeState("follower");
                     break;
                 default:
-                    print("AJT: WARNING GrabLink.triggerRelease: illegal transition, state = " + this.state);
+                    console.warn("AJT: WARNING GrabLink.triggerRelease: illegal transition, state = " + this.state);
                     break;
             }
         };
@@ -560,7 +560,7 @@
                 // do nothing
             }
             else {
-                print("AJT: WARNING aloneEnter from illegal state " + this.state);
+                console.warn("AJT: WARNING aloneEnter from illegal state " + this.state);
             }
         };
         GrabLink.prototype.aloneProcess = function () {
@@ -587,7 +587,7 @@
                 this.disableControllerDispatcher();
             }
             else {
-                print("AJT: WARNING followerEnter from illegal state " + this.state);
+                console.warn("AJT: WARNING followerEnter from illegal state " + this.state);
             }
         };
         GrabLink.prototype.followerProcess = function () {
@@ -624,7 +624,7 @@
                 this.sendGrabMessage();
             }
             else {
-                print("AJT: WARNING peerEnter from illegal state " + this.state);
+                console.warn("AJT: WARNING peerEnter from illegal state " + this.state);
             }
             this.startStressHaptics();
         };
@@ -671,7 +671,7 @@
                 this.clearPinOnJoint(this.myKey);
             }
             else {
-                print("AJT: WARNING: leaderEnter from unknown state " + this.state);
+                console.warn("AJT: WARNING: leaderEnter from unknown state " + this.state);
             }
         };
         GrabLink.prototype.leaderProcess = function () {
@@ -711,7 +711,7 @@
                 this.clearPinOnJoint(this.otherKey);
             }
             else {
-                print("AJT: WARNING: rejectEnter from unknown state " + this.state);
+                console.warn("AJT: WARNING: rejectEnter from unknown state " + this.state);
             }
         };
         GrabLink.prototype.rejectProcess = function () {
@@ -955,7 +955,7 @@
                 grabLink.triggerRelease();
             }
             else {
-                print("AJT: WARNING, leftTrigger(), could not find gripLink for LeftHand");
+                console.warn("AJT: WARNING, leftTrigger(), could not find gripLink for LeftHand");
             }
             leftHandActiveKeys = undefined;
         }
@@ -979,7 +979,7 @@
                 grabLink.triggerRelease();
             }
             else {
-                print("AJT: WARNING, rightTrigger(), could not find gripLink for RightHand");
+                console.warn("AJT: WARNING, rightTrigger(), could not find gripLink for RightHand");
             }
             rightHandActiveKeys = undefined;
         }
@@ -999,7 +999,7 @@
     // {type: "release", receiver: uuid, grabbingJoint: string, grabbedJoint: string}
     function messageHandler(channel, message, sender) {
         if (channel === "Hifi-Handshake") {
-            print("AJT: messageHandler, msg = " + message);
+            console.warn("AJT: messageHandler, msg = " + message);
             var obj = JSON.parse(message);
             if (obj.receiver === MyAvatar.sessionUUID) {
                 var myKey = { avatarId: MyAvatar.SELF_ID, jointName: obj.grabbedJoint };
@@ -1016,7 +1016,7 @@
                         grabLink.receivedRelease();
                     }
                     else {
-                        print("AJT: WARNING, messageHandler() release, could not find gripLink for " + obj.grabbingJoint);
+                        console.warn("AJT: WARNING, messageHandler() release, could not find gripLink for " + obj.grabbingJoint);
                     }
                 }
                 else if (obj.type === "reject") {
@@ -1025,7 +1025,7 @@
                         grabLink.reject();
                     }
                     else {
-                        print("AJT: WARNING, messageHandler() reject, could not find gripLink for " + obj.grabbedJoint);
+                        console.warn("AJT: WARNING, messageHandler() reject, could not find gripLink for " + obj.grabbedJoint);
                     }
                 }
             }
@@ -1091,19 +1091,19 @@
             Math.abs(pos.z) < EPSILON);
     }
     function addAvatar(id, data) {
-        print("addAvatar(" + id + ")");
-        print("typeof id = " + (typeof id));
-        print("JSON.stringify(id) = " + JSON.stringify(id));
+        console.warn("addAvatar(" + id + ")");
+        console.warn("typeof id = " + (typeof id));
+        console.warn("JSON.stringify(id) = " + JSON.stringify(id));
         if (id === "null") {
             id = MyAvatar.SELF_ID;
         }
-        print("addAvatar(" + id + ")");
+        console.warn("addAvatar(" + id + ")");
         updateAvatar(id, data);
     }
     function updateAvatar(id, data) {
     }
     function removeAvatar(id) {
-        print("removeAvatar(" + id + ")");
+        console.warn("removeAvatar(" + id + ")");
     }
     var scanner = new GrabbableJointScanner(addAvatar, updateAvatar, removeAvatar);
     var leftHandPose;
