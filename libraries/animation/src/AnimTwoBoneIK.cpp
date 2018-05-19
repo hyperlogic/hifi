@@ -61,29 +61,37 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         return underPoses;
     }
 
+    AnimPose baseParentPose = _skeleton->getAbsolutePose(_baseParentJointIndex, underPoses);
+
     // get default tip pose from underPoses (geom space)
-    AnimPose absTipUnderPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
+    AnimPose origTipPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
 
     // look up end effector from animVars, make sure to convert into geom space.
-    AnimPose absTipPose(animVars.lookupRigToGeometry(_endEffectorRotationVar, absTipUnderPose.rot()),
-                        animVars.lookupRigToGeometry(_endEffectorPositionVar, absTipUnderPose.trans()));
+    AnimPose tipPose(animVars.lookupRigToGeometry(_endEffectorRotationVar, origTipPose.rot()),
+                     animVars.lookupRigToGeometry(_endEffectorPositionVar, origTipPose.trans()));
 
     // get default mid and base poses from underPoses (geom space)
-    AnimPose absMidPose = _skeleton->getAbsolutePose(_midJointIndex, underPoses);
-    AnimPose absBasePose = _skeleton->getAbsolutePose(_baseJointIndex, underPoses);
+    AnimPose midPose = _skeleton->getAbsolutePose(_midJointIndex, underPoses);
+    AnimPose basePose = _skeleton->getAbsolutePose(_baseJointIndex, underPoses);
 
-    float r0 = glm::length(underPoses[_midJointIndex].trans());
-    float r1 = glm::length(underPoses[_tipJointIndex].trans());
-    float d = glm::length(absTipPose.trans() - absBasePose.trans());
+    glm::vec3 bicepVector = midPose.trans() - basePose.trans();
+    float r0 = glm::length(bicepVector);
+    bicepVector = bicepVector / r0;
 
-    glm::vec3 newMidPos;
+    glm::vec3 forearmVector = origTipPose.trans() - midPose.trans();
+    float r1 = glm::length(forearmVector);
+    forearmVector = forearmVector / r1;
+
+    float d = glm::length(tipPose.trans() - basePose.trans());
+
+    glm::vec3 newMidPosition;
     if (d > r0 + r1) {
-        // put midPos on line between base and tip.
-        newMidPos = 0.5f * (absTipPose.trans() + absBasePose.trans());
+        // put midPosition on line between base and tip.
+        newMidPosition = 0.5f * (tipPose.trans() + basePose.trans());
     } else {
         glm::vec3 u, v, w;
-        generateBasisVectors(glm::normalize(absTipPose.trans() - absBasePose.trans()),
-                             glm::normalize(absMidPose.trans() - absBasePose.trans()), u, v, w);
+        generateBasisVectors(glm::normalize(tipPose.trans() - basePose.trans()),
+                             glm::normalize(midPose.trans() - basePose.trans()), u, v, w);
 
         // http://mathworld.wolfram.com/Circle-CircleIntersection.html
         // intersection of circles formed by x^2 + y^2 = r0 and (x - d)^2 + y^2 = r1.
@@ -92,18 +100,35 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         float y = sqrtf((-d + r1 - r0) * (-d - r1 + r0) * (-d + r1 + r0) * (d + r1 + r0)) / (2.0f * d);
 
         // convert (x, y) back into geom space using the u, v axes.
-        newMidPos = u * x + v * y + absBasePose.trans();
+        newMidPosition = u * x + v * y + basePose.trans();
     }
 
     // AJT: TODO: REMOVE: debug draw.
-    glm::mat4 geomToWorld = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
-    glm::vec3 basePos = transformPoint(geomToWorld, absBasePose.trans());
-    glm::vec3 midPos = transformPoint(geomToWorld, newMidPos);
-    glm::vec3 tipPos = transformPoint(geomToWorld, absTipPose.trans());
-    DebugDraw::getInstance().drawRay(basePos, midPos, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-    DebugDraw::getInstance().drawRay(midPos, tipPos, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    {
+        glm::mat4 geomToWorld = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
+        glm::vec3 basePosition = transformPoint(geomToWorld, basePose.trans());
+        glm::vec3 midPosition = transformPoint(geomToWorld, newMidPosition);
+        glm::vec3 tipPosition = transformPoint(geomToWorld, tipPose.trans());
+        DebugDraw::getInstance().drawRay(basePosition, midPosition, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        DebugDraw::getInstance().drawRay(midPosition, tipPosition, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    }
+
+    glm::vec3 newBicepVector = newMidPosition - basePose.trans();
+    glm::quat newBaseRot = glm::rotation(bicepVector, newBicepVector) * basePose.rot();
+    glm::quat relNewBaseRot = glm::inverse(baseParentPose.rot()) * newBaseRot;
+
+    glm::vec3 newForarmVector = tipPose.trans() - newMidPosition;
+    glm::quat newMidRot = glm::rotation(forearmVector, newForarmVector) * midPose.rot();
+    glm::quat relNewMidRot = glm::inverse(newBaseRot) * newMidRot;
+
+    glm::quat relNewTipRot = glm::inverse(newMidRot) * tipPose.rot();
 
     _poses = underPoses;
+
+    _poses[_baseJointIndex].rot() = relNewBaseRot;
+    _poses[_midJointIndex].rot() = relNewMidRot;
+    _poses[_tipJointIndex].rot() = relNewTipRot;
+
     return _poses;
 }
 
@@ -134,5 +159,9 @@ void AnimTwoBoneIK::lookUpIndices() {
     }
     if (_tipJointIndex == -1) {
         qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find tip-bone with name" << _tipJointName;
+    }
+
+    if (_baseJointIndex != -1 ) {
+        _baseParentJointIndex = _skeleton->getParentIndex(_baseJointIndex);
     }
 }

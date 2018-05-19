@@ -41,6 +41,7 @@ protected:
     QString _midJointName;
     QString _tipJointName;
 
+    int _baseParentJointIndex { -1 };
     int _baseJointIndex { -1 };
     int _midJointIndex { -1 };
     int _tipJointIndex { -1 };
