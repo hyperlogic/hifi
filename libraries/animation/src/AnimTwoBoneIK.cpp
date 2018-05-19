@@ -72,28 +72,24 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     AnimPose absMidPose = _skeleton->getAbsolutePose(_midJointIndex, underPoses);
     AnimPose absBasePose = _skeleton->getAbsolutePose(_baseJointIndex, underPoses);
 
-    float r0 = glm::length(underPoses[_baseJointIndex].trans());
-    float r1 = glm::length(underPoses[_midJointIndex].trans());
+    float r0 = glm::length(underPoses[_midJointIndex].trans());
+    float r1 = glm::length(underPoses[_tipJointIndex].trans());
     float d = glm::length(absTipPose.trans() - absBasePose.trans());
-
-    //qDebug() << "AJT: r0 = " << r0 << ", r1 = " << r1 << ", d = " << d;
 
     glm::vec3 newMidPos;
     if (d > r0 + r1) {
         // put midPos on line between base and tip.
-        newMidPos = (absTipPose.trans() - absBasePose.trans()) * (r0 / d);
+        newMidPos = 0.5f * (absTipPose.trans() + absBasePose.trans());
     } else {
         glm::vec3 u, v, w;
         generateBasisVectors(glm::normalize(absTipPose.trans() - absBasePose.trans()),
                              glm::normalize(absMidPose.trans() - absBasePose.trans()), u, v, w);
 
+        // http://mathworld.wolfram.com/Circle-CircleIntersection.html
         // intersection of circles formed by x^2 + y^2 = r0 and (x - d)^2 + y^2 = r1.
         // there are two solutions (x, y) and (x, -y), we pick the positive one.
         float x = (d * d - r1 * r1 + r0 * r0) / (2.0f * d);
-        float y = sqrtf((-d + r1 - r0) * (-d - r1 + r0) * (-d + r1 + r0) * (-d + r1 + r0)) / (2.0f * d);
-
-
-        //qDebug() << "AJT: x = " << x << ", y = " << y;
+        float y = sqrtf((-d + r1 - r0) * (-d - r1 + r0) * (-d + r1 + r0) * (d + r1 + r0)) / (2.0f * d);
 
         // convert (x, y) back into geom space using the u, v axes.
         newMidPos = u * x + v * y + absBasePose.trans();
