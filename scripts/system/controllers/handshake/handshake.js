@@ -152,14 +152,18 @@
     }());
     var CLAP_SOUND = "https://s3.amazonaws.com/hifi-public/tony/audio/slap.wav";
     var clapSound = new SoundBuddy(CLAP_SOUND);
+    function grabKeyPairtoString(primaryGrabKey, secondaryGrabKey) {
+        return primaryGrabKey.avatarId + "_" + primaryGrabKey.jointName + "&&" + secondaryGrabKey.avatarId + "_" + secondaryGrabKey.jointName;
+    }
     // A GrabLink is single grab interaction link between two avatars, typically between MyAvatar and another avatar in the scene.
     // It has an internal state machine to keep track of when to enable/disable IK and play sound effects.
     // state element of {alone, leader, follower, peer, reject}
     var GrabLink = /** @class */ (function () {
-        function GrabLink(myKey, otherKey) {
-            console.warn("AJT: new GrabLink(" + myKey.jointName + ", " + JSON.stringify(otherKey) + ")");
-            this.myKey = myKey;
-            this.otherKey = otherKey;
+        function GrabLink(primaryKey, secondaryKey) {
+            this.pairKey = grabKeyPairtoString(primaryKey, secondaryKey);
+            console.warn("AJT: new GrabLink(" + this.pairKey + ")");
+            this.primaryKey = primaryKey;
+            this.secondaryKey = secondaryKey;
             this.state = "alone";
             this.relXform = new Xform({ x: 0, y: 0, z: 0, w: 1 }, { x: 0, y: 0, z: 0 });
             this.states = {
@@ -189,52 +193,31 @@
                     exit: this.rejectExit
                 }
             };
-            this.myJointInfo = scanner.getJointInfo(myKey);
-            this.otherJointInfo = scanner.getJointInfo(otherKey);
+            this.primaryJointInfo = scanner.getJointInfo(primaryKey);
+            this.secondaryJointInfo = scanner.getJointInfo(secondaryKey);
             this.timeInState = 0;
         }
-        GrabLink.findOrCreateLink = function (myKey, otherKey) {
-            var grabLinkMap = GrabLink.grabLinkMapMap[myKey.jointName];
-            var link;
-            if (!grabLinkMap) {
-                link = new GrabLink(myKey, otherKey);
-                var map = {};
-                map[otherKey.jointName] = link;
-                GrabLink.grabLinkMapMap[myKey.jointName] = map;
-            }
-            else {
-                link = grabLinkMap[otherKey.jointName];
-                if (!link) {
-                    link = new GrabLink(myKey, otherKey);
-                    grabLinkMap[otherKey.jointName] = link;
-                }
+        GrabLink.findOrCreateLink = function (primaryKey, secondaryKey) {
+            var key = grabKeyPairtoString(primaryKey, secondaryKey);
+            var link = GrabLink.myAvatarGrabLinkMap[key];
+            if (!link) {
+                link = new GrabLink(primaryKey, secondaryKey);
+                GrabLink.myAvatarGrabLinkMap[key] = link;
             }
             return link;
         };
-        GrabLink.findLink = function (myKey, otherKey) {
-            var grabLinkMap = GrabLink.grabLinkMapMap[myKey.jointName];
-            if (!grabLinkMap) {
-                return undefined;
-            }
-            else {
-                return grabLinkMap[otherKey.jointName];
-            }
+        GrabLink.findLink = function (primaryKey, secondaryKey) {
+            var key = grabKeyPairtoString(primaryKey, secondaryKey);
+            return GrabLink.myAvatarGrabLinkMap[key];
         };
         GrabLink.process = function (dt) {
-            var myKeys = Object.keys(GrabLink.grabLinkMapMap);
-            var i, numMyKeys = myKeys.length;
-            for (i = 0; i < numMyKeys; i++) {
-                var otherMap = GrabLink.grabLinkMapMap[myKeys[i]];
-                var otherKeys = Object.keys(otherMap);
-                var j, numOtherKeys = otherKeys.length;
-                for (j = 0; j < numOtherKeys; j++) {
-                    GrabLink.grabLinkMapMap[myKeys[i]][otherKeys[j]].process(dt);
-                }
-            }
+            Object.keys(GrabLink.myAvatarGrabLinkMap).forEach(function (key) {
+                GrabLink.myAvatarGrabLinkMap[key].process(dt);
+            });
         };
         GrabLink.prototype.changeState = function (newState) {
             if (this.state !== newState) {
-                console.warn("AJT: GrabLink(" + this.myKey.jointName + ", " + JSON.stringify(this.otherKey) + "), changeState " + this.state + " -> " + newState);
+                console.warn("AJT: GrabLink(" + this.pairKey + "), changeState " + this.state + " -> " + newState);
                 // exit the old state
                 this.states[this.state].exit.apply(this);
                 // enter the new state
@@ -248,44 +231,44 @@
             this.states[this.state].process.apply(this, [dt]);
         };
         GrabLink.prototype.hapticPulse = function () {
-            if (this.myKey.jointName.slice(0, 4) === "Left") {
+            if (this.primaryKey.jointName.slice(0, 4) === "Left") {
                 Controller.triggerHapticPulse(HAPTIC_PULSE_STRENGTH, HAPTIC_PULSE_DURATION, LEFT_HAND);
             }
-            else if (this.myKey.jointName.slice(0, 5) === "Right") {
+            else if (this.primaryKey.jointName.slice(0, 5) === "Right") {
                 Controller.triggerHapticPulse(HAPTIC_PULSE_STRENGTH, HAPTIC_PULSE_DURATION, RIGHT_HAND);
             }
         };
         GrabLink.prototype.clearPinOnJoint = function (key) {
-            console.warn("AJT: clearPinOnJoint key = " + JSON.stringify(key));
-            if (key.avatarId === this.myKey.avatarId) {
-                console.warn("AJT: clearPinOnJoint myAvatar!");
+            console.warn("AJT: clearPinOnJoint(), pairKey = " + this.pairKey + ", key = " + JSON.stringify(key));
+            if (key.avatarId === this.primaryKey.avatarId) {
+                console.warn("AJT: clearPinOnJoint() myAvatar!");
                 // AJT: TODO for now we only support hands for MyAvatar
                 if (key.jointName === "LeftHand") {
-                    console.warn("AJT: clearPinOnJoint, myAvatar, leftHand");
+                    console.warn("AJT: clearPinOnJoint(), myAvatar, leftHand");
                     myAvatarLeftHandXform = undefined;
                 }
                 else if (key.jointName === "RightHand") {
-                    console.warn("AJT: clearPinOnJoint, myAvatar, rightHand");
+                    console.warn("AJT: clearPinOnJoint(), myAvatar, rightHand");
                     myAvatarRightHandXform = undefined;
                 }
             }
-            else if (key.avatarId === this.otherKey.avatarId) {
-                console.warn("AJT: clearPinOnJoint other avatar!");
-                var avatar = AvatarManager.getAvatar(this.otherKey.avatarId);
+            else if (key.avatarId === this.secondaryKey.avatarId) {
+                console.warn("AJT: clearPinOnJoint(), other avatar!");
+                var avatar = AvatarManager.getAvatar(this.secondaryKey.avatarId);
                 if (avatar) {
-                    console.warn("AJT: clearPinOnJoint, otherAvatar, jointIndex = " + this.otherJointInfo.jointIndex);
-                    avatar.clearPinOnJoint(this.otherJointInfo.jointIndex);
+                    console.warn("AJT: clearPinOnJoint(), otherAvatar, jointIndex = " + this.secondaryJointInfo.jointIndex);
+                    avatar.clearPinOnJoint(this.secondaryJointInfo.jointIndex);
                 }
                 else {
-                    console.warn("AJT: WARNING: clearPinOnJoint() no avatar found");
+                    console.warn("AJT: WARNING: clearPinOnJoint(), no avatar found");
                 }
             }
             else {
-                console.warn("AJT: WARNING: clearPinOnJoint() bad key");
+                console.warn("AJT: WARNING: clearPinOnJoint(), bad key");
             }
         };
         GrabLink.prototype.pinJoint = function (key, jointInfo, targetXform) {
-            if (key.avatarId === this.myKey.avatarId) {
+            if (key.avatarId === this.primaryKey.avatarId) {
                 // AJT: TODO for now we only support hands for MyAvatar
                 // Modify the myAvatar*HandXform global which will control MyAvatar's IK
                 if (key.jointName === "LeftHand") {
@@ -295,29 +278,29 @@
                     myAvatarRightHandXform = targetXform;
                 }
             }
-            else if (key.avatarId === this.otherKey.avatarId) {
-                var avatar = AvatarManager.getAvatar(this.otherKey.avatarId);
+            else if (key.avatarId === this.secondaryKey.avatarId) {
+                var avatar = AvatarManager.getAvatar(this.secondaryKey.avatarId);
                 if (avatar) {
                     avatar.pinJoint(jointInfo.jointIndex, targetXform.pos, targetXform.rot);
                 }
             }
             else {
-                console.warn("AJT: WARNING: pinJoint unknown avatarId, key " + JSON.stringify(key) + ", myKey = " + JSON.stringify(this.myKey) + ", otherKey = " + JSON.stringify(this.otherKey));
+                console.warn("AJT: WARNING: pinJoint unknown avatarId, key " + JSON.stringify(key) + ", myKey = " + JSON.stringify(this.primaryKey) + ", otherKey = " + JSON.stringify(this.secondaryKey));
             }
         };
         GrabLink.prototype.computeDeltaXform = function () {
             // compute delta xform
-            if ((this.myJointInfo.jointName === "LeftHand" && this.otherJointInfo.jointName === "LeftHand") ||
-                (this.myJointInfo.jointName === "RightHand" && this.otherJointInfo.jointName === "RightHand")) {
-                this.relXform = calculateHandDeltaOffset(this.myJointInfo, this.otherJointInfo);
+            if ((this.primaryJointInfo.jointName === "LeftHand" && this.secondaryJointInfo.jointName === "LeftHand") ||
+                (this.primaryJointInfo.jointName === "RightHand" && this.secondaryJointInfo.jointName === "RightHand")) {
+                this.relXform = calculateHandDeltaOffset(this.primaryJointInfo, this.secondaryJointInfo);
             }
             else {
-                this.relXform = calculateDeltaOffset(this.myJointInfo, this.otherJointInfo);
+                this.relXform = calculateDeltaOffset(this.primaryJointInfo, this.secondaryJointInfo);
             }
         };
         GrabLink.prototype.enableControllerDispatcher = function () {
             // enable controller dispatcher script for this hand.
-            if (this.myKey.jointName === "LeftHand") {
+            if (this.primaryKey.jointName === "LeftHand") {
                 if (GrabLink.rightControllerDispatcherEnabled) {
                     console.warn("AJT: send disable none");
                     Messages.sendMessage("Hifi-Hand-Disabler", "none");
@@ -328,7 +311,7 @@
                 }
                 GrabLink.leftControllerDispatcherEnabled = true;
             }
-            else if (this.myKey.jointName === "RightHand") {
+            else if (this.primaryKey.jointName === "RightHand") {
                 if (GrabLink.leftControllerDispatcherEnabled) {
                     console.warn("AJT: send disable none");
                     Messages.sendMessage("Hifi-Hand-Disabler", "none");
@@ -342,7 +325,7 @@
         };
         GrabLink.prototype.disableControllerDispatcher = function () {
             // disable controller dispatcher script for this hand.
-            if (this.myKey.jointName === "LeftHand") {
+            if (this.primaryKey.jointName === "LeftHand") {
                 if (GrabLink.rightControllerDispatcherEnabled) {
                     console.warn("AJT: send disable left");
                     Messages.sendMessage("Hifi-Hand-Disabler", "left");
@@ -353,7 +336,7 @@
                 }
                 GrabLink.leftControllerDispatcherEnabled = false;
             }
-            else if (this.myKey.jointName === "RightHand") {
+            else if (this.primaryKey.jointName === "RightHand") {
                 if (GrabLink.leftControllerDispatcherEnabled) {
                     console.warn("AJT: send disable right");
                     Messages.sendMessage("Hifi-Hand-Disabler", "right");
@@ -368,9 +351,9 @@
         GrabLink.prototype.sendGrabMessage = function () {
             var msg = {
                 type: "grab",
-                receiver: this.otherKey.avatarId,
-                grabbingJoint: this.myKey.jointName,
-                grabbedJoint: this.otherKey.jointName,
+                receiver: this.secondaryKey.avatarId,
+                grabbingJoint: this.primaryKey.jointName,
+                grabbedJoint: this.secondaryKey.jointName,
                 relXform: this.relXform
             };
             console.warn("AJT: sendGrabMessage, msg = " + JSON.stringify(msg));
@@ -379,9 +362,9 @@
         GrabLink.prototype.sendReleaseMessage = function () {
             var msg = {
                 type: "release",
-                receiver: this.otherKey.avatarId,
-                grabbingJoint: this.myKey.jointName,
-                grabbedJoint: this.otherKey.jointName,
+                receiver: this.secondaryKey.avatarId,
+                grabbingJoint: this.primaryKey.jointName,
+                grabbedJoint: this.secondaryKey.jointName,
                 relXform: this.relXform
             };
             console.warn("AJT: sendReleaseMessage, msg = " + JSON.stringify(msg));
@@ -390,22 +373,22 @@
         GrabLink.prototype.sendRejectMessage = function () {
             var msg = {
                 type: "release",
-                receiver: this.otherKey.avatarId,
-                grabbingJoint: this.myKey.jointName,
-                grabbedJoint: this.otherKey.jointName,
+                receiver: this.secondaryKey.avatarId,
+                grabbingJoint: this.primaryKey.jointName,
+                grabbedJoint: this.secondaryKey.jointName,
                 relXform: this.relXform
             };
             console.warn("AJT: sendReleaseMessage, msg = " + JSON.stringify(msg));
             Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
         };
         GrabLink.prototype.playClap = function () {
-            clapSound.play({ position: this.myJointInfo.jointPos, loop: false });
+            clapSound.play({ position: this.primaryJointInfo.jointPos, loop: false });
         };
         GrabLink.prototype.getHapticBuddy = function () {
-            if (this.myKey.jointName === "RightHand") {
+            if (this.primaryKey.jointName === "RightHand") {
                 return rightHapticBuddy;
             }
-            else if (this.myKey.jointName === "LeftHand") {
+            else if (this.primaryKey.jointName === "LeftHand") {
                 return leftHapticBuddy;
             }
             else {
@@ -415,13 +398,13 @@
         GrabLink.prototype.startStressHaptics = function () {
             var hapticBuddy = this.getHapticBuddy();
             if (hapticBuddy) {
-                hapticBuddy.start(this.myJointInfo, this.otherJointInfo);
+                hapticBuddy.start(this.primaryJointInfo, this.secondaryJointInfo);
             }
         };
         GrabLink.prototype.updateStressHaptics = function () {
             var hapticBuddy = this.getHapticBuddy();
             if (hapticBuddy) {
-                hapticBuddy.update(this.myJointInfo, this.otherJointInfo);
+                hapticBuddy.update(this.primaryJointInfo, this.secondaryJointInfo);
             }
         };
         GrabLink.prototype.stopStressHaptics = function () {
@@ -433,12 +416,12 @@
         GrabLink.prototype.startRejectHaptics = function () {
             var hapticBuddy = this.getHapticBuddy();
             if (hapticBuddy) {
-                hapticBuddy.start(this.myJointInfo, this.otherJointInfo);
+                hapticBuddy.start(this.primaryJointInfo, this.secondaryJointInfo);
             }
         };
         GrabLink.prototype.updateRejectHaptics = function () {
-            var myXform = new Xform(this.myJointInfo.controllerRot, this.myJointInfo.controllerPos);
-            var otherXform = new Xform(this.otherJointInfo.controllerRot, this.otherJointInfo.controllerPos);
+            var myXform = new Xform(this.primaryJointInfo.controllerRot, this.primaryJointInfo.controllerPos);
+            var otherXform = new Xform(this.secondaryJointInfo.controllerRot, this.secondaryJointInfo.controllerPos);
             var distance = Vec3.distance(myXform.pos, otherXform.pos);
             var XXX_MIN_DISTANCE = 0.0;
             var XXX_MAX_DISTANCE = REJECT_DISTANCE;
@@ -451,7 +434,7 @@
             var hapticBuddy = this.getHapticBuddy();
             if (hapticBuddy) {
                 hapticBuddy.setFrequencyScale(frequency);
-                hapticBuddy.update(this.myJointInfo, this.otherJointInfo);
+                hapticBuddy.update(this.primaryJointInfo, this.secondaryJointInfo);
             }
         };
         GrabLink.prototype.stopRejectHaptics = function () {
@@ -461,8 +444,8 @@
             }
         };
         GrabLink.prototype.updateJointInfo = function () {
-            this.myJointInfo = scanner.getJointInfo(this.myKey);
-            this.otherJointInfo = scanner.getJointInfo(this.otherKey);
+            this.primaryJointInfo = scanner.getJointInfo(this.primaryKey);
+            this.secondaryJointInfo = scanner.getJointInfo(this.secondaryKey);
         };
         GrabLink.prototype.receivedGrab = function (relXform) {
             console.warn("AJT: receivedGrab, relXform = " + JSON.stringify(relXform));
@@ -546,14 +529,14 @@
             if (this.state === "leader") {
                 // AJT_B: leader -> alone
                 this.hapticPulse();
-                this.clearPinOnJoint(this.otherKey);
+                this.clearPinOnJoint(this.secondaryKey);
                 this.sendReleaseMessage();
                 this.enableControllerDispatcher();
             }
             else if (this.state === "follower") {
                 // AJT_H: follower -> alone
                 this.hapticPulse();
-                this.clearPinOnJoint(this.myKey);
+                this.clearPinOnJoint(this.primaryKey);
                 this.enableControllerDispatcher();
             }
             else if (this.state === "reject") {
@@ -578,7 +561,7 @@
             if (this.state === "peer") {
                 // AJT_F: peer -> follower
                 this.hapticPulse();
-                this.clearPinOnJoint(this.otherKey);
+                this.clearPinOnJoint(this.secondaryKey);
                 this.sendReleaseMessage();
             }
             else if (this.state === "alone") {
@@ -592,14 +575,14 @@
         };
         GrabLink.prototype.followerProcess = function () {
             this.updateJointInfo();
-            var myXform = new Xform(this.myJointInfo.controllerRot, this.myJointInfo.controllerPos);
-            var otherXform = new Xform(this.otherJointInfo.controllerRot, this.otherJointInfo.controllerPos);
+            var myXform = new Xform(this.primaryJointInfo.controllerRot, this.primaryJointInfo.controllerPos);
+            var otherXform = new Xform(this.secondaryJointInfo.controllerRot, this.secondaryJointInfo.controllerPos);
             // AJT: TODO: dynamic change of blend factor based on distance?
             var blendFactor = 1;
             // Perform IK on MyAvatar, having our hand follow their controller.
             var myOtherXform = Xform.mul(otherXform, this.relXform);
             var myTargetXform = tweenXform(myXform, myOtherXform, blendFactor);
-            this.pinJoint(this.myKey, this.myJointInfo, myTargetXform);
+            this.pinJoint(this.primaryKey, this.primaryJointInfo, myTargetXform);
             var distance = Vec3.distance(myXform.pos, myTargetXform.pos);
             this.updateRejectHaptics();
             if (distance > REJECT_DISTANCE) {
@@ -630,18 +613,18 @@
         };
         GrabLink.prototype.peerProcess = function () {
             this.updateJointInfo();
-            var myXform = new Xform(this.myJointInfo.controllerRot, this.myJointInfo.controllerPos);
-            var otherXform = new Xform(this.otherJointInfo.controllerRot, this.otherJointInfo.controllerPos);
+            var myXform = new Xform(this.primaryJointInfo.controllerRot, this.primaryJointInfo.controllerPos);
+            var otherXform = new Xform(this.secondaryJointInfo.controllerRot, this.secondaryJointInfo.controllerPos);
             // AJT: TODO: dynamic change of blend factor based on distance.
             var blendFactor = 0.5;
             // Perform IK on MyAvatar, having our hand follow their controller.
             var myOtherXform = Xform.mul(otherXform, this.relXform);
             var myTargetXform = tweenXform(myXform, myOtherXform, blendFactor);
-            this.pinJoint(this.myKey, this.myJointInfo, myTargetXform);
+            this.pinJoint(this.primaryKey, this.primaryJointInfo, myTargetXform);
             // Perform local IK on the other avatar, making their hand follow our controller.
             var otherMyXform = Xform.mul(myXform, this.relXform.inv());
             var otherTargetXform = tweenXform(otherMyXform, otherXform, blendFactor);
-            this.pinJoint(this.otherKey, this.otherJointInfo, otherTargetXform);
+            this.pinJoint(this.secondaryKey, this.secondaryJointInfo, otherTargetXform);
             this.updateStressHaptics();
             if (Vec3.distance(myXform.pos, myTargetXform.pos) > REJECT_DISTANCE) {
                 this.sendRejectMessage();
@@ -668,7 +651,7 @@
             else if (this.state === "peer") {
                 // AJT_D: peer -> leader
                 this.hapticPulse();
-                this.clearPinOnJoint(this.myKey);
+                this.clearPinOnJoint(this.primaryKey);
             }
             else {
                 console.warn("AJT: WARNING: leaderEnter from unknown state " + this.state);
@@ -676,14 +659,14 @@
         };
         GrabLink.prototype.leaderProcess = function () {
             this.updateJointInfo();
-            var myXform = new Xform(this.myJointInfo.controllerRot, this.myJointInfo.controllerPos);
-            var otherXform = new Xform(this.otherJointInfo.controllerRot, this.otherJointInfo.controllerPos);
+            var myXform = new Xform(this.primaryJointInfo.controllerRot, this.primaryJointInfo.controllerPos);
+            var otherXform = new Xform(this.secondaryJointInfo.controllerRot, this.secondaryJointInfo.controllerPos);
             // AJT: TODO: dynamic change of blend factor based on distance?
             var blendFactor = 0;
             // Perform local IK on the other avatar, making their hand follow our controller.
             var otherMyXform = Xform.mul(myXform, this.relXform.inv());
             var otherTargetXform = tweenXform(otherMyXform, otherXform, blendFactor);
-            this.pinJoint(this.otherKey, this.otherJointInfo, otherTargetXform);
+            this.pinJoint(this.secondaryKey, this.secondaryJointInfo, otherTargetXform);
             this.updateRejectHaptics();
             // AJT: TODO: should we reject?
         };
@@ -697,18 +680,18 @@
             if (this.state === "follower") {
                 // AJT_I: follower -> reject
                 this.hapticPulse();
-                this.clearPinOnJoint(this.myKey);
+                this.clearPinOnJoint(this.primaryKey);
             }
             else if (this.state === "peer") {
                 // AJT_J: peer -> reject
                 this.hapticPulse();
-                this.clearPinOnJoint(this.otherKey);
-                this.clearPinOnJoint(this.myKey);
+                this.clearPinOnJoint(this.secondaryKey);
+                this.clearPinOnJoint(this.primaryKey);
             }
             else if (this.state === "leader") {
                 // AJT_K: leader -> reject
                 this.hapticPulse();
-                this.clearPinOnJoint(this.otherKey);
+                this.clearPinOnJoint(this.secondaryKey);
             }
             else {
                 console.warn("AJT: WARNING: rejectEnter from unknown state " + this.state);
@@ -721,7 +704,10 @@
         GrabLink.prototype.rejectExit = function () {
             // do nothing
         };
-        GrabLink.grabLinkMapMap = {};
+        // All GrabLink objects that affect myAvatar
+        GrabLink.myAvatarGrabLinkMap = {};
+        // All GrabLink objects that do not affect myAvatar
+        GrabLink.otherAvatarGrabLinkMap = {};
         GrabLink.rightControllerDispatcherEnabled = false;
         GrabLink.leftControllerDispatcherEnabled = false;
         return GrabLink;
@@ -939,20 +925,20 @@
     var leftHandActiveKeys;
     // Controller system callback on leftTrigger pull or release.
     function leftTrigger(value) {
-        var myKey = { avatarId: MyAvatar.SELF_ID, jointName: "LeftHand" };
-        var grabLink;
+        var primaryKey = { avatarId: MyAvatar.SELF_ID, jointName: "LeftHand" };
+        var link;
         if (value === 1) {
-            var otherKey = scanner.findGrabbableJoint(LEFT_HAND, GRAB_DISTANCE);
-            if (otherKey) {
-                grabLink = GrabLink.findOrCreateLink(myKey, otherKey);
-                grabLink.triggerPress();
-                leftHandActiveKeys = { myKey: myKey, otherKey: otherKey };
+            var secondaryKey = scanner.findGrabbableJoint(LEFT_HAND, GRAB_DISTANCE);
+            if (secondaryKey) {
+                link = GrabLink.findOrCreateLink(primaryKey, secondaryKey);
+                link.triggerPress();
+                leftHandActiveKeys = { myKey: primaryKey, otherKey: secondaryKey };
             }
         }
         else if (leftHandActiveKeys) {
-            grabLink = GrabLink.findLink(leftHandActiveKeys.myKey, leftHandActiveKeys.otherKey);
-            if (grabLink) {
-                grabLink.triggerRelease();
+            link = GrabLink.findLink(leftHandActiveKeys.myKey, leftHandActiveKeys.otherKey);
+            if (link) {
+                link.triggerRelease();
             }
             else {
                 console.warn("AJT: WARNING, leftTrigger(), could not find gripLink for LeftHand");
@@ -963,20 +949,20 @@
     var rightHandActiveKeys;
     // Controller system callback on rightTrigger pull or release.
     function rightTrigger(value) {
-        var myKey = { avatarId: MyAvatar.SELF_ID, jointName: "RightHand" };
-        var grabLink;
+        var primaryKey = { avatarId: MyAvatar.SELF_ID, jointName: "RightHand" };
+        var link;
         if (value === 1) {
-            var otherKey = scanner.findGrabbableJoint(RIGHT_HAND, GRAB_DISTANCE);
-            if (otherKey) {
-                grabLink = GrabLink.findOrCreateLink(myKey, otherKey);
-                grabLink.triggerPress();
-                rightHandActiveKeys = { myKey: myKey, otherKey: otherKey };
+            var secondaryKey = scanner.findGrabbableJoint(RIGHT_HAND, GRAB_DISTANCE);
+            if (secondaryKey) {
+                link = GrabLink.findOrCreateLink(primaryKey, secondaryKey);
+                link.triggerPress();
+                rightHandActiveKeys = { myKey: primaryKey, otherKey: secondaryKey };
             }
         }
         else if (rightHandActiveKeys) {
-            grabLink = GrabLink.findLink(rightHandActiveKeys.myKey, rightHandActiveKeys.otherKey);
-            if (grabLink) {
-                grabLink.triggerRelease();
+            link = GrabLink.findLink(rightHandActiveKeys.myKey, rightHandActiveKeys.otherKey);
+            if (link) {
+                link.triggerRelease();
             }
             else {
                 console.warn("AJT: WARNING, rightTrigger(), could not find gripLink for RightHand");
@@ -1004,25 +990,25 @@
             if (obj.receiver === MyAvatar.sessionUUID) {
                 var myKey = { avatarId: MyAvatar.SELF_ID, jointName: obj.grabbedJoint };
                 var otherKey = { avatarId: sender, jointName: obj.grabbingJoint };
-                var grabLink;
+                var link;
                 if (obj.type === "grab") {
-                    grabLink = GrabLink.findOrCreateLink(myKey, otherKey);
+                    link = GrabLink.findOrCreateLink(myKey, otherKey);
                     var relXform = new Xform(obj.relXform.rot, obj.relXform.pos);
-                    grabLink.receivedGrab(relXform.inv());
+                    link.receivedGrab(relXform.inv());
                 }
                 else if (obj.type === "release") {
-                    grabLink = GrabLink.findLink(myKey, otherKey);
-                    if (grabLink) {
-                        grabLink.receivedRelease();
+                    link = GrabLink.findLink(myKey, otherKey);
+                    if (link) {
+                        link.receivedRelease();
                     }
                     else {
                         console.warn("AJT: WARNING, messageHandler() release, could not find gripLink for " + obj.grabbingJoint);
                     }
                 }
                 else if (obj.type === "reject") {
-                    grabLink = GrabLink.findLink(myKey, otherKey);
-                    if (grabLink) {
-                        grabLink.reject();
+                    link = GrabLink.findLink(myKey, otherKey);
+                    if (link) {
+                        link.reject();
                     }
                     else {
                         console.warn("AJT: WARNING, messageHandler() reject, could not find gripLink for " + obj.grabbedJoint);
