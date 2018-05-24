@@ -180,37 +180,38 @@
             this.secondaryKey = secondaryKey;
             this.state = GrabLinkState.Alone;
             this.relXform = new Xform({ x: 0, y: 0, z: 0, w: 1 }, { x: 0, y: 0, z: 0 });
-            this.states = {
-                alone: {
+            this.states = (_a = {},
+                _a[GrabLinkState.Alone] = {
                     enter: this.aloneEnter,
                     process: this.aloneProcess,
                     exit: this.aloneExit
                 },
-                follower: {
+                _a[GrabLinkState.Follower] = {
                     enter: this.followerEnter,
                     process: this.followerProcess,
                     exit: this.followerExit
                 },
-                peer: {
+                _a[GrabLinkState.Peer] = {
                     enter: this.peerEnter,
                     process: this.peerProcess,
                     exit: this.peerExit
                 },
-                leader: {
+                _a[GrabLinkState.Leader] = {
                     enter: this.leaderEnter,
                     process: this.leaderProcess,
                     exit: this.leaderExit
                 },
-                reject: {
+                _a[GrabLinkState.Reject] = {
                     enter: this.rejectEnter,
                     process: this.rejectProcess,
                     exit: this.rejectExit
-                }
-            };
+                },
+                _a);
             this.primaryJointInfo = scanner.getJointInfo(primaryKey);
             this.secondaryJointInfo = scanner.getJointInfo(secondaryKey);
             this.timeInState = 0;
             this.initiator = false;
+            var _a;
         }
         GrabLink.findOrCreateLink = function (primaryKey, secondaryKey) {
             var key = grabKeyPairtoString(primaryKey, secondaryKey);
@@ -241,6 +242,9 @@
         GrabLink.process = function (dt) {
             Object.keys(GrabLink.myAvatarGrabLinkMap).forEach(function (key) {
                 GrabLink.myAvatarGrabLinkMap[key].process(dt);
+            });
+            Object.keys(GrabLink.otherAvatarGrabLinkMap).forEach(function (key) {
+                GrabLink.otherAvatarGrabLinkMap[key].process(dt);
             });
         };
         GrabLink.prototype.changeState = function (newState) {
@@ -324,6 +328,9 @@
             }
         };
         GrabLink.prototype.enableControllerDispatcher = function () {
+            if (this.primaryKey.avatarId !== MyAvatar.SELF_ID) {
+                return;
+            }
             // enable controller dispatcher script for this hand.
             if (this.primaryKey.jointName === "LeftHand") {
                 if (GrabLink.rightControllerDispatcherEnabled) {
@@ -349,6 +356,9 @@
             }
         };
         GrabLink.prototype.disableControllerDispatcher = function () {
+            if (this.primaryKey.avatarId !== MyAvatar.SELF_ID) {
+                return;
+            }
             // disable controller dispatcher script for this hand.
             if (this.primaryKey.jointName === "LeftHand") {
                 if (GrabLink.rightControllerDispatcherEnabled) {
@@ -374,6 +384,9 @@
             }
         };
         GrabLink.prototype.transmitMessage = function (type) {
+            if (this.primaryKey.avatarId !== MyAvatar.SELF_ID) {
+                return;
+            }
             var msg = {
                 type: type,
                 receiver: this.secondaryKey.avatarId,
@@ -386,6 +399,9 @@
             Messages.sendMessage("Hifi-Handshake", JSON.stringify(msg));
         };
         GrabLink.prototype.playClap = function () {
+            if (this.primaryKey.avatarId !== MyAvatar.SELF_ID) {
+                return;
+            }
             clapSound.play({ position: this.primaryJointInfo.jointPos, loop: false });
         };
         GrabLink.prototype.getHapticBuddy = function () {
@@ -502,13 +518,13 @@
             this.updateJointInfo();
             switch (this.state) {
                 case GrabLinkState.Alone:
+                    this.initiator = true;
                     this.changeState(GrabLinkState.Leader);
                     if (relXformOverride) {
                         this.relXform = relXformOverride;
                     }
                     break;
                 case GrabLinkState.Follower:
-                    this.initiator = true;
                     this.changeState(GrabLinkState.Peer);
                     break;
                 default:
@@ -535,7 +551,6 @@
         //
         GrabLink.prototype.aloneEnter = function () {
             HMD.requestHideHandControllers();
-            this.initiator = false;
             if (this.state === GrabLinkState.Leader) {
                 // AJT_B: leader -> alone
                 this.hapticPulse();
@@ -555,6 +570,7 @@
             else {
                 console.warn("AJT: WARNING aloneEnter from illegal state " + this.state);
             }
+            this.initiator = false;
         };
         GrabLink.prototype.aloneProcess = function () {
             // do nothing
@@ -718,8 +734,8 @@
         GrabLink.myAvatarGrabLinkMap = {};
         // All GrabLink objects that do not affect myAvatar
         GrabLink.otherAvatarGrabLinkMap = {};
-        GrabLink.rightControllerDispatcherEnabled = false;
-        GrabLink.leftControllerDispatcherEnabled = false;
+        GrabLink.rightControllerDispatcherEnabled = true;
+        GrabLink.leftControllerDispatcherEnabled = true;
         return GrabLink;
     }());
     var GRABBABLE_JOINT_NAMES = [
@@ -992,7 +1008,7 @@
     ];
     // message is a JSON serialized GrabMessage
     function messageHandler(channel, message, sender) {
-        if (channel === "Hifi-Handshake") {
+        if (channel === "Hifi-Handshake" && sender !== MyAvatar.sessionUUID) {
             console.warn("AJT: messageHandler, msg = " + message);
             var obj;
             try {
@@ -1004,12 +1020,13 @@
             }
             var link;
             var primaryKey, secondaryKey;
+            var relXform;
             if (obj.receiver === MyAvatar.sessionUUID) {
                 primaryKey = { avatarId: MyAvatar.SELF_ID, jointName: obj.grabbedJoint };
                 secondaryKey = { avatarId: sender, jointName: obj.grabbingJoint };
                 if (obj.type === GrabMessageType.Grab) {
                     link = GrabLink.findOrCreateLink(primaryKey, secondaryKey);
-                    var relXform = new Xform(obj.relXform.rot, obj.relXform.pos);
+                    relXform = new Xform(obj.relXform.rot, obj.relXform.pos);
                     link.receivedGrab(relXform.inv());
                 }
                 else if (obj.type === GrabMessageType.Release) {
@@ -1041,10 +1058,12 @@
                     primaryKey = secondaryKey;
                     secondaryKey = primaryKey;
                 }
+                console.warn("AJT: other avatars, primaryKey = " + JSON.stringify(primaryKey) + ", secondaryKey = " + JSON.stringify(secondaryKey));
                 if (obj.initiator) {
                     if (obj.type === GrabMessageType.Grab) {
                         link = GrabLink.findOrCreateOtherAvatarLink(primaryKey, secondaryKey);
-                        link.triggerPress(obj.relXform);
+                        relXform = new Xform(obj.relXform.rot, obj.relXform.pos);
+                        link.triggerPress(relXform);
                     }
                     else if (obj.type === GrabMessageType.Release) {
                         link = GrabLink.findOtherAvatarLink(primaryKey, secondaryKey);
@@ -1063,7 +1082,7 @@
                     if (obj.type === GrabMessageType.Grab) {
                         link = GrabLink.findOtherAvatarLink(primaryKey, secondaryKey);
                         if (link) {
-                            var relXform = new Xform(obj.relXform.rot, obj.relXform.pos);
+                            relXform = new Xform(obj.relXform.rot, obj.relXform.pos);
                             link.receivedGrab(relXform.inv());
                         }
                     }
