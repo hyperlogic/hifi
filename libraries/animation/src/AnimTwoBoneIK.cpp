@@ -145,23 +145,15 @@ void AnimTwoBoneIK::setSkeletonInternal(AnimSkeleton::ConstPointer skeleton) {
 void AnimTwoBoneIK::lookUpIndices() {
     assert(_skeleton);
 
-    // look up bone indices by name in AnimSkeleton
-    _baseJointIndex = _skeleton->nameToJointIndex(_baseJointName);
-    _midJointIndex = _skeleton->nameToJointIndex(_midJointName);
-    _tipJointIndex = _skeleton->nameToJointIndex(_tipJointName);
+    // look up bone indices by name
+    std::vector<int> indices = _skeleton->lookUpJointIndices({_baseJointName, _midJointName, _tipJointName});
 
-    // issue a warning if bones are not found in skeleton
-    if (_baseJointIndex == -1) {
-        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find base-bone with name" << _baseJointName;
-    }
-    if (_midJointIndex == -1) {
-        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find mid-bone with name" << _midJointName;
-    }
-    if (_tipJointIndex == -1) {
-        qWarning(animation) << "AnimTwoBoneIK(" << _id << "): could not find tip-bone with name" << _tipJointName;
-    }
+    // cache the results
+    _baseJointIndex = indices[0];
+    _midJointIndex = indices[1];
+    _tipJointIndex = indices[2];
 
-    if (_baseJointIndex != -1 ) {
+    if (_baseJointIndex != -1) {
         _baseParentJointIndex = _skeleton->getParentIndex(_baseJointIndex);
     }
 }
