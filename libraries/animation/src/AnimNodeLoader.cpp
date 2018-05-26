@@ -26,7 +26,7 @@
 #include "AnimInverseKinematics.h"
 #include "AnimDefaultPose.h"
 #include "AnimTwoBoneIK.h"
-#include "AnimSplineIK.h"
+#include "AnimPoleVectorConstraint.h"
 
 using NodeLoaderFunc = AnimNode::Pointer (*)(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 using NodeProcessFunc = bool (*)(AnimNode::Pointer node, const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
@@ -41,7 +41,7 @@ static AnimNode::Pointer loadManipulatorNode(const QJsonObject& jsonObj, const Q
 static AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadDefaultPoseNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadTwoBoneIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
-static AnimNode::Pointer loadSplineIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
+static AnimNode::Pointer loadPoleVectorConstraintNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 
 static const float ANIM_GRAPH_LOAD_PRIORITY = 10.0f;
 
@@ -61,7 +61,7 @@ static const char* animNodeTypeToString(AnimNode::Type type) {
     case AnimNode::Type::InverseKinematics: return "inverseKinematics";
     case AnimNode::Type::DefaultPose: return "defaultPose";
     case AnimNode::Type::TwoBoneIK: return "twoBoneIK";
-    case AnimNode::Type::SplineIK: return "splineIK";
+    case AnimNode::Type::PoleVectorConstraint: return "splineIK";
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -123,7 +123,7 @@ static NodeLoaderFunc animNodeTypeToLoaderFunc(AnimNode::Type type) {
     case AnimNode::Type::InverseKinematics: return loadInverseKinematicsNode;
     case AnimNode::Type::DefaultPose: return loadDefaultPoseNode;
     case AnimNode::Type::TwoBoneIK: return loadTwoBoneIKNode;
-    case AnimNode::Type::SplineIK: return loadSplineIKNode;
+    case AnimNode::Type::PoleVectorConstraint: return loadPoleVectorConstraintNode;
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -140,7 +140,7 @@ static NodeProcessFunc animNodeTypeToProcessFunc(AnimNode::Type type) {
     case AnimNode::Type::InverseKinematics: return processDoNothing;
     case AnimNode::Type::DefaultPose: return processDoNothing;
     case AnimNode::Type::TwoBoneIK: return processDoNothing;
-    case AnimNode::Type::SplineIK: return processDoNothing;
+    case AnimNode::Type::PoleVectorConstraint: return processDoNothing;
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -555,7 +555,7 @@ static AnimNode::Pointer loadTwoBoneIKNode(const QJsonObject& jsonObj, const QSt
     return node;
 }
 
-static AnimNode::Pointer loadSplineIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
+static AnimNode::Pointer loadPoleVectorConstraintNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
     // AJT: TODO FIXME
     auto node = std::make_shared<AnimDefaultPose>(id);
     return node;

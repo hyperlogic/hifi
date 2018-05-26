@@ -46,7 +46,7 @@ public:
         InverseKinematics,
         DefaultPose,
         TwoBoneIK,
-        SplineIK,
+        PoleVectorConstraint,
         NumTypes
     };
     using Pointer = std::shared_ptr<AnimNode>;
