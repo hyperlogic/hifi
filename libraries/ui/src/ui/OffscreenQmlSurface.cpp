@@ -338,7 +338,9 @@ void OffscreenQmlSurface::onRootCreated() {
         }
     });
 
-#if !defined(Q_OS_ANDROID)
+// AJT: DISABLE THIS ON ALL PLATFORMS!
+// #if !defined(Q_OS_ANDROID)
+#if 0
     // Setup the update of the QML media components with the current audio output device
     QObject::connect(&_audioOutputUpdateTimer, &QTimer::timeout, this, [this]() {
         if (_currentAudioOutputDevice.size() > 0) {
