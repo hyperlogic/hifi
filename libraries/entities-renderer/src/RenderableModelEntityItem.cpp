@@ -287,6 +287,7 @@ bool RenderableModelEntityItem::findDetailedRayIntersection(const glm::vec3& ori
                          glm::vec3& surfaceNormal, QVariantMap& extraInfo, bool precisionPicking) const {
     auto model = getModel();
     if (!model) {
+        qWarning() << "AJT: RenderableModelEntityItem::findDetailedRayIntersection(), id =" << _id << ", no model, return true!";
         return true;
     }
     // qCDebug(entitiesrenderer) << "RenderableModelEntityItem::findDetailedRayIntersection() precisionPicking:"

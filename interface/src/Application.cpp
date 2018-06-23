@@ -5205,6 +5205,9 @@ void Application::cameraMenuChanged() {
 }
 
 void Application::resetPhysicsReadyInformation() {
+
+    qWarning() << "AJT: Application::resetPhysicsReadyInformation()";
+
     // we've changed domains or cleared out caches or something.  we no longer know enough about the
     // collision information of nearby entities to make running bullet be safe.
     _fullSceneReceivedCounter = 0;
@@ -5453,6 +5456,7 @@ void Application::update(float deltaTime) {
             // scene is ready to compute its collision shape.
             if (nearbyEntitiesAreReadyForPhysics() && getMyAvatar()->isReadyForPhysics()) {
                 _physicsEnabled = true;
+                qWarning() << "AJT: Application  _physicsEnabled = true!";
                 getMyAvatar()->updateMotionBehaviorFromMenu();
             }
         }

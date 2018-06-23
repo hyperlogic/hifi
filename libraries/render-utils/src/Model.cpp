@@ -41,6 +41,8 @@
 
 using namespace std;
 
+bool AJT_DEBUG_RAY_PICK = false;
+
 int nakedModelPointerTypeId = qRegisterMetaType<ModelPointer>();
 int weakGeometryResourceBridgePointerTypeId = qRegisterMetaType<Geometry::WeakPointer >();
 int vec3VectorTypeId = qRegisterMetaType<QVector<glm::vec3> >();
@@ -358,6 +360,9 @@ bool Model::findRayIntersectionAgainstSubMeshes(const glm::vec3& origin, const g
 
     // if we aren't active, we can't ray pick yet...
     if (!isActive()) {
+        if (AJT_DEBUG_RAY_PICK) {
+            qWarning() << "AJT: Model::findRayIntersectionAgainstSubMeshes() mode is notActive, url =" << _url;
+        }
         return intersectedSomething;
     }
 
@@ -442,7 +447,19 @@ bool Model::findRayIntersectionAgainstSubMeshes(const glm::vec3& origin, const g
                     { "v1", vec3toVariant(bestModelTriangle.v1) },
                     { "v2", vec3toVariant(bestModelTriangle.v2) },
                 };
+
+                if (AJT_DEBUG_RAY_PICK) {
+                    qWarning() << "AJT: Model::findRayIntersectionAgainstSubMeshes() url =" << _url << " found collision, extraInfo =" << extraInfo;
+                }
             }
+        } else {
+            if (AJT_DEBUG_RAY_PICK) {
+                qWarning() << "AJT: Model::findRayIntersectionAgainstSubMeshes() url =" << _url << " NO COLLISION FOUND";
+            }
+        }
+    } else {
+        if (AJT_DEBUG_RAY_PICK) {
+            qWarning() << "AJT: Model::findRayIntersectionAgainstSubMeshes() url =" << _url << " NO COLLISION FOUND, missed BB";
         }
     }
 

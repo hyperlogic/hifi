@@ -49,6 +49,7 @@
 #include <RecordingScriptingInterface.h>
 #include <trackers/FaceTracker.h>
 #include <RenderableModelEntityItem.h>
+#include <Finally.h>
 
 #include "MyHead.h"
 #include "MySkeletonModel.h"
@@ -2534,6 +2535,8 @@ void MyAvatar::goToLocation(const glm::vec3& newPosition,
                             bool hasOrientation, const glm::quat& newOrientation,
                             bool shouldFaceLocation) {
 
+    qWarning() << "AJT: MyAvatar::goToLocation(), newPosition =" << newPosition;
+
     // Most cases of going to a place or user go through this now. Some possible improvements to think about in the future:
     // - It would be nice if this used the same teleport steps and smoothing as in the teleport.js script, as long as it
     //   still worked if the target is in the air.
@@ -2609,8 +2612,18 @@ bool MyAvatar::safeLanding(const glm::vec3& position) {
      return true;
 }
 
+extern bool AJT_DEBUG_RAY_PICK;
+
 // If position is not reliably safe from being stuck by physics, answer true and place a candidate better position in betterPositionOut.
 bool MyAvatar::requiresSafeLanding(const glm::vec3& positionIn, glm::vec3& betterPositionOut) {
+
+    AJT_DEBUG_RAY_PICK = true;
+
+    Finally([]() {
+        AJT_DEBUG_RAY_PICK = false;
+    });
+
+    qWarning() << "AJT: MyAvatar::requiresSafeLanding(), positionIn =" << positionIn;
 
     // We begin with utilities and tests. The Algorithm in four parts is below.
     // NOTE: we use estimated avatar height here instead of the bullet capsule halfHeight, because
@@ -2661,24 +2674,48 @@ bool MyAvatar::requiresSafeLanding(const glm::vec3& positionIn, glm::vec3& bette
     // The Algorithm, in four parts:
 
     if (!findIntersection(capsuleCenter, up, upperIntersection, upperId, upperNormal)) {
+
+        qWarning() << "AJT:    nothing above!";
+
         // We currently believe that physics will reliably push us out if our feet are embedded,
         // as long as our capsule center is out and there's room above us. Here we have those
         // conditions, so no need to check our feet below.
         return false; // nothing above
     }
 
+    qWarning() << "AJT:    upperIntersection =" << upperIntersection;
+    qWarning() << "AJT:    upperNormal =" << upperNormal;
+    qWarning() << "AJT:    upperId =" << upperId;
+
     if (!findIntersection(capsuleCenter, down, lowerIntersection, lowerId, lowerNormal)) {
+
+        qWarning() << "AJT:    nothing below!";
+
         // Our head may be embedded, but our center is out and there's room below. See corresponding comment above.
         return false; // nothing below
     }
+
+    qWarning() << "AJT:    lowerIntersection =" << lowerIntersection;
+    qWarning() << "AJT:    lowerNormal =" << lowerNormal;
+    qWarning() << "AJT:    lowerId =" << lowerId;
 
     // See if we have room between entities above and below, but that we are not contained.
     // First check if the surface above us is the bottom of something, and the surface below us it the top of something.
     // I.e., we are in a clearing between two objects.
     if (isDown(upperNormal) && isUp(lowerNormal)) {
+
+        qWarning() << "AJT:    isDown(upperNormal) && isUp(lowerNormal)";
+
         auto spaceBetween = glm::distance(upperIntersection, lowerIntersection);
         const float halfHeightFactor = 2.25f; // Until case 5003 is fixed (and maybe after?), we need a fudge factor. Also account for content modelers not being precise.
+
         if (spaceBetween > (halfHeightFactor * halfHeight)) {
+
+            qWarning() << "AJT:        spaceBetween > height";
+
+            qWarning() << "AJT:            spaceBetween =" << spaceBetween;
+            qWarning() << "AJT:            height =" << halfHeightFactor * halfHeight;
+
             // There is room for us to fit in that clearing. If there wasn't, physics would oscilate us between the objects above and below.
             // We're now going to iterate upwards through successive upperIntersections, testing to see if we're contained within the top surface of some entity.
             // There will be one of two outcomes:
@@ -2686,12 +2723,27 @@ bool MyAvatar::requiresSafeLanding(const glm::vec3& positionIn, glm::vec3& bette
             // b) We are contained, so we'll bail out of this but try again at a position above the containing entity.
             const int iterationLimit = 1000;
             for (int counter = 0; counter < iterationLimit; counter++) {
+
+                qWarning() << "AJT:            loop counter =" << counter;
+
                 ignore.push_back(upperId);
                 if (!findIntersection(upperIntersection, up, upperIntersection, upperId, upperNormal)) {
+
+                    qWarning() << "AJT:                enough room!";
+
                     // We're not inside an entity, and from the nested tests, we have room between what is above and below. So position is good!
                     return false; // enough room
                 }
+
+                qWarning() << "AJT:                upperIntersection =" << upperIntersection;
+                qWarning() << "AJT:                upperNormal =" << upperNormal;
+                qWarning() << "AJT:                upperId =" << upperId;
+
                 if (isUp(upperNormal)) {
+
+                    qWarning() << "AJT:                    isUp(upperNormal)";
+                    qWarning() << "AJT:                    return mustMove()!";
+
                     // This new intersection is the top surface of an entity that we have not yet seen, which means we're contained within it.
                     // We could break here and recurse from the top of the original ceiling, but since we've already done the work to find the top
                     // of the enclosing entity, let's put our feet at upperIntersection and start over.
@@ -2700,6 +2752,8 @@ bool MyAvatar::requiresSafeLanding(const glm::vec3& positionIn, glm::vec3& bette
                 // We found a new bottom surface, which we're not interested in.
                 // But there could still be a top surface above us for an entity we haven't seen, so keep looking upward.
             }
+
+            qWarning() << "AJT:        Loop in requiresSafeLanding. Floor/ceiling do not make sense.";
             qCDebug(interfaceapp) << "Loop in requiresSafeLanding. Floor/ceiling do not make sense.";
         }
     }
@@ -2709,8 +2763,16 @@ bool MyAvatar::requiresSafeLanding(const glm::vec3& positionIn, glm::vec3& bette
     const auto skyHigh = up * big;
     auto fromAbove = capsuleCenter + skyHigh;
     if (!findIntersection(fromAbove, down, upperIntersection, upperId, upperNormal)) {
+
+        qWarning() << "AJT:    unable to find a landing, return false!";
         return false; // Unable to find a landing
     }
+
+    qWarning() << "AJT:    upperIntersection =" << upperIntersection;
+    qWarning() << "AJT:    upperNormal =" << upperNormal;
+    qWarning() << "AJT:    upperId =" << upperId;
+    qWarning() << "AJT:    return mustMove()!";
+
     // Our arbitrary rule is to always go up. There's no need to look down or sideways for a "closer" safe candidate.
     return mustMove();
 }
