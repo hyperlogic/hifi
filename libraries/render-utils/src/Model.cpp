@@ -41,8 +41,6 @@
 
 using namespace std;
 
-bool AJT_DEBUG_RAY_PICK = false;
-
 int nakedModelPointerTypeId = qRegisterMetaType<ModelPointer>();
 int weakGeometryResourceBridgePointerTypeId = qRegisterMetaType<Geometry::WeakPointer >();
 int vec3VectorTypeId = qRegisterMetaType<QVector<glm::vec3> >();
@@ -357,6 +355,8 @@ bool Model::findRayIntersectionAgainstSubMeshes(const glm::vec3& origin, const g
                                                 bool pickAgainstTriangles, bool allowBackface) {
 
     bool intersectedSomething = false;
+
+    bool AJT_DEBUG_RAY_PICK = extraInfo.contains("AJT_DEBUG_RAY_PICK");
 
     // if we aren't active, we can't ray pick yet...
     if (!isActive()) {

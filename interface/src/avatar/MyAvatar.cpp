@@ -2612,16 +2612,8 @@ bool MyAvatar::safeLanding(const glm::vec3& position) {
      return true;
 }
 
-extern bool AJT_DEBUG_RAY_PICK;
-
 // If position is not reliably safe from being stuck by physics, answer true and place a candidate better position in betterPositionOut.
 bool MyAvatar::requiresSafeLanding(const glm::vec3& positionIn, glm::vec3& betterPositionOut) {
-
-    AJT_DEBUG_RAY_PICK = true;
-
-    Finally([]() {
-        AJT_DEBUG_RAY_PICK = false;
-    });
 
     qWarning() << "AJT: MyAvatar::requiresSafeLanding(), positionIn =" << positionIn;
 
@@ -2661,6 +2653,7 @@ bool MyAvatar::requiresSafeLanding(const glm::vec3& positionIn, glm::vec3& bette
         bool* accurateResult = NULL;
 
         QVariantMap extraInfo;
+        extraInfo["AJT_DEBUG_RAY_PICK"] = true;
         EntityItemID entityID = entityTree->findRayIntersection(startPointIn, directionIn, include, ignore, visibleOnly, collidableOnly, precisionPicking,
             element, distance, face, normalOut, extraInfo, lockType, accurateResult);
         if (entityID.isNull()) {
