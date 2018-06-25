@@ -279,20 +279,23 @@ EntityItemProperties RenderableModelEntityItem::getProperties(EntityPropertyFlag
 }
 
 bool RenderableModelEntityItem::supportsDetailedRayIntersection() const {
-    return isModelLoaded();
+    return true;
 }
 
 bool RenderableModelEntityItem::findDetailedRayIntersection(const glm::vec3& origin, const glm::vec3& direction,
                          OctreeElementPointer& element, float& distance, BoxFace& face,
                          glm::vec3& surfaceNormal, QVariantMap& extraInfo, bool precisionPicking) const {
-    auto model = getModel();
-    if (!model) {
-        qWarning() << "AJT: RenderableModelEntityItem::findDetailedRayIntersection(), id =" << _id << ", no model, return true!";
-        return true;
-    }
-    // qCDebug(entitiesrenderer) << "RenderableModelEntityItem::findDetailedRayIntersection() precisionPicking:"
-    //                           << precisionPicking;
 
+    auto model = getModel();
+    if (!model || !isModelLoaded()) {
+        qWarning() << "AJT: RenderableModelEntityItem::findDetailedRayIntersection(), id =" << _id << ", no model, return false!";
+        return false;
+    }
+
+    bool AJT_DEBUG_RAY_PICK = extraInfo.contains("AJT_DEBUG_RAY_PICK");
+    if (AJT_DEBUG_RAY_PICK) {
+        qWarning() << "AJT: RenderableModelEntityItem::findDetailedRayIntersection(), id =" << _id << ", diving into MODEL";
+    }
     return model->findRayIntersectionAgainstSubMeshes(origin, direction, distance,
                face, surfaceNormal, extraInfo, precisionPicking, false);
 }
