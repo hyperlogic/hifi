@@ -166,6 +166,9 @@ EntityItemID EntityTreeElement::findRayIntersection(const glm::vec3& origin, con
     // if the distance to the element cube is not less than the current best distance, then it's not possible
     // for any details inside the cube to be closer so we don't need to consider them.
     QVariantMap localExtraInfo;
+    if (extraInfo.contains("AJT_DEBUG_RAY_PICK")) {
+        localExtraInfo["AJT_DEBUG_RAY_PICK"] = true;
+    }
     float distanceToElementDetails = distance;
     EntityItemID entityID = findDetailedRayIntersection(origin, direction, element, distanceToElementDetails,
             face, localSurfaceNormal, entityIdsToInclude, entityIdsToDiscard, visibleOnly, collidableOnly,
@@ -234,6 +237,9 @@ EntityItemID EntityTreeElement::findDetailedRayIntersection(const glm::vec3& ori
                 // now ask the entity if we actually intersect
                 if (entity->supportsDetailedRayIntersection()) {
                     QVariantMap localExtraInfo;
+                    if (extraInfo.contains("AJT_DEBUG_RAY_PICK")) {
+                        localExtraInfo["AJT_DEBUG_RAY_PICK"] = true;
+                    }
                     if (entity->findDetailedRayIntersection(origin, direction, element, localDistance,
                             localFace, localSurfaceNormal, localExtraInfo, precisionPicking)) {
                         if (localDistance < distance) {
