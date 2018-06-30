@@ -25,7 +25,7 @@ namespace controller {
     public:
         using PoseStates = std::map<QString, Pose>;
         using ActionStates = std::map<QString, float>;
-    
+
         InputRecorder();
         ~InputRecorder();
 
@@ -44,6 +44,7 @@ namespace controller {
         bool isPlayingback() { return (_playback && !_loading); }
         void setActionState(const QString& action, float value);
         void setActionState(const QString& action, const controller::Pose& pose);
+        void setInputCalibrationData(const InputCalibrationData& inputCalibrationData);
         float getActionState(const QString&  action);
         controller::Pose getPoseState(const QString& action);
         QString getSaveDirectory();
@@ -53,13 +54,15 @@ namespace controller {
         bool _recording { false };
         bool _playback { false };
         bool _loading { false };
-        std::vector<PoseStates> _poseStateList = std::vector<PoseStates>();
-        std::vector<ActionStates> _actionStateList = std::vector<ActionStates>();
+        std::vector<PoseStates> _poseStateList;
+        std::vector<ActionStates> _actionStateList;
+        std::vector<InputCalibrationData> _inputCalibrationDataList;
         PoseStates _currentFramePoses;
         ActionStates _currentFrameActions;
-        
+        InputCalibrationData _currentInputCalibrationData;
+
         int _framesRecorded { 0 };
         int _playCount { 0 };
     };
-}    
+}
 #endif

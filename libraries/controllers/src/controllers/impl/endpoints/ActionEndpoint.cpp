@@ -25,12 +25,17 @@ void ActionEndpoint::apply(float newValue, const Pointer& source) {
             newValue = inputRecorder->getActionState(actionName);
         }
     }
-    
+
     _currentValue += newValue;
     if (_input != Input::INVALID_INPUT) {
         userInputMapper->deltaActionState(Action(_input.getChannel()), newValue);
     }
     inputRecorder->setActionState(actionName, newValue);
+
+    // record the current inputCalibrationData information.
+    if (inputRecorder->isRecording()) {
+        inputRecorder->setInputCalibrationData(userInputMapper->getInputCalibrationData());
+    }
 }
 
 void ActionEndpoint::apply(const Pose& value, const Pointer& source) {
@@ -41,7 +46,7 @@ void ActionEndpoint::apply(const Pose& value, const Pointer& source) {
         QString actionName = userInputMapper->getActionName(Action(_input.getChannel()));
         inputRecorder->setActionState(actionName, _currentPose);
     }
-    
+
     if (!_currentPose.isValid()) {
         return;
     }

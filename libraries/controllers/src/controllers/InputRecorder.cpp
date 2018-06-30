@@ -25,10 +25,18 @@
 #include <GLMHelpers.h>
 #include <DependencyManager.h>
 #include "UserInputMapper.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 QString SAVE_DIRECTORY = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/" + BuildInfo::MODIFIED_ORGANIZATION + "/" + BuildInfo::INTERFACE_NAME + "/hifi-input-recordings/";
 QString FILE_PREFIX_NAME = "input-recording-";
 QString COMPRESS_EXTENSION = ".json.gz";
+
+// version "0.0" - original version.
+QString ORIGINAL_VERSION_STRING = "0.0";
+// version "0.1" - adds the inputCalibrationDataList, which saves the avatar position and sensorToWorldMatrix
+QString INPUT_CALIBRATION_VERSION_STRING = "0.1";
+QString CURRENT_VERSION_STRING = INPUT_CALIBRATION_VERSION_STRING;
+
 namespace controller {
 
     QJsonObject poseToJsonObject(const Pose pose) {
@@ -93,12 +101,64 @@ namespace controller {
         return pose;
     }
 
+    QJsonObject matrixToJsonObject(const glm::mat4& mat) {
+
+        // same code from AnimPose constructor
+        static const float EPSILON = 0.0001f;
+        glm::vec3 scale = extractScale(mat);
+        // quat_cast doesn't work so well with scaled matrices, so cancel it out.
+        glm::mat4 tmp = glm::scale(mat, 1.0f / scale);
+        glm::quat rot = glm::quat_cast(tmp);
+        float lengthSquared = glm::length2(rot);
+        if (glm::abs(lengthSquared - 1.0f) > EPSILON) {
+            float oneOverLength = 1.0f / sqrtf(lengthSquared);
+            rot = glm::quat(rot.w * oneOverLength, rot.x * oneOverLength, rot.y * oneOverLength, rot.z * oneOverLength);
+        }
+        glm::vec3 trans = extractTranslation(mat);
+
+        QJsonObject result;
+
+        QJsonArray transObj;
+        transObj.append(trans.x);
+        transObj.append(trans.y);
+        transObj.append(trans.z);
+
+        QJsonArray rotObj;
+        rotObj.append(rot.x);
+        rotObj.append(rot.y);
+        rotObj.append(rot.z);
+        rotObj.append(rot.w);
+
+        QJsonArray scaleObj;
+        scaleObj.append(scale.x);
+        scaleObj.append(scale.y);
+        scaleObj.append(scale.z);
+
+        result["translation"] = transObj;
+        result["rotation"] = rotObj;
+        result["scale"] = scaleObj;
+
+        return result;
+    }
+
+    QJsonObject inputCalibrationDataToJsonObject(const InputCalibrationData& inputCalibrationData) {
+        QJsonObject result;
+
+        result["sensorToWorld"] = matrixToJsonObject(inputCalibrationData.sensorToWorldMat);
+        result["avatar"] = matrixToJsonObject(inputCalibrationData.avatarMat);
+        result["hmdSensor"] = matrixToJsonObject(inputCalibrationData.hmdSensorMat);
+
+        // I don't think there is much value in saving the other InputCalibrationData fields to the input recording.
+
+        return result;
+    }
+
 
     void exportToFile(const QJsonObject& object, const QString& fileName) {
         if (!QDir(SAVE_DIRECTORY).exists()) {
             QDir().mkdir(SAVE_DIRECTORY);
         }
-       
+
         QFile saveFile (fileName);
         if (!saveFile.open(QIODevice::WriteOnly)) {
             qWarning() << "could not open file: " << fileName;
@@ -112,7 +172,7 @@ namespace controller {
             qCritical("unable to gzip while saving to json.");
             return;
         }
-        
+
         saveFile.write(jsonDataForFile);
         saveFile.close();
     }
@@ -133,7 +193,7 @@ namespace controller {
             status = false;
             return object;
         }
-        
+
         QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
         object = jsonDoc.object();
         status = true;
@@ -165,13 +225,12 @@ namespace controller {
     QJsonObject InputRecorder::recordDataToJson() {
         QJsonObject data;
         data["frameCount"] = _framesRecorded;
-        data["version"] = "0.0";
-        
+        data["version"] = CURRENT_VERSION_STRING;
+
         QJsonArray actionArrayList;
-        QJsonArray poseArrayList;
-        for(const ActionStates actionState: _actionStateList) {
+        for(const auto& actionState: _actionStateList) {
             QJsonArray actionArray;
-            for (const auto action: actionState) {
+            for (const auto& action: actionState) {
                 QJsonObject actionJson;
                 actionJson["name"] = action.first;
                 actionJson["value"] = action.second;
@@ -179,10 +238,12 @@ namespace controller {
             }
             actionArrayList.append(actionArray);
         }
+        data["actionList"] = actionArrayList;
 
-        for (const PoseStates poseState: _poseStateList) {
+        QJsonArray poseArrayList;
+        for (const auto& poseState: _poseStateList) {
             QJsonArray poseArray;
-            for (const auto pose: poseState) {
+            for (const auto& pose: poseState) {
                 QJsonObject poseJson;
                 poseJson["name"] = pose.first;
                 poseJson["pose"] = poseToJsonObject(pose.second);
@@ -190,9 +251,13 @@ namespace controller {
             }
             poseArrayList.append(poseArray);
         }
-
-        data["actionList"] = actionArrayList;
         data["poseList"] = poseArrayList;
+
+        QJsonArray inputCalibrationDataList;
+        for (const auto& inputCalibrationData: _inputCalibrationDataList) {
+            inputCalibrationDataList.append(inputCalibrationDataToJsonObject(inputCalibrationData));
+        }
+        data["inputCalibrationDataList"] = inputCalibrationDataList;
 
         return data;
     }
@@ -217,12 +282,12 @@ namespace controller {
         QString filePath = urlPath.toLocalFile();
         QFileInfo info(filePath);
         QString extension = info.suffix();
-        
+
         if (extension != "gz") {
             qWarning() << "can not load file with exentsion of " << extension;
             return;
         }
-        
+
         bool success = false;
         QJsonObject data = openFile(filePath, success);
         auto keyValue = data.find("version");
@@ -250,15 +315,17 @@ namespace controller {
                 _poseStateList.push_back(_currentFramePoses);
                 _currentFramePoses.clear();
             }
-        } 
+
+            // Currently, we don't do anything with the "inputCalibrationDataList" during playback, so don't bother reading it in.
+        }
         _loading = false;
     }
-    
+
     void InputRecorder::stopRecording() {
         _recording = false;
         _framesRecorded = (int)_actionStateList.size();
     }
-    
+
     void InputRecorder::startPlayback() {
         _playback = true;
         _recording = false;
@@ -279,6 +346,12 @@ namespace controller {
     void InputRecorder::setActionState(const QString& action, const controller::Pose& pose) {
         if (_recording) {
             _currentFramePoses[action] = pose;
+        }
+    }
+
+    void InputRecorder::setInputCalibrationData(const InputCalibrationData& inputCalibrationData) {
+        if (_recording) {
+            _currentInputCalibrationData = inputCalibrationData;
         }
     }
 
@@ -310,6 +383,7 @@ namespace controller {
             _framesRecorded++;
             _poseStateList.push_back(_currentFramePoses);
             _actionStateList.push_back(_currentFrameActions);
+            _inputCalibrationDataList.push_back(_currentInputCalibrationData);
         }
 
         if (_playback) {
