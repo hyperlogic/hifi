@@ -220,6 +220,7 @@ namespace controller {
         _framesRecorded = 0;
         _poseStateList.clear();
         _actionStateList.clear();
+        _inputCalibrationDataList.clear();
     }
 
     QJsonObject InputRecorder::recordDataToJson() {
@@ -278,6 +279,7 @@ namespace controller {
         resetFrame();
         _poseStateList.clear();
         _actionStateList.clear();
+        _inputCalibrationDataList.clear();
         QUrl urlPath(path);
         QString filePath = urlPath.toLocalFile();
         QFileInfo info(filePath);
