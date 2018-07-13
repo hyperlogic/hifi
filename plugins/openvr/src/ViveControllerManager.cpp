@@ -15,17 +15,12 @@
 
 #include <PerfStat.h>
 #include <PathUtils.h>
-#include <GeometryCache.h>
-#include <gpu/Batch.h>
-#include <gpu/Context.h>
-#include <DeferredLightingEffect.h>
 #include <NumericalConstants.h>
 #include <ui-plugins/PluginContainer.h>
 #include <UserActivityLogger.h>
 #include <NumericalConstants.h>
 #include <Preferences.h>
 #include <SettingHandle.h>
-#include <OffscreenUi.h>
 #include <GLMHelpers.h>
 #include <glm/ext.hpp>
 #include <glm/gtc/quaternion.hpp>
