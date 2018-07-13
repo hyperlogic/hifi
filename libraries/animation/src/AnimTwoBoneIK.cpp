@@ -17,13 +17,14 @@
 
 AnimTwoBoneIK::AnimTwoBoneIK(const QString& id, float alpha, const QString& alphaVar,
                              const QString& baseJointName, const QString& midJointName, const QString& tipJointName,
-                             const QString& endEffectorRotationVar, const QString& endEffectorPositionVar) :
+                             const glm::vec3& midHingeAxis, const QString& endEffectorRotationVar, const QString& endEffectorPositionVar) :
     AnimNode(AnimNode::Type::TwoBoneIK, id),
     _alpha(alpha),
     _alphaVar(alphaVar),
     _baseJointName(baseJointName),
     _midJointName(midJointName),
     _tipJointName(tipJointName),
+    _midHingeAxis(midHingeAxis),
     _endEffectorRotationVar(endEffectorRotationVar),
     _endEffectorPositionVar(endEffectorPositionVar)
 {
@@ -52,23 +53,22 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         return _poses;
     }
 
-    // AJT: TODO use alpha.
     float alpha = animVars.lookup(_alphaVar, _alpha);
 
-    // don't perform IK if we have bad indices.
-    if (_tipJointIndex == -1 || _midJointIndex == -1 || _baseJointIndex == -1) {
+    // don't perform IK if we have bad indices, or alpha is zero
+    if (_tipJointIndex == -1 || _midJointIndex == -1 || _baseJointIndex == -1 || alpha == 0.0f) {
         _poses = underPoses;
-        return underPoses;
+        return _poses;
     }
 
     AnimPose baseParentPose = _skeleton->getAbsolutePose(_baseParentJointIndex, underPoses);
 
-    // get default tip pose from underPoses (geom space)
-    AnimPose origTipPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
+    // get tip pose from underPoses (geom space)
+    AnimPose tipPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
 
     // look up end effector from animVars, make sure to convert into geom space.
-    AnimPose tipPose(animVars.lookupRigToGeometry(_endEffectorRotationVar, origTipPose.rot()),
-                     animVars.lookupRigToGeometry(_endEffectorPositionVar, origTipPose.trans()));
+    AnimPose targetPose(animVars.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot()),
+                        animVars.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans()));
 
     // get default mid and base poses from underPoses (geom space)
     AnimPose midPose = _skeleton->getAbsolutePose(_midJointIndex, underPoses);
@@ -78,56 +78,58 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     float r0 = glm::length(bicepVector);
     bicepVector = bicepVector / r0;
 
-    glm::vec3 forearmVector = origTipPose.trans() - midPose.trans();
+    glm::vec3 forearmVector = tipPose.trans() - midPose.trans();
     float r1 = glm::length(forearmVector);
     forearmVector = forearmVector / r1;
 
-    float d = glm::length(tipPose.trans() - basePose.trans());
+    float d = glm::length(targetPose.trans() - basePose.trans());
 
-    glm::vec3 newMidPosition;
-    if (d > r0 + r1) {
-        // put midPosition on line between base and tip.
-        newMidPosition = 0.5f * (tipPose.trans() + basePose.trans());
-    } else {
-        glm::vec3 u, v, w;
-        generateBasisVectors(glm::normalize(tipPose.trans() - basePose.trans()),
-                             glm::normalize(midPose.trans() - basePose.trans()), u, v, w);
-
-        // http://mathworld.wolfram.com/Circle-CircleIntersection.html
-        // intersection of circles formed by x^2 + y^2 = r0 and (x - d)^2 + y^2 = r1.
-        // there are two solutions (x, y) and (x, -y), we pick the positive one.
-        float x = (d * d - r1 * r1 + r0 * r0) / (2.0f * d);
+    float midAngle = 0.0f;
+    if (d < r0 + r1) {
         float y = sqrtf((-d + r1 - r0) * (-d - r1 + r0) * (-d + r1 + r0) * (d + r1 + r0)) / (2.0f * d);
-
-        // convert (x, y) back into geom space using the u, v axes.
-        newMidPosition = u * x + v * y + basePose.trans();
+        midAngle = PI - (acosf(y / r0) + acosf(y / r1));
     }
 
-    // AJT: TODO: REMOVE: debug draw.
-    {
-        glm::mat4 geomToWorld = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
-        glm::vec3 basePosition = transformPoint(geomToWorld, basePose.trans());
-        glm::vec3 midPosition = transformPoint(geomToWorld, newMidPosition);
-        glm::vec3 tipPosition = transformPoint(geomToWorld, tipPose.trans());
-        DebugDraw::getInstance().drawRay(basePosition, midPosition, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-        DebugDraw::getInstance().drawRay(midPosition, tipPosition, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    AnimPoseVec ikPoses = underPoses;
+
+    // compute midJoint rotation
+    ikPoses[_midJointIndex].rot() = glm::angleAxis(midAngle, _midHingeAxis);
+
+    // recompute tip pose after mid joint has been rotated
+    AnimPose newTipPose = _skeleton->getAbsolutePose(_tipJointIndex, ikPoses);
+
+    glm::vec3 leverArm = newTipPose.trans() - basePose.trans();
+    glm::vec3 targetLine = targetPose.trans() - basePose.trans();
+
+    // compute delta rotation that brings leverArm parallel to targetLine
+    glm::vec3 axis = glm::cross(leverArm, targetLine);
+    float axisLength = glm::length(axis);
+    const float MIN_AXIS_LENGTH = 1.0e-4f;
+    if (axisLength > MIN_AXIS_LENGTH) {
+        axis /= axisLength;
+        float cosAngle = glm::clamp(glm::dot(leverArm, targetLine) / (glm::length(leverArm) * glm::length(targetLine)), -1.0f, 1.0f);
+        float angle = acosf(cosAngle);
+        glm::quat deltaRot = glm::angleAxis(angle, axis);
+
+        // combine deltaRot with basePose.
+        glm::quat absRot = deltaRot * basePose.rot();
+
+        // transform result back into parent relative frame.
+        ikPoses[_baseJointIndex].rot() = glm::inverse(baseParentPose.rot()) * absRot;
     }
 
-    glm::vec3 newBicepVector = newMidPosition - basePose.trans();
-    glm::quat newBaseRot = glm::rotation(bicepVector, newBicepVector) * basePose.rot();
-    glm::quat relNewBaseRot = glm::inverse(baseParentPose.rot()) * newBaseRot;
+    // recompute midJoint pose after base has been rotated.
+    AnimPose midJointPose = _skeleton->getAbsolutePose(_midJointIndex, ikPoses);
 
-    glm::vec3 newForarmVector = tipPose.trans() - newMidPosition;
-    glm::quat newMidRot = glm::rotation(forearmVector, newForarmVector) * midPose.rot();
-    glm::quat relNewMidRot = glm::inverse(newBaseRot) * newMidRot;
+    // transform target rotation in to parent relative frame.
+    ikPoses[_tipJointIndex].rot() = glm::inverse(midJointPose.rot()) * targetPose.rot();
 
-    glm::quat relNewTipRot = glm::inverse(newMidRot) * tipPose.rot();
-
-    _poses = underPoses;
-
-    _poses[_baseJointIndex].rot() = relNewBaseRot;
-    _poses[_midJointIndex].rot() = relNewMidRot;
-    _poses[_tipJointIndex].rot() = relNewTipRot;
+    if (alpha == 1.0f) {
+        _poses = ikPoses;
+    } else {
+        // apply alpha blend
+        ::blend(_poses.size(), &underPoses[0], &ikPoses[0], alpha, &_poses[0]);
+    }
 
     return _poses;
 }

@@ -199,6 +199,25 @@ static NodeProcessFunc animNodeTypeToProcessFunc(AnimNode::Type type) {
     }                                                                   \
     do {} while (0)
 
+#define READ_VEC3(NAME, JSON_OBJ, ID, URL, ERROR_RETURN)                \
+    auto NAME##_VAL = JSON_OBJ.value(#NAME);                            \
+    if (!NAME##_VAL.isArray()) {                                        \
+        qCCritical(animation) << "AnimNodeLoader, error reading vector" \
+                              << #NAME << "id =" << ID                  \
+                              << ", url =" << URL.toDisplayString();    \
+        return ERROR_RETURN;                                            \
+    }                                                                   \
+    QJsonArray NAME##_ARRAY = NAME##_VAL.toArray();                     \
+    if (NAME##_ARRAY.size() != 3) {                                     \
+        qCCritical(animation) << "AnimNodeLoader, vector size != 3"     \
+                              << #NAME << "id =" << ID                  \
+                              << ", url =" << URL.toDisplayString();    \
+        return ERROR_RETURN;                                            \
+    }                                                                   \
+    glm::vec3 NAME((float)NAME##_ARRAY.at(0).toDouble(),                \
+                   (float)NAME##_ARRAY.at(1).toDouble(),                \
+                   (float)NAME##_ARRAY.at(2).toDouble())
+
 static AnimNode::Pointer loadNode(const QJsonObject& jsonObj, const QUrl& jsonUrl) {
     auto idVal = jsonObj.value("id");
     if (!idVal.isString()) {
@@ -547,11 +566,12 @@ static AnimNode::Pointer loadTwoBoneIKNode(const QJsonObject& jsonObj, const QSt
     READ_STRING(baseJointName, jsonObj, id, jsonUrl, nullptr);
     READ_STRING(midJointName, jsonObj, id, jsonUrl, nullptr);
     READ_STRING(tipJointName, jsonObj, id, jsonUrl, nullptr);
+    READ_VEC3(midHingeAxis, jsonObj, id, jsonUrl, nullptr);
     READ_STRING(endEffectorRotationVar, jsonObj, id, jsonUrl, nullptr);
     READ_STRING(endEffectorPositionVar, jsonObj, id, jsonUrl, nullptr);
 
     auto node = std::make_shared<AnimTwoBoneIK>(id, alpha, alphaVar, baseJointName, midJointName, tipJointName,
-                                                endEffectorRotationVar, endEffectorPositionVar);
+                                                midHingeAxis, endEffectorRotationVar, endEffectorPositionVar);
     return node;
 }
 

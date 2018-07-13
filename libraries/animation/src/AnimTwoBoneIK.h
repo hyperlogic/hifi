@@ -20,7 +20,7 @@ public:
 
     AnimTwoBoneIK(const QString& id, float alpha, const QString& alphaVar,
                   const QString& baseJointName, const QString& midJointName, const QString& tipJointName,
-                  const QString& endEffectorRotationVar, const QString& endEffectorPositionVar);
+                  const glm::vec3& midHingeAxis, const QString& endEffectorRotationVar, const QString& endEffectorPositionVar);
     virtual ~AnimTwoBoneIK() override;
 
     virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut) override;
@@ -40,6 +40,7 @@ protected:
     QString _baseJointName;
     QString _midJointName;
     QString _tipJointName;
+    glm::vec3 _midHingeAxis;  // in baseJoint relative frame.
 
     int _baseParentJointIndex { -1 };
     int _baseJointIndex { -1 };
