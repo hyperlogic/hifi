@@ -21,7 +21,7 @@ AnimStateMachine::~AnimStateMachine() {
 
 }
 
-const AnimPoseVec& AnimStateMachine::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut) {
+const AnimPoseVec& AnimStateMachine::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) {
 
     QString desiredStateID = animVars.lookup(_currentStateVar, _currentState->getID());
     if (_currentState->getID() != desiredStateID) {
@@ -107,7 +107,7 @@ void AnimStateMachine::switchState(const AnimVariantMap& animVars, const AnimCon
 
     // because dt is 0, we should not encounter any triggers
     const float dt = 0.0f;
-    Triggers triggers;
+    AnimVariantMap triggers;
 
     if (_interpType == InterpType::SnapshotBoth) {
         // snapshot previous pose.

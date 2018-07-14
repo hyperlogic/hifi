@@ -1049,7 +1049,7 @@ void Rig::updateAnimations(float deltaTime, const glm::mat4& rootTransform, cons
                             getGeometryToRigTransform(), rigToWorldTransform);
 
         // evaluate the animation
-        AnimNode::Triggers triggersOut;
+        AnimVariantMap triggersOut;
 
         _internalPoseSet._relativePoses = _animNode->evaluate(_animVars, context, deltaTime, triggersOut);
         if ((int)_internalPoseSet._relativePoses.size() != _animSkeleton->getNumJoints()) {
@@ -1057,9 +1057,7 @@ void Rig::updateAnimations(float deltaTime, const glm::mat4& rootTransform, cons
             _internalPoseSet._relativePoses = _animSkeleton->getRelativeDefaultPoses();
         }
         _animVars.clearTriggers();
-        for (auto& trigger : triggersOut) {
-            _animVars.setTrigger(trigger);
-        }
+        _animVars = triggersOut;
     }
     applyOverridePoses();
     buildAbsoluteRigPoses(_internalPoseSet._relativePoses, _internalPoseSet._absolutePoses);

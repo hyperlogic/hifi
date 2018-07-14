@@ -30,7 +30,7 @@ AnimClip::~AnimClip() {
 
 }
 
-const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut) {
+const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) {
 
     // lookup parameters from animVars, using current instance variables as defaults.
     _startFrame = animVars.lookup(_startFrameVar, _startFrame);
@@ -89,7 +89,7 @@ void AnimClip::loadURL(const QString& url) {
 void AnimClip::setCurrentFrameInternal(float frame) {
     // because dt is 0, we should not encounter any triggers
     const float dt = 0.0f;
-    Triggers triggers;
+    AnimVariantMap triggers;
     _frame = ::accumulateTime(_startFrame, _endFrame, _timeScale, frame + _startFrame, dt, _loopFlag, _id, triggers);
 }
 
