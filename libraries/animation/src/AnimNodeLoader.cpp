@@ -245,6 +245,16 @@ static AnimNode::Pointer loadNode(const QJsonObject& jsonObj, const QUrl& jsonUr
     }
     auto dataObj = dataValue.toObject();
 
+    std::vector<QString> outputJoints;
+
+    auto outputJoints_VAL = dataObj.value("outputJoints");
+    if (outputJoints_VAL.isArray()) {
+        QJsonArray outputJoints_ARRAY = outputJoints_VAL.toArray();
+        for (int i = 0; i < outputJoints_ARRAY.size(); i++) {
+            outputJoints.push_back(outputJoints_ARRAY.at(i).toString());
+        }
+    }
+
     assert((int)type >= 0 && type < AnimNode::Type::NumTypes);
     auto node = (animNodeTypeToLoaderFunc(type))(dataObj, id, jsonUrl);
     if (!node) {
@@ -271,6 +281,9 @@ static AnimNode::Pointer loadNode(const QJsonObject& jsonObj, const QUrl& jsonUr
     }
 
     if ((animNodeTypeToProcessFunc(type))(node, dataObj, id, jsonUrl)) {
+        for (auto&& outputJoint : outputJoints) {
+            node->addOutputJoint(outputJoint);
+        }
         return node;
     } else {
         return nullptr;
@@ -732,7 +745,7 @@ AnimNode::Pointer AnimNodeLoader::load(const QByteArray& contents, const QUrl& j
     QString version = versionVal.toString();
 
     // check version
-    if (version != "1.0") {
+    if (version != "1.0" && version != "1.1") {
         qCCritical(animation) << "AnimNodeLoader, bad version number" << version << "expected \"1.0\", url =" << jsonUrl.toDisplayString();
         return nullptr;
     }

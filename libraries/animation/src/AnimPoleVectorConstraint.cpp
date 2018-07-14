@@ -30,7 +30,7 @@ PoleVectorConstraint::~PoleVectorConstraint() {
 
 }
 
-const AnimPoseVec& PoleVectorConstraint::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut) {
+const AnimPoseVec& PoleVectorConstraint::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) {
     _poses = _children[0]->evaluate(animVars, context, dt, triggersOut);
     return _poses;
 }

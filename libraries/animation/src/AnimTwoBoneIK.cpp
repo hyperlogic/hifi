@@ -36,7 +36,7 @@ AnimTwoBoneIK::~AnimTwoBoneIK() {
 
 }
 
-const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut) {
+const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) {
 
     assert(_children.size() == 1);
     if (_children.size() != 1) {
@@ -67,8 +67,18 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     AnimPose tipPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
 
     // look up end effector from animVars, make sure to convert into geom space.
-    AnimPose targetPose(animVars.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot()),
-                        animVars.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans()));
+    // first look in the animVars then look in the triggers.
+    AnimPose targetPose(tipPose);
+    if (animVars.hasKey(_endEffectorRotationVar)) {
+        targetPose.rot() = animVars.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot());
+    } else if (animVars.hasKey(_endEffectorRotationVar)) {
+        targetPose.rot() = triggersOut.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot());
+    }
+    if (animVars.hasKey(_endEffectorPositionVar)) {
+        targetPose.trans() = animVars.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans());
+    } else if (animVars.hasKey(_endEffectorRotationVar)) {
+        targetPose.trans() = triggersOut.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans());
+    }
 
     // get default mid and base poses from underPoses (geom space)
     AnimPose midPose = _skeleton->getAbsolutePose(_midJointIndex, underPoses);
