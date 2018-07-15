@@ -961,6 +961,7 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
                 PROFILE_RANGE_EX(simulation_animation, "ik/shiftHips", 0xffff00ff, 0);
 
                 if (_hipsTargetIndex >= 0) {
+
                     assert(_hipsTargetIndex < (int)targets.size());
 
                     // slam the hips to match the _hipsTarget
@@ -1843,6 +1844,10 @@ void AnimInverseKinematics::initRelativePosesFromSolutionSource(SolutionSource s
     default:
     case SolutionSource::RelaxToUnderPoses:
         blendToPoses(underPoses, underPoses, RELAX_BLEND_FACTOR);
+        // special case for hips: don't dampen hip motion from underposes
+        if (_hipsIndex >= 0 && _hipsIndex < (int)_relativePoses.size()) {
+            _relativePoses[_hipsIndex] = underPoses[_hipsIndex];
+        }
         break;
     case SolutionSource::RelaxToLimitCenterPoses:
         blendToPoses(_limitCenterPoses, underPoses, RELAX_BLEND_FACTOR);

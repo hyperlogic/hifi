@@ -31,7 +31,6 @@ AnimTwoBoneIK::AnimTwoBoneIK(const QString& id, float alpha, const QString& alph
 
 }
 
-
 AnimTwoBoneIK::~AnimTwoBoneIK() {
 
 }
@@ -66,18 +65,19 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     // get tip pose from underPoses (geom space)
     AnimPose tipPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
 
-    // look up end effector from animVars, make sure to convert into geom space.
-    // first look in the animVars then look in the triggers.
+    // Look up end effector from animVars, make sure to convert into geom space.
+    // First look in the triggers then look in the animVars, so we can follow output joints underneath us in the anim graph
     AnimPose targetPose(tipPose);
-    if (animVars.hasKey(_endEffectorRotationVar)) {
-        targetPose.rot() = animVars.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot());
-    } else if (animVars.hasKey(_endEffectorRotationVar)) {
+    if (triggersOut.hasKey(_endEffectorRotationVar)) {
         targetPose.rot() = triggersOut.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot());
-    }
-    if (animVars.hasKey(_endEffectorPositionVar)) {
-        targetPose.trans() = animVars.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans());
     } else if (animVars.hasKey(_endEffectorRotationVar)) {
+        targetPose.rot() = animVars.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot());
+    }
+
+    if (triggersOut.hasKey(_endEffectorPositionVar)) {
         targetPose.trans() = triggersOut.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans());
+    } else if (animVars.hasKey(_endEffectorRotationVar)) {
+        targetPose.trans() = animVars.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans());
     }
 
     // get default mid and base poses from underPoses (geom space)
