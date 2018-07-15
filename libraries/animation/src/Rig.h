@@ -75,6 +75,10 @@ public:
     };
 
     struct ControllerParameters {
+        ControllerParameters() {
+            memset(primaryControllerFlags, 0, NumPrimaryControllerTypes);
+            memset(secondaryControllerFlags, 0, NumPrimaryControllerTypes);
+        }
         glm::mat4 rigToSensorMatrix;
         AnimPose primaryControllerPoses[NumPrimaryControllerTypes];  // rig space
         uint8_t primaryControllerFlags[NumPrimaryControllerTypes];
