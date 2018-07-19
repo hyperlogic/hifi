@@ -66,6 +66,9 @@ const AnimPoseVec& AnimOverlay::evaluate(const AnimVariantMap& animVars, const A
             }
         }
     }
+
+    processOutputJoints(triggersOut);
+
     return _poses;
 }
 

@@ -41,27 +41,33 @@
                 "type": "twoBoneIK",
                 "data": {
                     "alpha": 1.0,
-                    "alphaVar": "twoBoneIKAlpha",
+                    "enabled": false,
+                    "interpDuration": 15,
                     "baseJointName": "RightUpLeg",
                     "midJointName": "RightLeg",
                     "tipJointName": "RightFoot",
                     "midHingeAxis": [-1, 0, 0],
-                    "endEffectorRotationVar": "mainStateMachineRightFootRotation",
-                    "endEffectorPositionVar": "mainStateMachineRightFootPosition"
+                    "alphaVar": "rightFootIKAlpha",
+                    "enabledVar": "rightFootIKEnabled",
+                    "endEffectorRotationVarVar": "rightFootIKRotationVar",
+                    "endEffectorPositionVarVar": "rightFootIKPositionVar"
                 },
                 "children": [
                     {
-                        "id": "leftLegIK",
+                        "id": "leftFootIK",
                         "type": "twoBoneIK",
                         "data": {
                             "alpha": 1.0,
-                            "alphaVar": "twoBoneIKAlpha",
+                            "enabled": false,
+                            "interpDuration": 15,
                             "baseJointName": "LeftUpLeg",
                             "midJointName": "LeftLeg",
                             "tipJointName": "LeftFoot",
                             "midHingeAxis": [-1, 0, 0],
-                            "endEffectorRotationVar": "mainStateMachineLeftFootRotation",
-                            "endEffectorPositionVar": "mainStateMachineLeftFootPosition"
+                            "alphaVar": "leftFootIKAlpha",
+                            "enabledVar": "leftFootIKEnabled",
+                            "endEffectorRotationVarVar": "leftFootIKRotationVar",
+                            "endEffectorPositionVarVar": "leftFootIKPositionVar"
                         },
                         "children": [
                             {

@@ -77,6 +77,8 @@ const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const Anim
         ::blend(_poses.size(), &prevFrame[0], &nextFrame[0], alpha, &_poses[0]);
     }
 
+    processOutputJoints(triggersOut);
+
     return _poses;
 }
 

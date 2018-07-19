@@ -74,6 +74,8 @@ const AnimPoseVec& AnimManipulator::overlay(const AnimVariantMap& animVars, cons
         }
     }
 
+    processOutputJoints(triggersOut);
+
     return _poses;
 }
 
