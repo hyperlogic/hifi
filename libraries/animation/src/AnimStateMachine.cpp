@@ -81,6 +81,9 @@ const AnimPoseVec& AnimStateMachine::evaluate(const AnimVariantMap& animVars, co
     if (!_duringInterp) {
         _poses = currentStateNode->evaluate(animVars, context, dt, triggersOut);
     }
+
+    processOutputJoints(triggersOut);
+
     return _poses;
 }
 

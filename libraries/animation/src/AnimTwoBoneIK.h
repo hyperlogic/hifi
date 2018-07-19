@@ -18,37 +18,58 @@ class AnimTwoBoneIK : public AnimNode {
 public:
     friend class AnimTests;
 
-    AnimTwoBoneIK(const QString& id, float alpha, const QString& alphaVar,
-                  const QString& baseJointName, const QString& midJointName, const QString& tipJointName,
-                  const glm::vec3& midHingeAxis, const QString& endEffectorRotationVar, const QString& endEffectorPositionVar);
+    AnimTwoBoneIK(const QString& id, float alpha, bool enabled, float interpDuration,
+                  const QString& baseJointName, const QString& midJointName,
+                  const QString& tipJointName, const glm::vec3& midHingeAxis,
+                  const QString& alphaVar, const QString& enabledVar,
+                  const QString& endEffectorRotationVarVar, const QString& endEffectorPositionVarVar);
     virtual ~AnimTwoBoneIK() override;
 
     virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) override;
 
 protected:
+
+    enum class InterpType {
+        None = 0,
+        SnapshotToUnderPoses,
+        SnapshotToIKSolve,
+        NumTypes
+    };
+
     // for AnimDebugDraw rendering
     virtual const AnimPoseVec& getPosesInternal() const override;
     virtual void setSkeletonInternal(AnimSkeleton::ConstPointer skeleton) override;
 
     void lookUpIndices();
+    void beginInterp(InterpType interpType);
 
     AnimPoseVec _poses;
 
     float _alpha;
-    QString _alphaVar;
-
+    bool _enabled;
+    float _interpDuration;  // in frames (1/30 sec)
     QString _baseJointName;
     QString _midJointName;
     QString _tipJointName;
-    glm::vec3 _midHingeAxis;  // in baseJoint relative frame.
+    glm::vec3 _midHingeAxis;  // in baseJoint relative frame, should be normalized
 
     int _baseParentJointIndex { -1 };
     int _baseJointIndex { -1 };
     int _midJointIndex { -1 };
     int _tipJointIndex { -1 };
 
-    QString _endEffectorRotationVar;
-    QString _endEffectorPositionVar;
+    QString _alphaVar;  // float - (0, 1) 0 means underPoses only, 1 means IK only.
+    QString _enabledVar;  // bool
+    QString _endEffectorRotationVarVar; // string
+    QString _endEffectorPositionVarVar; // string
+
+    QString _prevEndEffectorRotationVar;
+    QString _prevEndEffectorPositionVar;
+
+    InterpType _interpType { InterpType::None };
+    float _interpAlphaVel { 0.0f };
+    float _interpAlpha { 0.0f };
+    AnimPoseVec _snapshot;
 
     // no copies
     AnimTwoBoneIK(const AnimTwoBoneIK&) = delete;

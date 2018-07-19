@@ -575,16 +575,21 @@ static AnimNode::Pointer loadDefaultPoseNode(const QJsonObject& jsonObj, const Q
 
 static AnimNode::Pointer loadTwoBoneIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
     READ_FLOAT(alpha, jsonObj, id, jsonUrl, nullptr);
-    READ_STRING(alphaVar, jsonObj, id, jsonUrl, nullptr);
+    READ_BOOL(enabled, jsonObj, id, jsonUrl, nullptr);
+    READ_FLOAT(interpDuration, jsonObj, id, jsonUrl, nullptr);
     READ_STRING(baseJointName, jsonObj, id, jsonUrl, nullptr);
     READ_STRING(midJointName, jsonObj, id, jsonUrl, nullptr);
     READ_STRING(tipJointName, jsonObj, id, jsonUrl, nullptr);
     READ_VEC3(midHingeAxis, jsonObj, id, jsonUrl, nullptr);
-    READ_STRING(endEffectorRotationVar, jsonObj, id, jsonUrl, nullptr);
-    READ_STRING(endEffectorPositionVar, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(alphaVar, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(enabledVar, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(endEffectorRotationVarVar, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(endEffectorPositionVarVar, jsonObj, id, jsonUrl, nullptr);
 
-    auto node = std::make_shared<AnimTwoBoneIK>(id, alpha, alphaVar, baseJointName, midJointName, tipJointName,
-                                                midHingeAxis, endEffectorRotationVar, endEffectorPositionVar);
+    auto node = std::make_shared<AnimTwoBoneIK>(id, alpha, enabled, interpDuration,
+                                                baseJointName, midJointName, tipJointName, midHingeAxis,
+                                                alphaVar, enabledVar,
+                                                endEffectorRotationVarVar, endEffectorPositionVarVar);
     return node;
 }
 
@@ -745,6 +750,7 @@ AnimNode::Pointer AnimNodeLoader::load(const QByteArray& contents, const QUrl& j
     QString version = versionVal.toString();
 
     // check version
+    // AJT: TODO version check
     if (version != "1.0" && version != "1.1") {
         qCCritical(animation) << "AnimNodeLoader, bad version number" << version << "expected \"1.0\", url =" << jsonUrl.toDisplayString();
         return nullptr;

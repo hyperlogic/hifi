@@ -43,6 +43,9 @@ const AnimPoseVec& AnimBlendLinear::evaluate(const AnimVariantMap& animVars, con
 
         evaluateAndBlendChildren(animVars, context, triggersOut, alpha, prevPoseIndex, nextPoseIndex, dt);
     }
+
+    processOutputJoints(triggersOut);
+
     return _poses;
 }
 

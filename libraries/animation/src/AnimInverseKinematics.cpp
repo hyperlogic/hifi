@@ -1046,7 +1046,9 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
                 PROFILE_RANGE_EX(simulation_animation, "ik/ccd", 0xffff00ff, 0);
 
                 setSecondaryTargets(context);
-                preconditionRelativePosesToAvoidLimbLock(context, targets);
+
+                // AJT: TEMPORARY DISABLED
+                //preconditionRelativePosesToAvoidLimbLock(context, targets);
 
                 solve(context, targets, dt, jointChainInfoVec);
             }
@@ -1056,6 +1058,8 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
             debugDrawConstraints(context);
         }
     }
+
+    processOutputJoints(triggersOut);
 
     return _relativePoses;
 }

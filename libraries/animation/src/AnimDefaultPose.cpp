@@ -26,6 +26,9 @@ const AnimPoseVec& AnimDefaultPose::evaluate(const AnimVariantMap& animVars, con
     } else {
         _poses.clear();
     }
+
+    processOutputJoints(triggersOut);
+
     return _poses;
 }
 

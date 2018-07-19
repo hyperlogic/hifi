@@ -15,18 +15,27 @@
 #include "AnimationLogging.h"
 #include "AnimUtil.h"
 
-AnimTwoBoneIK::AnimTwoBoneIK(const QString& id, float alpha, const QString& alphaVar,
-                             const QString& baseJointName, const QString& midJointName, const QString& tipJointName,
-                             const glm::vec3& midHingeAxis, const QString& endEffectorRotationVar, const QString& endEffectorPositionVar) :
+const float FRAMES_PER_SECOND = 30.0f;
+
+AnimTwoBoneIK::AnimTwoBoneIK(const QString& id, float alpha, bool enabled, float interpDuration,
+                             const QString& baseJointName, const QString& midJointName,
+                             const QString& tipJointName, const glm::vec3& midHingeAxis,
+                             const QString& alphaVar, const QString& enabledVar,
+                             const QString& endEffectorRotationVarVar, const QString& endEffectorPositionVarVar) :
     AnimNode(AnimNode::Type::TwoBoneIK, id),
     _alpha(alpha),
-    _alphaVar(alphaVar),
+    _enabled(enabled),
+    _interpDuration(interpDuration),
     _baseJointName(baseJointName),
     _midJointName(midJointName),
     _tipJointName(tipJointName),
-    _midHingeAxis(midHingeAxis),
-    _endEffectorRotationVar(endEffectorRotationVar),
-    _endEffectorPositionVar(endEffectorPositionVar)
+    _midHingeAxis(glm::normalize(midHingeAxis)),
+    _alphaVar(alphaVar),
+    _enabledVar(enabledVar),
+    _endEffectorRotationVarVar(endEffectorRotationVarVar),
+    _endEffectorPositionVarVar(endEffectorPositionVarVar),
+    _prevEndEffectorRotationVar(),
+    _prevEndEffectorPositionVar()
 {
 
 }
@@ -52,7 +61,14 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         return _poses;
     }
 
-    float alpha = animVars.lookup(_alphaVar, _alpha);
+    // guard against size changes
+    if (underPoses.size() != _poses.size()) {
+        _poses = underPoses;
+    }
+
+    const float MIN_ALPHA = 0.0f;
+    const float MAX_ALPHA = 1.0f;
+    float alpha = glm::clamp(animVars.lookup(_alphaVar, _alpha), MIN_ALPHA, MAX_ALPHA);
 
     // don't perform IK if we have bad indices, or alpha is zero
     if (_tipJointIndex == -1 || _midJointIndex == -1 || _baseJointIndex == -1 || alpha == 0.0f) {
@@ -60,25 +76,49 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         return _poses;
     }
 
+    // determine if we should interpolate
+    bool enabled = animVars.lookup(_enabledVar, _enabled);
+    if (enabled != _enabled) {
+        if (enabled) {
+            beginInterp(InterpType::SnapshotToIKSolve);
+        } else {
+            beginInterp(InterpType::SnapshotToUnderPoses);
+        }
+    }
+    _enabled = enabled;
+
     AnimPose baseParentPose = _skeleton->getAbsolutePose(_baseParentJointIndex, underPoses);
 
     // get tip pose from underPoses (geom space)
     AnimPose tipPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
 
+    QString endEffectorRotationVar = animVars.lookup(_endEffectorRotationVarVar, QString(""));
+    QString endEffectorPositionVar = animVars.lookup(_endEffectorPositionVarVar, QString(""));
+
+    // if either of the endEffectorVars have changed
+    if ((!_prevEndEffectorRotationVar.isEmpty() && (_prevEndEffectorRotationVar != endEffectorRotationVar)) ||
+        (!_prevEndEffectorPositionVar.isEmpty() && (_prevEndEffectorPositionVar != endEffectorPositionVar))) {
+        // begin interp to smooth out transition between prev and new end effector.
+        beginInterp(InterpType::SnapshotToIKSolve);
+    }
+
     // Look up end effector from animVars, make sure to convert into geom space.
     // First look in the triggers then look in the animVars, so we can follow output joints underneath us in the anim graph
     AnimPose targetPose(tipPose);
-    if (triggersOut.hasKey(_endEffectorRotationVar)) {
-        targetPose.rot() = triggersOut.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot());
-    } else if (animVars.hasKey(_endEffectorRotationVar)) {
-        targetPose.rot() = animVars.lookupRigToGeometry(_endEffectorRotationVar, tipPose.rot());
+    if (triggersOut.hasKey(endEffectorRotationVar)) {
+        targetPose.rot() = triggersOut.lookupRigToGeometry(endEffectorRotationVar, tipPose.rot());
+    } else if (animVars.hasKey(endEffectorRotationVar)) {
+        targetPose.rot() = animVars.lookupRigToGeometry(endEffectorRotationVar, tipPose.rot());
     }
 
-    if (triggersOut.hasKey(_endEffectorPositionVar)) {
-        targetPose.trans() = triggersOut.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans());
-    } else if (animVars.hasKey(_endEffectorRotationVar)) {
-        targetPose.trans() = animVars.lookupRigToGeometry(_endEffectorPositionVar, tipPose.trans());
+    if (triggersOut.hasKey(endEffectorPositionVar)) {
+        targetPose.trans() = triggersOut.lookupRigToGeometry(endEffectorPositionVar, tipPose.trans());
+    } else if (animVars.hasKey(endEffectorRotationVar)) {
+        targetPose.trans() = animVars.lookupRigToGeometry(endEffectorPositionVar, tipPose.trans());
     }
+
+    _prevEndEffectorRotationVar = endEffectorRotationVar;
+    _prevEndEffectorPositionVar = endEffectorPositionVar;
 
     // get default mid and base poses from underPoses (geom space)
     AnimPose midPose = _skeleton->getAbsolutePose(_midJointIndex, underPoses);
@@ -134,12 +174,48 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     // transform target rotation in to parent relative frame.
     ikPoses[_tipJointIndex].rot() = glm::inverse(midJointPose.rot()) * targetPose.rot();
 
-    if (alpha == 1.0f) {
-        _poses = ikPoses;
+    // apply alpha blend with underpose
+    assert(ikPoses.size() == underPoses.size());
+    ::blend(ikPoses.size(), &underPoses[0], &ikPoses[0], alpha, &ikPoses[0]);
+
+    // apply smooth interpolation
+    if (_interpType != InterpType::None) {
+        _interpAlpha += _interpAlphaVel * dt;
+        if (_interpAlpha < 1.0f) {
+            if (_interpType == InterpType::SnapshotToUnderPoses) {
+                assert(snapshot.size() == underPoses.size() && snapshot.size() == _poses.size());
+                ::blend(_snapshot.size(), &_snapshot[0], &underPoses[0], _interpAlpha, &_poses[0]);
+            } else if (_interpType == InterpType::SnapshotToIKSolve) {
+                assert(snapshot.size() == ikPoses.size() && snapshot.size() == _poses.size());
+                ::blend(_snapshot.size(), &_snapshot[0], &ikPoses[0], _interpAlpha, &_poses[0]);
+            }
+        } else {
+            // interpolation complete
+            _interpType = InterpType::None;
+        }
     } else {
-        // apply alpha blend
-        ::blend(_poses.size(), &underPoses[0], &ikPoses[0], alpha, &_poses[0]);
+        if (enabled) {
+            _poses = ikPoses;
+        } else {
+            // AJT: TODO don't compute ikPoses if we don't have to.
+            _poses = underPoses;
+        }
     }
+
+    if (context.getEnableDebugDrawIKTargets()) {
+        const vec4 RED(1.0f, 0.0f, 0.0f, 1.0f);
+        const vec4 GREEN(0.0f, 1.0f, 0.0f, 1.0f);
+        glm::mat4 rigToAvatarMat = createMatFromQuatAndPos(Quaternions::Y_180, glm::vec3());
+
+        glm::mat4 geomTargetMat = createMatFromQuatAndPos(targetPose.rot(), targetPose.trans());
+        glm::mat4 avatarTargetMat = rigToAvatarMat * context.getGeometryToRigMatrix() * geomTargetMat;
+
+        QString name = QString("%1_target").arg(_id);
+        DebugDraw::getInstance().addMyAvatarMarker(name, glmExtractRotation(avatarTargetMat),
+                                                   extractTranslation(avatarTargetMat), _enabled ? GREEN : RED);
+    }
+
+    processOutputJoints(triggersOut);
 
     return _poses;
 }
@@ -168,4 +244,11 @@ void AnimTwoBoneIK::lookUpIndices() {
     if (_baseJointIndex != -1) {
         _baseParentJointIndex = _skeleton->getParentIndex(_baseJointIndex);
     }
+}
+
+void AnimTwoBoneIK::beginInterp(InterpType interpType) {
+    _snapshot = _poses;
+    _interpType = interpType;
+    _interpAlphaVel = FRAMES_PER_SECOND / _interpDuration;
+    _interpAlpha = 0.0f;
 }

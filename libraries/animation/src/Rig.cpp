@@ -59,6 +59,21 @@ const glm::vec3 DEFAULT_RIGHT_EYE_POS(-0.3f, 0.9f, 0.0f);
 const glm::vec3 DEFAULT_LEFT_EYE_POS(0.3f, 0.9f, 0.0f);
 const glm::vec3 DEFAULT_HEAD_POS(0.0f, 0.75f, 0.0f);
 
+static const QString LEFT_FOOT_POSITION("leftFootPosition");
+static const QString LEFT_FOOT_ROTATION("leftFootRotation");
+static const QString LEFT_FOOT_IK_POSITION_VAR("leftFootIKPositionVar");
+static const QString LEFT_FOOT_IK_ROTATION_VAR("leftFootIKRotationVar");
+static const QString MAIN_STATE_MACHINE_LEFT_FOOT_ROTATION("mainStateMachineLeftFootRotation");
+static const QString MAIN_STATE_MACHINE_LEFT_FOOT_POSITION("mainStateMachineLeftFootPosition");
+
+static const QString RIGHT_FOOT_POSITION("rightFootPosition");
+static const QString RIGHT_FOOT_ROTATION("rightFootRotation");
+static const QString RIGHT_FOOT_IK_POSITION_VAR("rightFootIKPositionVar");
+static const QString RIGHT_FOOT_IK_ROTATION_VAR("rightFootIKRotationVar");
+static const QString MAIN_STATE_MACHINE_RIGHT_FOOT_ROTATION("mainStateMachineRightFootRotation");
+static const QString MAIN_STATE_MACHINE_RIGHT_FOOT_POSITION("mainStateMachineRightFootPosition");
+
+
 Rig::Rig() {
     // Ensure thread-safe access to the rigRegistry.
     std::lock_guard<std::mutex> guard(rigRegistryMutex);
@@ -1239,7 +1254,7 @@ glm::vec3 Rig::deflectHandFromTorso(const glm::vec3& handPosition, const FBXJoin
 }
 
 void Rig::updateHands(bool leftHandEnabled, bool rightHandEnabled, bool hipsEnabled, bool hipsEstimated,
-                      bool leftArmEnabled, bool rightArmEnabled, float dt,
+                      bool leftArmEnabled, bool rightArmEnabled, bool headEnabled, float dt,
                       const AnimPose& leftHandPose, const AnimPose& rightHandPose,
                       const FBXJointShapeInfo& hipsShapeInfo, const FBXJointShapeInfo& spineShapeInfo,
                       const FBXJointShapeInfo& spine1ShapeInfo, const FBXJointShapeInfo& spine2ShapeInfo,
@@ -1294,8 +1309,13 @@ void Rig::updateHands(bool leftHandEnabled, bool rightHandEnabled, bool hipsEnab
 
         _animVars.unset("leftHandPosition");
         _animVars.unset("leftHandRotation");
-        _animVars.set("leftHandType", (int)IKTarget::Type::HipsRelativeRotationAndPosition);
 
+        if (headEnabled) {
+            _animVars.set("leftHandType", (int)IKTarget::Type::HipsRelativeRotationAndPosition);
+        } else {
+            // disable hand IK for desktop mode
+            _animVars.set("leftHandType", (int)IKTarget::Type::Unknown);
+        }
     }
 
     if (rightHandEnabled) {
@@ -1342,22 +1362,45 @@ void Rig::updateHands(bool leftHandEnabled, bool rightHandEnabled, bool hipsEnab
 
         _animVars.unset("rightHandPosition");
         _animVars.unset("rightHandRotation");
-        _animVars.set("rightHandType", (int)IKTarget::Type::HipsRelativeRotationAndPosition);
+
+        if (headEnabled) {
+            _animVars.set("rightHandType", (int)IKTarget::Type::HipsRelativeRotationAndPosition);
+        } else {
+            // disable hand IK for desktop mode
+            _animVars.set("rightHandType", (int)IKTarget::Type::Unknown);
+        }
     }
 }
 
-void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, const AnimPose& leftFootPose, const AnimPose& rightFootPose,
+void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabled,
+                     const AnimPose& leftFootPose, const AnimPose& rightFootPose,
                      const glm::mat4& rigToSensorMatrix, const glm::mat4& sensorToRigMatrix) {
 
     const float KNEE_POLE_VECTOR_BLEND_FACTOR = 0.95f;
 
     int hipsIndex = indexOfJoint("Hips");
 
-    if (leftFootEnabled) {
-        _animVars.set("leftFootPosition", leftFootPose.trans());
-        _animVars.set("leftFootRotation", leftFootPose.rot());
-        _animVars.set("leftFootType", (int)IKTarget::Type::RotationAndPosition);
+    if (headEnabled) {
+        // always do IK if head is enabled
+        _animVars.set("leftFootIKEnabled", true);
+        _animVars.set("rightFootIKEnabled", true);
+    } else {
+        // only do IK if we have a valid foot.
+        _animVars.set("leftFootIKEnabled", leftFootEnabled);
+        _animVars.set("rightFootIKEnabled", rightFootEnabled);
+    }
 
+    if (leftFootEnabled) {
+
+        _animVars.set(LEFT_FOOT_POSITION, leftFootPose.trans());
+        _animVars.set(LEFT_FOOT_ROTATION, leftFootPose.rot());
+
+        // We want to drive the IK directly from the trackers.
+        _animVars.set(LEFT_FOOT_IK_POSITION_VAR, LEFT_FOOT_POSITION);
+        _animVars.set(LEFT_FOOT_IK_ROTATION_VAR, LEFT_FOOT_ROTATION);
+
+        // AJT: TODO drive knee pole vector
+        /*
         int footJointIndex = _animSkeleton->nameToJointIndex("LeftFoot");
         int kneeJointIndex = _animSkeleton->nameToJointIndex("LeftLeg");
         int upLegJointIndex = _animSkeleton->nameToJointIndex("LeftUpLeg");
@@ -1376,19 +1419,32 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, const AnimPose
         _animVars.set("leftFootPoleVectorEnabled", true);
         _animVars.set("leftFootPoleReferenceVector", Vectors::UNIT_Z);
         _animVars.set("leftFootPoleVector", transformVectorFast(sensorToRigMatrix, _prevLeftFootPoleVector));
+        */
     } else {
-        _animVars.unset("leftFootPosition");
-        _animVars.unset("leftFootRotation");
-        _animVars.set("leftFootType", (int)IKTarget::Type::RotationAndPosition);
+
+        // We want to drive the IK from the underlying animation.
+        // This gives us the ability to squat while in the HMD, without the feet from dipping under the floor.
+        _animVars.set(LEFT_FOOT_IK_POSITION_VAR, MAIN_STATE_MACHINE_LEFT_FOOT_POSITION);
+        _animVars.set(LEFT_FOOT_IK_ROTATION_VAR, MAIN_STATE_MACHINE_LEFT_FOOT_ROTATION);
+
+        // AJT: TODO drive knee pole vector
+        /*
         _animVars.set("leftFootPoleVectorEnabled", false);
         _prevLeftFootPoleVectorValid = false;
+        */
     }
 
     if (rightFootEnabled) {
-        _animVars.set("rightFootPosition", rightFootPose.trans());
-        _animVars.set("rightFootRotation", rightFootPose.rot());
-        _animVars.set("rightFootType", (int)IKTarget::Type::RotationAndPosition);
 
+        _animVars.set(RIGHT_FOOT_POSITION, rightFootPose.trans());
+        _animVars.set(RIGHT_FOOT_ROTATION, rightFootPose.rot());
+
+        // We want to drive the IK directly from the trackers.
+        _animVars.set(RIGHT_FOOT_IK_POSITION_VAR, RIGHT_FOOT_POSITION);
+        _animVars.set(RIGHT_FOOT_IK_ROTATION_VAR, RIGHT_FOOT_ROTATION);
+
+        // AJT: TODO drive knee pole vector
+        /*
         int footJointIndex = _animSkeleton->nameToJointIndex("RightFoot");
         int kneeJointIndex = _animSkeleton->nameToJointIndex("RightLeg");
         int upLegJointIndex = _animSkeleton->nameToJointIndex("RightUpLeg");
@@ -1407,11 +1463,19 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, const AnimPose
         _animVars.set("rightFootPoleVectorEnabled", true);
         _animVars.set("rightFootPoleReferenceVector", Vectors::UNIT_Z);
         _animVars.set("rightFootPoleVector", transformVectorFast(sensorToRigMatrix, _prevRightFootPoleVector));
+        */
     } else {
-        _animVars.unset("rightFootPosition");
-        _animVars.unset("rightFootRotation");
+
+        // We want to drive the IK from the underlying animation.
+        // This gives us the ability to squat while in the HMD, without the feet from dipping under the floor.
+        _animVars.set(RIGHT_FOOT_IK_POSITION_VAR, MAIN_STATE_MACHINE_RIGHT_FOOT_POSITION);
+        _animVars.set(RIGHT_FOOT_IK_ROTATION_VAR, MAIN_STATE_MACHINE_RIGHT_FOOT_ROTATION);
+
+        // AJT: TODO drive knee pole vector
+        /*
         _animVars.set("rightFootPoleVectorEnabled", false);
         _animVars.set("rightFootType", (int)IKTarget::Type::RotationAndPosition);
+        */
     }
 }
 
@@ -1554,12 +1618,12 @@ void Rig::updateFromControllerParameters(const ControllerParameters& params, flo
 
     updateHead(headEnabled, hipsEnabled, params.primaryControllerPoses[PrimaryControllerType_Head]);
 
-    updateHands(leftHandEnabled, rightHandEnabled, hipsEnabled, hipsEstimated, leftArmEnabled, rightArmEnabled, dt,
+    updateHands(leftHandEnabled, rightHandEnabled, hipsEnabled, hipsEstimated, leftArmEnabled, rightArmEnabled, headEnabled, dt,
                 params.primaryControllerPoses[PrimaryControllerType_LeftHand], params.primaryControllerPoses[PrimaryControllerType_RightHand],
                 params.hipsShapeInfo, params.spineShapeInfo, params.spine1ShapeInfo, params.spine2ShapeInfo,
                 params.rigToSensorMatrix, sensorToRigMatrix);
 
-    updateFeet(leftFootEnabled, rightFootEnabled,
+    updateFeet(leftFootEnabled, rightFootEnabled, headEnabled,
                params.primaryControllerPoses[PrimaryControllerType_LeftFoot], params.primaryControllerPoses[PrimaryControllerType_RightFoot],
                params.rigToSensorMatrix, sensorToRigMatrix);
 

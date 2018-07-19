@@ -54,6 +54,9 @@ const AnimPoseVec& AnimBlendLinearMove::evaluate(const AnimVariantMap& animVars,
         setFrameAndPhase(dt, alpha, prevPoseIndex, nextPoseIndex, &prevDeltaTime, &nextDeltaTime, triggersOut);
         evaluateAndBlendChildren(animVars, context, triggersOut, alpha, prevPoseIndex, nextPoseIndex, prevDeltaTime, nextDeltaTime);
     }
+
+    processOutputJoints(triggersOut);
+
     return _poses;
 }
 
