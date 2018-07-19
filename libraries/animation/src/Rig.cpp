@@ -1376,9 +1376,11 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
                      const AnimPose& leftFootPose, const AnimPose& rightFootPose,
                      const glm::mat4& rigToSensorMatrix, const glm::mat4& sensorToRigMatrix) {
 
-    const float KNEE_POLE_VECTOR_BLEND_FACTOR = 0.95f;
-
+    // AJT: TODO drive knee pole vector
+    /*
     int hipsIndex = indexOfJoint("Hips");
+    const float KNEE_POLE_VECTOR_BLEND_FACTOR = 0.95f;
+    */
 
     if (headEnabled) {
         // always do IK if head is enabled
