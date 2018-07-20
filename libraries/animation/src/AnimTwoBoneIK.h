@@ -69,7 +69,9 @@ protected:
     InterpType _interpType { InterpType::None };
     float _interpAlphaVel { 0.0f };
     float _interpAlpha { 0.0f };
-    AnimPoseVec _snapshot;
+
+    static const int MAX_CHAIN_SIZE = 10;
+    AnimChain<MAX_CHAIN_SIZE> _snapshotChain;
 
     // no copies
     AnimTwoBoneIK(const AnimTwoBoneIK&) = delete;

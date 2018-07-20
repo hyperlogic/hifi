@@ -87,10 +87,22 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     }
     _enabled = enabled;
 
-    AnimPose baseParentPose = _skeleton->getAbsolutePose(_baseParentJointIndex, underPoses);
+    // don't build chains or do IK if we are disbled & not interping.
+    if (_interpType == InterpType::None && !enabled) {
+        _poses = underPoses;
+        return;
+    }
 
-    // get tip pose from underPoses (geom space)
-    AnimPose tipPose = _skeleton->getAbsolutePose(_tipJointIndex, underPoses);
+    // compute chain
+    const int MAX_CHAIN_SIZE = 10;
+    AnimChain<MAX_CHAIN_SIZE> underChain;
+    underChain.buildFromRelativePoses(_skeleton, underPoses, _tipJointIndex);
+    AnimChain<MAX_CHAIN_SIZE> chain = underChain;
+
+    AnimPose baseParentPose = chain.getAbsolutePoseFromJointIndex(_baseParentJointIndex);
+    AnimPose basePose = chain.getAbsolutePoseFromJointIndex(_baseJointIndex);
+    AnimPose midPose = chain.getAbsolutePoseFromJointIndex(_midJointIndex);
+    AnimPose tipPose = chain.getAbsolutePoseFromJointIndex(_tipJointIndex);
 
     QString endEffectorRotationVar = animVars.lookup(_endEffectorRotationVarVar, QString(""));
     QString endEffectorPositionVar = animVars.lookup(_endEffectorPositionVarVar, QString(""));
@@ -120,10 +132,6 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     _prevEndEffectorRotationVar = endEffectorRotationVar;
     _prevEndEffectorPositionVar = endEffectorPositionVar;
 
-    // get default mid and base poses from underPoses (geom space)
-    AnimPose midPose = _skeleton->getAbsolutePose(_midJointIndex, underPoses);
-    AnimPose basePose = _skeleton->getAbsolutePose(_baseJointIndex, underPoses);
-
     glm::vec3 bicepVector = midPose.trans() - basePose.trans();
     float r0 = glm::length(bicepVector);
     bicepVector = bicepVector / r0;
@@ -140,13 +148,16 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         midAngle = PI - (acosf(y / r0) + acosf(y / r1));
     }
 
-    AnimPoseVec ikPoses = underPoses;
+    // AJT: REMOVE?
+    // AnimPoseVec ikPoses = underPoses;
 
     // compute midJoint rotation
-    ikPoses[_midJointIndex].rot() = glm::angleAxis(midAngle, _midHingeAxis);
+    glm::quat relMidRot = glm::angleAxis(midAngle, _midHingeAxis);
+    chain.setRelativePoseAtJointIndex(_midJointIndex, AnimPose(relMidRot, underPoses[_midJointIndex].trans()));
+    chain.buildDirtyAbsolutePoses();
 
     // recompute tip pose after mid joint has been rotated
-    AnimPose newTipPose = _skeleton->getAbsolutePose(_tipJointIndex, ikPoses);
+    AnimPose newTipPose = chain.getAbsolutePoseFromJointIndex(_tipJointIndex);
 
     glm::vec3 leverArm = newTipPose.trans() - basePose.trans();
     glm::vec3 targetLine = targetPose.trans() - basePose.trans();
@@ -165,40 +176,52 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         glm::quat absRot = deltaRot * basePose.rot();
 
         // transform result back into parent relative frame.
-        ikPoses[_baseJointIndex].rot() = glm::inverse(baseParentPose.rot()) * absRot;
+        glm::quat relBaseRot = glm::inverse(baseParentPose.rot()) * absRot;
+        chain.setRelativePoseAtJointIndex(_baseJointIndex, AnimPose(relBaseRot, underPoses[_baseJointIndex].trans()));
     }
 
     // recompute midJoint pose after base has been rotated.
-    AnimPose midJointPose = _skeleton->getAbsolutePose(_midJointIndex, ikPoses);
+    chain.buildDirtyAbsolutePoses();
+    AnimPose midJointPose = chain.getAbsolutePoseAtjointIndex(_midJointIndex);
 
     // transform target rotation in to parent relative frame.
-    ikPoses[_tipJointIndex].rot() = glm::inverse(midJointPose.rot()) * targetPose.rot();
+    glm::quat relTipRot = glm::inverse(midJointPose.rot()) * targetPose.rot();
+    chain.setRelativePoseAtJointIndex(_tipJointIndex, AnimPose(relTipRot, underPoses[_tipJointIndex].trans()));
 
-    // apply alpha blend with underpose
-    assert(ikPoses.size() == underPoses.size());
-    ::blend(ikPoses.size(), &underPoses[0], &ikPoses[0], alpha, &ikPoses[0]);
+    // blend with the underChain
+    chain.blend(underChain, alpha);
+
+    // start off by initializing output poses with the underPoses
+    _poses = underPoses;
 
     // apply smooth interpolation
     if (_interpType != InterpType::None) {
         _interpAlpha += _interpAlphaVel * dt;
+
         if (_interpAlpha < 1.0f) {
+            AnimChain<MAX_CHAIN_SIZE> interpChain;
             if (_interpType == InterpType::SnapshotToUnderPoses) {
-                assert(snapshot.size() == underPoses.size() && snapshot.size() == _poses.size());
-                ::blend(_snapshot.size(), &_snapshot[0], &underPoses[0], _interpAlpha, &_poses[0]);
+                interpChain = underChain;
+                interpChain.blend(_snapshotChain, _interpAlpha);
             } else if (_interpType == InterpType::SnapshotToIKSolve) {
-                assert(snapshot.size() == ikPoses.size() && snapshot.size() == _poses.size());
-                ::blend(_snapshot.size(), &_snapshot[0], &ikPoses[0], _interpAlpha, &_poses[0]);
+                interpChain = chain;
+                interpChain.blend(_snapshotChain, _interpAlpha);
             }
+            // copy interpChain into _poses
+            interpChain.outputRelativePoses(_poses);
         } else {
             // interpolation complete
             _interpType = InterpType::None;
         }
-    } else {
+    }
+
+    if (_interpType == InterpType::None) {
         if (enabled) {
-            _poses = ikPoses;
+            // copy chain into _poses
+            chain.outputRelativePoses(_poses);
         } else {
-            // AJT: TODO don't compute ikPoses if we don't have to.
-            _poses = underPoses;
+            // copy under chain into _poses
+            underChain.outputRelativePoses(_poses);
         }
     }
 
@@ -246,8 +269,10 @@ void AnimTwoBoneIK::lookUpIndices() {
     }
 }
 
-void AnimTwoBoneIK::beginInterp(InterpType interpType) {
-    _snapshot = _poses;
+void AnimTwoBoneIK::beginInterp(InterpType interpType, const AnimChain<MAX_CHAIN_SIZE>& chain) {
+    // capture the current poses in a snapshot.
+    _snapshotChain = chain;
+
     _interpType = interpType;
     _interpAlphaVel = FRAMES_PER_SECOND / _interpDuration;
     _interpAlpha = 0.0f;
