@@ -12,6 +12,7 @@
 #include <GLMHelpers.h>
 #include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
+#include "AnimUtil.h"
 
 const AnimPose AnimPose::identity = AnimPose(glm::vec3(1.0f),
                                              glm::quat(),

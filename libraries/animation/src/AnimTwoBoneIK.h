@@ -12,6 +12,7 @@
 #define hifi_AnimTwoBoneIK_h
 
 #include "AnimNode.h"
+#include "AnimChain.h"
 
 // Simple two bone IK chain
 class AnimTwoBoneIK : public AnimNode {
@@ -41,7 +42,7 @@ protected:
     virtual void setSkeletonInternal(AnimSkeleton::ConstPointer skeleton) override;
 
     void lookUpIndices();
-    void beginInterp(InterpType interpType);
+    void beginInterp(InterpType interpType, const AnimChain& chain);
 
     AnimPoseVec _poses;
 
@@ -70,8 +71,9 @@ protected:
     float _interpAlphaVel { 0.0f };
     float _interpAlpha { 0.0f };
 
-    static const int MAX_CHAIN_SIZE = 10;
-    AnimChain<MAX_CHAIN_SIZE> _snapshotChain;
+    AnimChain _snapshotChain;
+
+    bool _lastEnableDebugDrawIKTargets { false };
 
     // no copies
     AnimTwoBoneIK(const AnimTwoBoneIK&) = delete;

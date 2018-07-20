@@ -79,10 +79,12 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     // determine if we should interpolate
     bool enabled = animVars.lookup(_enabledVar, _enabled);
     if (enabled != _enabled) {
+        AnimChain poseChain;
+        poseChain.buildFromRelativePoses(_skeleton, _poses, _tipJointIndex);
         if (enabled) {
-            beginInterp(InterpType::SnapshotToIKSolve);
+            beginInterp(InterpType::SnapshotToIKSolve, poseChain);
         } else {
-            beginInterp(InterpType::SnapshotToUnderPoses);
+            beginInterp(InterpType::SnapshotToUnderPoses, poseChain);
         }
     }
     _enabled = enabled;
@@ -90,19 +92,19 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     // don't build chains or do IK if we are disbled & not interping.
     if (_interpType == InterpType::None && !enabled) {
         _poses = underPoses;
-        return;
+        return _poses;
     }
 
     // compute chain
     const int MAX_CHAIN_SIZE = 10;
-    AnimChain<MAX_CHAIN_SIZE> underChain;
+    AnimChain underChain;
     underChain.buildFromRelativePoses(_skeleton, underPoses, _tipJointIndex);
-    AnimChain<MAX_CHAIN_SIZE> chain = underChain;
+    AnimChain ikChain = underChain;
 
-    AnimPose baseParentPose = chain.getAbsolutePoseFromJointIndex(_baseParentJointIndex);
-    AnimPose basePose = chain.getAbsolutePoseFromJointIndex(_baseJointIndex);
-    AnimPose midPose = chain.getAbsolutePoseFromJointIndex(_midJointIndex);
-    AnimPose tipPose = chain.getAbsolutePoseFromJointIndex(_tipJointIndex);
+    AnimPose baseParentPose = ikChain.getAbsolutePoseFromJointIndex(_baseParentJointIndex);
+    AnimPose basePose = ikChain.getAbsolutePoseFromJointIndex(_baseJointIndex);
+    AnimPose midPose = ikChain.getAbsolutePoseFromJointIndex(_midJointIndex);
+    AnimPose tipPose = ikChain.getAbsolutePoseFromJointIndex(_tipJointIndex);
 
     QString endEffectorRotationVar = animVars.lookup(_endEffectorRotationVarVar, QString(""));
     QString endEffectorPositionVar = animVars.lookup(_endEffectorPositionVarVar, QString(""));
@@ -111,7 +113,9 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     if ((!_prevEndEffectorRotationVar.isEmpty() && (_prevEndEffectorRotationVar != endEffectorRotationVar)) ||
         (!_prevEndEffectorPositionVar.isEmpty() && (_prevEndEffectorPositionVar != endEffectorPositionVar))) {
         // begin interp to smooth out transition between prev and new end effector.
-        beginInterp(InterpType::SnapshotToIKSolve);
+        AnimChain poseChain;
+        poseChain.buildFromRelativePoses(_skeleton, _poses, _tipJointIndex);
+        beginInterp(InterpType::SnapshotToIKSolve, poseChain);
     }
 
     // Look up end effector from animVars, make sure to convert into geom space.
@@ -148,16 +152,15 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         midAngle = PI - (acosf(y / r0) + acosf(y / r1));
     }
 
-    // AJT: REMOVE?
-    // AnimPoseVec ikPoses = underPoses;
-
     // compute midJoint rotation
     glm::quat relMidRot = glm::angleAxis(midAngle, _midHingeAxis);
-    chain.setRelativePoseAtJointIndex(_midJointIndex, AnimPose(relMidRot, underPoses[_midJointIndex].trans()));
-    chain.buildDirtyAbsolutePoses();
+
+    // insert new relative pose into the chain and rebuild it.
+    ikChain.setRelativePoseAtJointIndex(_midJointIndex, AnimPose(relMidRot, underPoses[_midJointIndex].trans()));
+    ikChain.buildDirtyAbsolutePoses();
 
     // recompute tip pose after mid joint has been rotated
-    AnimPose newTipPose = chain.getAbsolutePoseFromJointIndex(_tipJointIndex);
+    AnimPose newTipPose = ikChain.getAbsolutePoseFromJointIndex(_tipJointIndex);
 
     glm::vec3 leverArm = newTipPose.trans() - basePose.trans();
     glm::vec3 targetLine = targetPose.trans() - basePose.trans();
@@ -177,19 +180,19 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
 
         // transform result back into parent relative frame.
         glm::quat relBaseRot = glm::inverse(baseParentPose.rot()) * absRot;
-        chain.setRelativePoseAtJointIndex(_baseJointIndex, AnimPose(relBaseRot, underPoses[_baseJointIndex].trans()));
+        ikChain.setRelativePoseAtJointIndex(_baseJointIndex, AnimPose(relBaseRot, underPoses[_baseJointIndex].trans()));
     }
 
     // recompute midJoint pose after base has been rotated.
-    chain.buildDirtyAbsolutePoses();
-    AnimPose midJointPose = chain.getAbsolutePoseAtjointIndex(_midJointIndex);
+    ikChain.buildDirtyAbsolutePoses();
+    AnimPose midJointPose = ikChain.getAbsolutePoseFromJointIndex(_midJointIndex);
 
     // transform target rotation in to parent relative frame.
     glm::quat relTipRot = glm::inverse(midJointPose.rot()) * targetPose.rot();
-    chain.setRelativePoseAtJointIndex(_tipJointIndex, AnimPose(relTipRot, underPoses[_tipJointIndex].trans()));
+    ikChain.setRelativePoseAtJointIndex(_tipJointIndex, AnimPose(relTipRot, underPoses[_tipJointIndex].trans()));
 
     // blend with the underChain
-    chain.blend(underChain, alpha);
+    ikChain.blend(underChain, alpha);
 
     // start off by initializing output poses with the underPoses
     _poses = underPoses;
@@ -199,12 +202,12 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         _interpAlpha += _interpAlphaVel * dt;
 
         if (_interpAlpha < 1.0f) {
-            AnimChain<MAX_CHAIN_SIZE> interpChain;
+            AnimChain interpChain;
             if (_interpType == InterpType::SnapshotToUnderPoses) {
                 interpChain = underChain;
                 interpChain.blend(_snapshotChain, _interpAlpha);
             } else if (_interpType == InterpType::SnapshotToIKSolve) {
-                interpChain = chain;
+                interpChain = ikChain;
                 interpChain.blend(_snapshotChain, _interpAlpha);
             }
             // copy interpChain into _poses
@@ -218,7 +221,7 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     if (_interpType == InterpType::None) {
         if (enabled) {
             // copy chain into _poses
-            chain.outputRelativePoses(_poses);
+            ikChain.outputRelativePoses(_poses);
         } else {
             // copy under chain into _poses
             underChain.outputRelativePoses(_poses);
@@ -236,6 +239,17 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         QString name = QString("%1_target").arg(_id);
         DebugDraw::getInstance().addMyAvatarMarker(name, glmExtractRotation(avatarTargetMat),
                                                    extractTranslation(avatarTargetMat), _enabled ? GREEN : RED);
+    } else if (_lastEnableDebugDrawIKTargets) {
+        QString name = QString("%1_target").arg(_id);
+        DebugDraw::getInstance().removeMyAvatarMarker(name);
+    }
+    _lastEnableDebugDrawIKTargets = context.getEnableDebugDrawIKTargets();
+
+    if (context.getEnableDebugDrawIKChains()) {
+        if (_interpType == InterpType::None && enabled) {
+            const vec4 CYAN(0.0f, 1.0f, 1.0f, 1.0f);
+            ikChain.debugDraw(context.getRigToWorldMatrix() * context.getGeometryToRigMatrix(), CYAN);
+        }
     }
 
     processOutputJoints(triggersOut);
@@ -269,7 +283,7 @@ void AnimTwoBoneIK::lookUpIndices() {
     }
 }
 
-void AnimTwoBoneIK::beginInterp(InterpType interpType, const AnimChain<MAX_CHAIN_SIZE>& chain) {
+void AnimTwoBoneIK::beginInterp(InterpType interpType, const AnimChain& chain) {
     // capture the current poses in a snapshot.
     _snapshotChain = chain;
 
