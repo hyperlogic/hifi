@@ -33,7 +33,7 @@ protected:
     enum class InterpType {
         None = 0,
         SnapshotToUnderPoses,
-        SnapshotToIKSolve,
+        SnapshotToSolve,
         NumTypes
     };
 

@@ -82,7 +82,7 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         AnimChain poseChain;
         poseChain.buildFromRelativePoses(_skeleton, _poses, _tipJointIndex);
         if (enabled) {
-            beginInterp(InterpType::SnapshotToIKSolve, poseChain);
+            beginInterp(InterpType::SnapshotToSolve, poseChain);
         } else {
             beginInterp(InterpType::SnapshotToUnderPoses, poseChain);
         }
@@ -96,7 +96,6 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
     }
 
     // compute chain
-    const int MAX_CHAIN_SIZE = 10;
     AnimChain underChain;
     underChain.buildFromRelativePoses(_skeleton, underPoses, _tipJointIndex);
     AnimChain ikChain = underChain;
@@ -115,7 +114,7 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
         // begin interp to smooth out transition between prev and new end effector.
         AnimChain poseChain;
         poseChain.buildFromRelativePoses(_skeleton, _poses, _tipJointIndex);
-        beginInterp(InterpType::SnapshotToIKSolve, poseChain);
+        beginInterp(InterpType::SnapshotToSolve, poseChain);
     }
 
     // Look up end effector from animVars, make sure to convert into geom space.
@@ -206,7 +205,7 @@ const AnimPoseVec& AnimTwoBoneIK::evaluate(const AnimVariantMap& animVars, const
             if (_interpType == InterpType::SnapshotToUnderPoses) {
                 interpChain = underChain;
                 interpChain.blend(_snapshotChain, _interpAlpha);
-            } else if (_interpType == InterpType::SnapshotToIKSolve) {
+            } else if (_interpType == InterpType::SnapshotToSolve) {
                 interpChain = ikChain;
                 interpChain.blend(_snapshotChain, _interpAlpha);
             }
