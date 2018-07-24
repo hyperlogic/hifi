@@ -61,7 +61,7 @@ static const char* animNodeTypeToString(AnimNode::Type type) {
     case AnimNode::Type::InverseKinematics: return "inverseKinematics";
     case AnimNode::Type::DefaultPose: return "defaultPose";
     case AnimNode::Type::TwoBoneIK: return "twoBoneIK";
-    case AnimNode::Type::PoleVectorConstraint: return "splineIK";
+    case AnimNode::Type::PoleVectorConstraint: return "poleVectorConstraint";
     case AnimNode::Type::NumTypes: return nullptr;
     };
     return nullptr;
@@ -594,8 +594,17 @@ static AnimNode::Pointer loadTwoBoneIKNode(const QJsonObject& jsonObj, const QSt
 }
 
 static AnimNode::Pointer loadPoleVectorConstraintNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
-    // AJT: TODO FIXME
-    auto node = std::make_shared<AnimDefaultPose>(id);
+    READ_VEC3(referenceVector, jsonObj, id, jsonUrl, nullptr);
+    READ_BOOL(enabled, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(baseJointName, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(midJointName, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(tipJointName, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(enabledVar, jsonObj, id, jsonUrl, nullptr);
+    READ_STRING(poleVectorVar, jsonObj, id, jsonUrl, nullptr);
+
+    auto node = std::make_shared<AnimPoleVectorConstraint>(id, enabled, referenceVector,
+                                                           baseJointName, midJointName, tipJointName,
+                                                           enabledVar, poleVectorVar);
     return node;
 }
 

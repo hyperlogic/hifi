@@ -1376,11 +1376,8 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
                      const AnimPose& leftFootPose, const AnimPose& rightFootPose,
                      const glm::mat4& rigToSensorMatrix, const glm::mat4& sensorToRigMatrix) {
 
-    // AJT: TODO drive knee pole vector
-    /*
     int hipsIndex = indexOfJoint("Hips");
     const float KNEE_POLE_VECTOR_BLEND_FACTOR = 0.95f;
-    */
 
     if (headEnabled) {
         // always do IK if head is enabled
@@ -1401,8 +1398,6 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
         _animVars.set(LEFT_FOOT_IK_POSITION_VAR, LEFT_FOOT_POSITION);
         _animVars.set(LEFT_FOOT_IK_ROTATION_VAR, LEFT_FOOT_ROTATION);
 
-        // AJT: TODO drive knee pole vector
-        /*
         int footJointIndex = _animSkeleton->nameToJointIndex("LeftFoot");
         int kneeJointIndex = _animSkeleton->nameToJointIndex("LeftLeg");
         int upLegJointIndex = _animSkeleton->nameToJointIndex("LeftUpLeg");
@@ -1419,9 +1414,7 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
         _prevLeftFootPoleVector = smoothDeltaRot * _prevLeftFootPoleVector;
 
         _animVars.set("leftFootPoleVectorEnabled", true);
-        _animVars.set("leftFootPoleReferenceVector", Vectors::UNIT_Z);
         _animVars.set("leftFootPoleVector", transformVectorFast(sensorToRigMatrix, _prevLeftFootPoleVector));
-        */
     } else {
 
         // We want to drive the IK from the underlying animation.
@@ -1429,11 +1422,8 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
         _animVars.set(LEFT_FOOT_IK_POSITION_VAR, MAIN_STATE_MACHINE_LEFT_FOOT_POSITION);
         _animVars.set(LEFT_FOOT_IK_ROTATION_VAR, MAIN_STATE_MACHINE_LEFT_FOOT_ROTATION);
 
-        // AJT: TODO drive knee pole vector
-        /*
         _animVars.set("leftFootPoleVectorEnabled", false);
         _prevLeftFootPoleVectorValid = false;
-        */
     }
 
     if (rightFootEnabled) {

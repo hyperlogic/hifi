@@ -1,5 +1,5 @@
 //
-//  PoleVectorConstraint.cpp
+//  AnimPoleVectorConstraint.cpp
 //
 //  Created by Anthony J. Thibault on 5/12/18.
 //  Copyright (c) 2018 High Fidelity, Inc. All rights reserved.
@@ -16,9 +16,9 @@
 const float FRAMES_PER_SECOND = 30.0f;
 const float INTERP_DURATION = 6.0f;
 
-PoleVectorConstraint::PoleVectorConstraint(const QString& id, bool enabled, glm::vec3 referenceVector,
-                                           const QString& baseJointName, const QString& midJointName, const QString& tipJointName,
-                                           const QString& enabledVar, const QString& poleVectorVar) :
+AnimPoleVectorConstraint::AnimPoleVectorConstraint(const QString& id, bool enabled, glm::vec3 referenceVector,
+                                                   const QString& baseJointName, const QString& midJointName, const QString& tipJointName,
+                                                   const QString& enabledVar, const QString& poleVectorVar) :
     AnimNode(AnimNode::Type::PoleVectorConstraint, id),
     _enabled(enabled),
     _referenceVector(referenceVector),
@@ -30,11 +30,11 @@ PoleVectorConstraint::PoleVectorConstraint(const QString& id, bool enabled, glm:
 
 }
 
-PoleVectorConstraint::~PoleVectorConstraint() {
+AnimPoleVectorConstraint::~AnimPoleVectorConstraint() {
 
 }
 
-const AnimPoseVec& PoleVectorConstraint::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) {
+const AnimPoseVec& AnimPoleVectorConstraint::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) {
 
     assert(_children.size() == 1);
     if (_children.size() != 1) {
@@ -113,7 +113,7 @@ const AnimPoseVec& PoleVectorConstraint::evaluate(const AnimVariantMap& animVars
         glm::quat relBaseRot = glm::inverse(baseParentPose.rot()) * deltaRot * basePose.rot();
         ikChain.setRelativePoseAtJointIndex(_baseJointIndex, AnimPose(relBaseRot, underPoses[_baseJointIndex].trans()));
 
-        glm::quat relTipRot = glm::inverse(baseParentPose.rot()) * glm::inverse(deltaRot) * tipPose.rot();
+        glm::quat relTipRot = glm::inverse(midPose.rot()) * glm::inverse(deltaRot) * tipPose.rot();
         ikChain.setRelativePoseAtJointIndex(_tipJointIndex, AnimPose(relTipRot, underPoses[_tipJointIndex].trans()));
     }
 
@@ -158,7 +158,7 @@ const AnimPoseVec& PoleVectorConstraint::evaluate(const AnimVariantMap& animVars
         }
     }
 
-    if (context.getEnableDebugDrawIKConstraints()) {
+    if (context.getEnableDebugDrawIKChains()) {
         if (enabled) {
             const glm::vec4 GREEN(0.0f, 1.0f, 0.0f, 1.0f);
             glm::mat4 geomToWorld = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
@@ -181,16 +181,16 @@ const AnimPoseVec& PoleVectorConstraint::evaluate(const AnimVariantMap& animVars
 }
 
 // for AnimDebugDraw rendering
-const AnimPoseVec& PoleVectorConstraint::getPosesInternal() const {
+const AnimPoseVec& AnimPoleVectorConstraint::getPosesInternal() const {
     return _poses;
 }
 
-void PoleVectorConstraint::setSkeletonInternal(AnimSkeleton::ConstPointer skeleton) {
+void AnimPoleVectorConstraint::setSkeletonInternal(AnimSkeleton::ConstPointer skeleton) {
     AnimNode::setSkeletonInternal(skeleton);
     lookUpIndices();
 }
 
-void PoleVectorConstraint::lookUpIndices() {
+void AnimPoleVectorConstraint::lookUpIndices() {
     assert(_skeleton);
 
     // look up bone indices by name
@@ -206,7 +206,7 @@ void PoleVectorConstraint::lookUpIndices() {
     }
 }
 
-void PoleVectorConstraint::beginInterp(InterpType interpType, const AnimChain& chain) {
+void AnimPoleVectorConstraint::beginInterp(InterpType interpType, const AnimChain& chain) {
     // capture the current poses in a snapshot.
     _snapshotChain = chain;
 
