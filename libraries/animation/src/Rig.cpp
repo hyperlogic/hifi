@@ -1377,7 +1377,7 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
                      const glm::mat4& rigToSensorMatrix, const glm::mat4& sensorToRigMatrix) {
 
     int hipsIndex = indexOfJoint("Hips");
-    const float KNEE_POLE_VECTOR_BLEND_FACTOR = 0.95f;
+    const float KNEE_POLE_VECTOR_BLEND_FACTOR = 0.85f;
 
     if (headEnabled) {
         // always do IK if head is enabled
@@ -1416,18 +1416,17 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
         _animVars.set("leftFootPoleVectorEnabled", true);
         _animVars.set("leftFootPoleVector", transformVectorFast(sensorToRigMatrix, _prevLeftFootPoleVector));
     } else {
-
         // We want to drive the IK from the underlying animation.
         // This gives us the ability to squat while in the HMD, without the feet from dipping under the floor.
         _animVars.set(LEFT_FOOT_IK_POSITION_VAR, MAIN_STATE_MACHINE_LEFT_FOOT_POSITION);
         _animVars.set(LEFT_FOOT_IK_ROTATION_VAR, MAIN_STATE_MACHINE_LEFT_FOOT_ROTATION);
 
+        // We want to match the animated knee pose as close as possible, so don't use poleVectors
         _animVars.set("leftFootPoleVectorEnabled", false);
         _prevLeftFootPoleVectorValid = false;
     }
 
     if (rightFootEnabled) {
-
         _animVars.set(RIGHT_FOOT_POSITION, rightFootPose.trans());
         _animVars.set(RIGHT_FOOT_ROTATION, rightFootPose.rot());
 
@@ -1435,8 +1434,6 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
         _animVars.set(RIGHT_FOOT_IK_POSITION_VAR, RIGHT_FOOT_POSITION);
         _animVars.set(RIGHT_FOOT_IK_ROTATION_VAR, RIGHT_FOOT_ROTATION);
 
-        // AJT: TODO drive knee pole vector
-        /*
         int footJointIndex = _animSkeleton->nameToJointIndex("RightFoot");
         int kneeJointIndex = _animSkeleton->nameToJointIndex("RightLeg");
         int upLegJointIndex = _animSkeleton->nameToJointIndex("RightUpLeg");
@@ -1453,21 +1450,16 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
         _prevRightFootPoleVector = smoothDeltaRot * _prevRightFootPoleVector;
 
         _animVars.set("rightFootPoleVectorEnabled", true);
-        _animVars.set("rightFootPoleReferenceVector", Vectors::UNIT_Z);
         _animVars.set("rightFootPoleVector", transformVectorFast(sensorToRigMatrix, _prevRightFootPoleVector));
-        */
     } else {
-
         // We want to drive the IK from the underlying animation.
         // This gives us the ability to squat while in the HMD, without the feet from dipping under the floor.
         _animVars.set(RIGHT_FOOT_IK_POSITION_VAR, MAIN_STATE_MACHINE_RIGHT_FOOT_POSITION);
         _animVars.set(RIGHT_FOOT_IK_ROTATION_VAR, MAIN_STATE_MACHINE_RIGHT_FOOT_ROTATION);
 
-        // AJT: TODO drive knee pole vector
-        /*
+        // We want to match the animated knee pose as close as possible, so don't use poleVectors
         _animVars.set("rightFootPoleVectorEnabled", false);
-        _animVars.set("rightFootType", (int)IKTarget::Type::RotationAndPosition);
-        */
+        _prevRightFootPoleVectorValid = false;
     }
 }
 
@@ -1500,6 +1492,10 @@ void Rig::updateEyeJoint(int index, const glm::vec3& modelTranslation, const glm
         if (fabsf(glm::angle(deltaQuat)) > MAX_ANGLE) {
             deltaQuat = glm::angleAxis(glm::clamp(glm::angle(deltaQuat), -MAX_ANGLE, MAX_ANGLE), glm::axis(deltaQuat));
         }
+
+
+
+
 
         // directly set absolutePose rotation
         _internalPoseSet._absolutePoses[index].rot() = deltaQuat * headQuat;
@@ -1561,31 +1557,18 @@ glm::vec3 Rig::calculateElbowPoleVector(int handIndex, int elbowIndex, int armIn
     return glm::normalize(poleAdjust * poleVector);
 }
 
+// returns a poleVector for the knees that is a blend of the foot and the hips.
+// targetFootPose is in rig space
+// result poleVector is also in rig space.
 glm::vec3 Rig::calculateKneePoleVector(int footJointIndex, int kneeIndex, int upLegIndex, int hipsIndex, const AnimPose& targetFootPose) const {
+    const float FOOT_THETA = 0.8969f;  // 51.39 degrees
+    const glm::vec3 localFootForward(0.0f, cosf(FOOT_THETA), sinf(FOOT_THETA));
 
+    glm::vec3 footForward = targetFootPose.rot() * localFootForward;
     AnimPose hipsPose = _externalPoseSet._absolutePoses[hipsIndex];
-    AnimPose footPose = targetFootPose;
-    AnimPose kneePose = _externalPoseSet._absolutePoses[kneeIndex];
-    AnimPose upLegPose = _externalPoseSet._absolutePoses[upLegIndex];
+    glm::vec3 hipsForward = hipsPose.rot() * Vectors::UNIT_Z;
 
-    // ray from foot to upLeg
-    glm::vec3 d = glm::normalize(footPose.trans() - upLegPose.trans());
-
-    // form a plane normal to the hips x-axis
-    glm::vec3 n = hipsPose.rot() * Vectors::UNIT_X;
-
-    // project d onto this plane
-    glm::vec3 dProj = d - glm::dot(d, n) * n;
-
-    // rotate dProj by 90 degrees to get the poleVector.
-    glm::vec3 poleVector = glm::angleAxis(-PI / 2.0f, n) * dProj;
-
-    // blend the foot oreintation into the pole vector
-    glm::quat kneeToFootDelta = footPose.rot() * glm::inverse(kneePose.rot());
-    const float WRIST_POLE_ADJUST_FACTOR = 0.5f;
-    glm::quat poleAdjust = quatLerp(Quaternions::IDENTITY, kneeToFootDelta, WRIST_POLE_ADJUST_FACTOR);
-
-    return glm::normalize(poleAdjust * poleVector);
+    return glm::normalize(lerp(hipsForward, footForward, 0.75f));
 }
 
 void Rig::updateFromControllerParameters(const ControllerParameters& params, float dt) {

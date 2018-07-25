@@ -56,8 +56,18 @@ const AnimPoseVec& AnimPoleVectorConstraint::evaluate(const AnimVariantMap& anim
         _poses = underPoses;
     }
 
+    // Look up poleVector from animVars, make sure to convert into geom space.
+    glm::vec3 poleVector = animVars.lookupRigToGeometryVector(_poleVectorVar, Vectors::UNIT_Z);
+    float poleVectorLength = glm::length(poleVector);
+
     // determine if we should interpolate
     bool enabled = animVars.lookup(_enabledVar, _enabled);
+
+    const float MIN_LENGTH = 1.0e-4f;
+    if (glm::length(poleVector) < MIN_LENGTH) {
+        enabled = false;
+    }
+
     if (enabled != _enabled) {
         AnimChain poseChain;
         poseChain.buildFromRelativePoses(_skeleton, _poses, _tipJointIndex);
@@ -85,27 +95,32 @@ const AnimPoseVec& AnimPoleVectorConstraint::evaluate(const AnimVariantMap& anim
     AnimPose midPose = ikChain.getAbsolutePoseFromJointIndex(_midJointIndex);
     AnimPose tipPose = ikChain.getAbsolutePoseFromJointIndex(_tipJointIndex);
 
-    // Look up poleVector from animVars, make sure to convert into geom space.
-    glm::vec3 poleVector = animVars.lookupRigToGeometryVector(_poleVectorVar, Vectors::UNIT_Z);
+    // Look up refVector from animVars, make sure to convert into geom space.
     glm::vec3 refVector = midPose.xformVectorFast(_referenceVector);
-
-    // AJT: TODO: many edges cases to catch... like what if axis is zero, or refVector or poleVector is parallel to axis...
+    float refVectorLength = glm::length(refVector);
 
     glm::vec3 axis = basePose.trans() - tipPose.trans();
     float axisLength = glm::length(axis);
+    glm::vec3 unitAxis = axis / axisLength;
 
-    const float MIN_AXIS_LENGTH = 1.0e-4f;
-    if (axisLength > MIN_AXIS_LENGTH) {
-        glm::vec3 unitAxis = axis / axisLength;
+    glm::vec3 sideVector = glm::cross(unitAxis, refVector);
+    float sideVectorLength = glm::length(sideVector);
 
-        // project refVector & poleVector on plane formed by axis.
-        glm::vec3 refVectorProj = refVector - glm::dot(refVector, unitAxis) * unitAxis;
-        glm::vec3 poleVectorProj = poleVector - glm::dot(poleVector, unitAxis) * unitAxis;
-        float refVectorProjLen = glm::length(refVectorProj);
-        float poleVectorProjLen = glm::length(poleVectorProj);
+    // project refVector onto axis plane
+    glm::vec3 refVectorProj = refVector - glm::dot(refVector, unitAxis) * unitAxis;
+    float refVectorProjLength = glm::length(refVectorProj);
 
-        float dot = glm::clamp(glm::dot(refVectorProj / refVectorProjLen, poleVectorProj / poleVectorProjLen), 0.0f, 1.0f);
-        float theta = acosf(dot);
+    // project poleVector on plane formed by axis.
+    glm::vec3 poleVectorProj = poleVector - glm::dot(poleVector, unitAxis) * unitAxis;
+    float poleVectorProjLength = glm::length(poleVectorProj);
+
+    // double check for zero length vectors or vectors parallel to rotaiton axis.
+    if (axisLength > MIN_LENGTH && refVectorLength > MIN_LENGTH && sideVectorLength > MIN_LENGTH &&
+        refVectorProjLength > MIN_LENGTH && poleVectorProjLength > MIN_LENGTH) {
+
+        float dot = glm::clamp(glm::dot(refVectorProj / refVectorProjLength, poleVectorProj / poleVectorProjLength), 0.0f, 1.0f);
+        float sideDot = glm::dot(poleVector, sideVector);
+        float theta = copysignf(1.0f, sideDot) * acosf(dot);
 
         glm::quat deltaRot = glm::angleAxis(theta, unitAxis);
 
@@ -160,18 +175,32 @@ const AnimPoseVec& AnimPoleVectorConstraint::evaluate(const AnimVariantMap& anim
 
     if (context.getEnableDebugDrawIKChains()) {
         if (enabled) {
+            const glm::vec4 RED(1.0f, 0.0f, 0.0f, 1.0f);
             const glm::vec4 GREEN(0.0f, 1.0f, 0.0f, 1.0f);
+            const glm::vec4 CYAN(0.0f, 1.0f, 1.0f, 1.0f);
+            const glm::vec4 YELLOW(1.0f, 0.0f, 1.0f, 1.0f);
+            const float VECTOR_LENGTH = 0.5f;
+
             glm::mat4 geomToWorld = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
 
             // draw the pole
             glm::vec3 start = transformPoint(geomToWorld, basePose.trans());
             glm::vec3 end = transformPoint(geomToWorld, tipPose.trans());
-            DebugDraw::getInstance().drawRay(start, end, GREEN);
+            DebugDraw::getInstance().drawRay(start, end, CYAN);
 
             // draw the poleVector
             glm::vec3 midPoint = 0.5f * (start + end);
-            end = midPoint + transformVectorFast(geomToWorld, poleVector);
-            DebugDraw::getInstance().drawRay(midPoint, end, GREEN);
+            glm::vec3 poleVectorEnd = midPoint + VECTOR_LENGTH * glm::normalize(transformVectorFast(geomToWorld, poleVector));
+            DebugDraw::getInstance().drawRay(midPoint, poleVectorEnd, GREEN);
+
+            // draw the refVector
+            glm::vec3 refVectorEnd = midPoint + VECTOR_LENGTH * glm::normalize(transformVectorFast(geomToWorld, refVector));
+            DebugDraw::getInstance().drawRay(midPoint, refVectorEnd, RED);
+
+            // draw the sideVector
+            glm::vec3 sideVector = glm::cross(poleVector, refVector);
+            glm::vec3 sideVectorEnd = midPoint + VECTOR_LENGTH * glm::normalize(transformVectorFast(geomToWorld, sideVector));
+            DebugDraw::getInstance().drawRay(midPoint, sideVectorEnd, YELLOW);
         }
     }
 
