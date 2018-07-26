@@ -259,14 +259,6 @@ void AnimInverseKinematics::solve(const AnimContext& context, const std::vector<
                         jointChainInfoVec[i].jointInfoVec[j].rot = safeMix(_prevJointChainInfoVec[i].jointInfoVec[j].rot, jointChainInfoVec[i].jointInfoVec[j].rot, alpha);
                         jointChainInfoVec[i].jointInfoVec[j].trans = lerp(_prevJointChainInfoVec[i].jointInfoVec[j].trans, jointChainInfoVec[i].jointInfoVec[j].trans, alpha);
                     }
-
-                    // if joint chain was just disabled, ramp the weight toward zero.
-                    if (_prevJointChainInfoVec[i].target.getType() != IKTarget::Type::Unknown &&
-                        jointChainInfoVec[i].target.getType() == IKTarget::Type::Unknown) {
-                        IKTarget newTarget = _prevJointChainInfoVec[i].target;
-                        newTarget.setWeight((1.0f - alpha) * _prevJointChainInfoVec[i].target.getWeight());
-                        jointChainInfoVec[i].target = newTarget;
-                    }
                 }
             }
         }
@@ -1047,8 +1039,7 @@ const AnimPoseVec& AnimInverseKinematics::overlay(const AnimVariantMap& animVars
 
                 setSecondaryTargets(context);
 
-                // AJT: TEMPORARY DISABLED
-                //preconditionRelativePosesToAvoidLimbLock(context, targets);
+                preconditionRelativePosesToAvoidLimbLock(context, targets);
 
                 solve(context, targets, dt, jointChainInfoVec);
             }
@@ -1755,7 +1746,7 @@ void AnimInverseKinematics::preconditionRelativePosesToAvoidLimbLock(const AnimC
     const float MIN_AXIS_LENGTH = 1.0e-4f;
 
     for (auto& target : targets) {
-        if (target.getIndex() != -1) {
+        if (target.getIndex() != -1 && target.getType() == IKTarget::Type::RotationAndPosition) {
             for (int i = 0; i < NUM_LIMBS; i++) {
                 if (limbs[i].first == target.getIndex()) {
                     int tipIndex = limbs[i].first;
