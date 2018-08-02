@@ -1,6 +1,6 @@
-macro(TARGET_DEEPMOTION)
+macro(TARGET_DEEP_MOTION)
     if (WIN32) # OR APPLE
-        add_dependency_external_projects(deepMotion)
+        add_dependency_external_projects(deep-motion)
         
         SET(DEEPMOTION_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src)
         SET(DEEPMOTION_DLL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/x64)
