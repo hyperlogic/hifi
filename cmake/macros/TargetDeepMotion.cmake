@@ -4,10 +4,11 @@ macro(TARGET_DEEP_MOTION)
         
         SET(DEEPMOTION_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src)
         SET(DEEPMOTION_DLL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/x64)
-        SET(DEEPMOTION_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/x64/deepMotion_highfidelity_integration.lib)
-		
+        
         target_include_directories(${TARGET_NAME} PRIVATE ${DEEPMOTION_INCLUDE_DIRS})
-        target_link_libraries(${TARGET_NAME} ${DEEPMOTION_LIBRARIES})
+        target_link_libraries(${TARGET_NAME} 
+            optimized ${DEEPMOTION_DLL_PATH}/deepMotion_highfidelity_integration.lib
+            debug ${DEEPMOTION_DLL_PATH}/deepMotion_highfidelity_integration_d.lib)
         
         add_paths_to_fixup_libs(${DEEPMOTION_DLL_PATH})
     endif(WIN32) # OR APPLE
