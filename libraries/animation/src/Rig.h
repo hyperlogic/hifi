@@ -26,7 +26,7 @@
 #include "SimpleMovingAverage.h"
 
 class Rig;
-class AnimInverseKinematics;
+class DeepMotionNode;
 
 // Rig instances are reentrant.
 // However only specific methods thread-safe.  Noted below.
@@ -127,7 +127,7 @@ public:
     void clearJointStates();
     void clearJointAnimationPriority(int index);
 
-    std::shared_ptr<AnimInverseKinematics> getAnimInverseKinematicsNode() const;
+    std::shared_ptr<DeepMotionNode> getDeepMotionNode() const;
 
     void clearIKJointLimitHistory();
     void setMaxHipsOffsetLength(float maxLength);

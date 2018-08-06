@@ -21,14 +21,10 @@
 #include "RotationAccumulator.h"
 #include "TranslationAccumulator.h"
 
-#include "DeepMotionNode.h"
-
 class RotationConstraint;
 
 class AnimInverseKinematics : public AnimNode {
 public:
-    DeepMotionNode dmNode;  //TODO: Remove. Temporary usage of DeepMotionNode to test dll linkage
-
     struct JointInfo {
         glm::quat rot;
         glm::vec3 trans;

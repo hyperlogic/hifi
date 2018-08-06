@@ -45,11 +45,11 @@
                     "boneSet": "fullBody"
                 },
                 "children": [
-                    {
-                        "id": "ik",
+					{
+                        "id": "dm",
                         "type": "inverseKinematics",
                         "data": {
-                            "solutionSource": "relaxToUnderPoses",
+                            "solutionSource": "previousSolution",
                             "solutionSourceVar": "solutionSource",
                             "targets": [
                                 {

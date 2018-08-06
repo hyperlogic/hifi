@@ -24,6 +24,7 @@
 #include "AnimStateMachine.h"
 #include "AnimManipulator.h"
 #include "AnimInverseKinematics.h"
+#include "DeepMotionNode.h"
 #include "AnimDefaultPose.h"
 
 using NodeLoaderFunc = AnimNode::Pointer (*)(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
@@ -466,7 +467,8 @@ static AnimNode::Pointer loadManipulatorNode(const QJsonObject& jsonObj, const Q
 }
 
 AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
-    auto node = std::make_shared<AnimInverseKinematics>(id);
+    //auto node = std::make_shared<AnimInverseKinematics>(id);
+    auto node = std::make_shared<DeepMotionNode>(id);
 
     auto targetsValue = jsonObj.value("targets");
     if (!targetsValue.isArray()) {
@@ -511,7 +513,7 @@ AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QS
     if (!solutionSource.isEmpty()) {
         AnimInverseKinematics::SolutionSource solutionSourceType = stringToSolutionSourceEnum(solutionSource);
         if (solutionSourceType != AnimInverseKinematics::SolutionSource::NumSolutionSources) {
-            node->setSolutionSource(solutionSourceType);
+            qCWarning(animation) << "SolutionSource: " << solutionSource; // node->setSolutionSource(solutionSourceType);
         } else {
             qCWarning(animation) << "AnimNodeLoader, bad solutionSourceType in \"solutionSource\", id = " << id << ", url = " << jsonUrl.toDisplayString();
         }
@@ -520,7 +522,7 @@ AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QS
     READ_OPTIONAL_STRING(solutionSourceVar, jsonObj);
 
     if (!solutionSourceVar.isEmpty()) {
-        node->setSolutionSourceVar(solutionSourceVar);
+        qCWarning(animation) << "SolutionSource(v): " << solutionSourceVar; //node->setSolutionSourceVar(solutionSourceVar);
     }
 
     return node;
