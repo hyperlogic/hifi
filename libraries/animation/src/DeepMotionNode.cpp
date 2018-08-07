@@ -71,8 +71,6 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
         }
     }
 
-    if (i++ % 1000 == 0)
-        qCInfo(animation) << "Tick";
     TickIntegration(dt);
 
     return _relativePoses;

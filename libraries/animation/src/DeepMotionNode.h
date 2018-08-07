@@ -9,17 +9,15 @@ class RotationConstraint;
 
 class DeepMotionNode : public AnimNode {
 public:
+    DeepMotionNode() = delete;
     explicit DeepMotionNode(const QString& id) : AnimNode(AnimNode::Type::InverseKinematics, id) {
-        qCDebug(animation) << "DeepMotionNode";
-        if (!_initialized)  //Temporary fix for doubled c-tor call, which causes ASSERTION fail in Avatar. TODO: find a reason for c-tor double call and fix it
-        {
-            InitializeIntegration();
-            _initialized = true;
-        }
+        InitializeIntegration();
     }
+    DeepMotionNode(const DeepMotionNode&) = delete;
+    DeepMotionNode(const DeepMotionNode&&) = delete;
+    DeepMotionNode operator=(const DeepMotionNode&) = delete;
 
     virtual ~DeepMotionNode() {
-        qCDebug(animation) << "~DeepMotionNode";
         FinalizeIntegration();
     }
 
@@ -51,9 +49,6 @@ protected:
 
     const SolutionSource _solutionSource{ SolutionSource::PreviousSolution };
     QString _solutionSourceVar;
-
-    long int i = 0;
-    bool _initialized = false;
 };
 
 #endif // hifi_DeepMotionNode_h
