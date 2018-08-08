@@ -4,15 +4,20 @@
 #include "deepMotion_interface.h"
 
 #include "AnimNode.h"
+#include "qnetworkreply.h"
 
 class RotationConstraint;
+class Resource;
 
-class DeepMotionNode : public AnimNode {
+namespace avatar
+{
+    struct SimpleGenericHandle;
+} // avatar
+
+class DeepMotionNode : public AnimNode, public QObject {
 public:
     DeepMotionNode() = delete;
-    explicit DeepMotionNode(const QString& id) : AnimNode(AnimNode::Type::InverseKinematics, id) {
-        InitializeIntegration();
-    }
+    explicit DeepMotionNode(const QString& id);
     DeepMotionNode(const DeepMotionNode&) = delete;
     DeepMotionNode(const DeepMotionNode&&) = delete;
     DeepMotionNode operator=(const DeepMotionNode&) = delete;
@@ -29,6 +34,9 @@ public:
         LimitCenterPoses,
         NumSolutionSources,
     };
+
+    void characterLoaded(const QByteArray data);
+    void characterFailedToLoad(QNetworkReply::NetworkError error);
 
     void loadPoses(const AnimPoseVec& poses);
 
@@ -49,6 +57,9 @@ protected:
 
     const SolutionSource _solutionSource{ SolutionSource::PreviousSolution };
     QString _solutionSourceVar;
+
+    avatar::SimpleGenericHandle _sceneHandle;
+    QSharedPointer<Resource> _characterResource;
 };
 
 #endif // hifi_DeepMotionNode_h
