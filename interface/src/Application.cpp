@@ -6160,7 +6160,7 @@ void Application::queryOctree(NodeType_t serverType, PacketType packetType) {
 
 
 bool Application::isHMDMode() const {
-    return getActiveDisplayPlugin()->isHmd();
+    return getActiveDisplayPlugin() && getActiveDisplayPlugin()->isHmd();
 }
 
 float Application::getTargetRenderFrameRate() const { return getActiveDisplayPlugin()->getTargetFrameRate(); }
