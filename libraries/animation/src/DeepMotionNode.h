@@ -1,17 +1,17 @@
 #ifndef hifi_DeepMotionNode_h
 #define hifi_DeepMotionNode_h
 
-#include "deepMotion_interface.h"
-
 #include "AnimNode.h"
 #include "qnetworkreply.h"
+
+#include "dm_public/types.h"
 
 class RotationConstraint;
 class Resource;
 
 namespace avatar
 {
-    struct SimpleGenericHandle;
+    class IEngineInterface;
 } // avatar
 
 class DeepMotionNode : public AnimNode, public QObject {
@@ -22,9 +22,7 @@ public:
     DeepMotionNode(const DeepMotionNode&&) = delete;
     DeepMotionNode operator=(const DeepMotionNode&) = delete;
 
-    virtual ~DeepMotionNode() {
-        FinalizeIntegration();
-    }
+    virtual ~DeepMotionNode();
 
     enum class SolutionSource {
         RelaxToUnderPoses = 0,
@@ -58,7 +56,8 @@ protected:
     const SolutionSource _solutionSource{ SolutionSource::PreviousSolution };
     QString _solutionSourceVar;
 
-    avatar::SimpleGenericHandle _sceneHandle;
+    avatar::IEngineInterface& _engineInterface;
+    avatar::SceneHandle _sceneHandle = avatar::SceneHandle(nullptr);
     const QString _characterPath = QString("deepMotion/schoolBoyScene.json");
     QSharedPointer<Resource> _characterResource;
 };
