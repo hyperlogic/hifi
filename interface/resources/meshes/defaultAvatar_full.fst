@@ -87,3 +87,5 @@ jointIndex = Neck = 62
 jointIndex = RightHandIndex4 = 29
 jointIndex = LeftHandRing1 = 46
 jointIndex = RightShoulder = 14
+
+animGraphUrl = ../avatar/dm-avatar-animation.json
