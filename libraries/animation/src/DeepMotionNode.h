@@ -4,15 +4,20 @@
 #include "deepMotion_interface.h"
 
 #include "AnimNode.h"
+#include "qnetworkreply.h"
 
 class RotationConstraint;
+class Resource;
 
-class DeepMotionNode : public AnimNode {
+namespace avatar
+{
+    struct SimpleGenericHandle;
+} // avatar
+
+class DeepMotionNode : public AnimNode, public QObject {
 public:
     DeepMotionNode() = delete;
-    explicit DeepMotionNode(const QString& id) : AnimNode(AnimNode::Type::InverseKinematics, id) {
-        InitializeIntegration();
-    }
+    explicit DeepMotionNode(const QString& id);
     DeepMotionNode(const DeepMotionNode&) = delete;
     DeepMotionNode(const DeepMotionNode&&) = delete;
     DeepMotionNode operator=(const DeepMotionNode&) = delete;
@@ -30,14 +35,17 @@ public:
         NumSolutionSources,
     };
 
+    void characterLoaded(const QByteArray data);
+    void characterFailedToLoad(QNetworkReply::NetworkError error);
+
     void loadPoses(const AnimPoseVec& poses);
 
     void setTargetVars(const QString& jointName, const QString& positionVar, const QString& rotationVar,
                        const QString& typeVar, const QString& weightVar, float weight, const std::vector<float>& flexCoefficients,
                        const QString& poleVectorEnabledVar, const QString& poleReferenceVectorVar, const QString& poleVectorVar);
 
-    virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut) override;
-    virtual const AnimPoseVec& overlay(const AnimVariantMap& animVars, const AnimContext& context, float dt, Triggers& triggersOut, const AnimPoseVec& underPoses) override;
+    virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) override;
+    virtual const AnimPoseVec& overlay(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut, const AnimPoseVec& underPoses) override;
 
 protected:
     // for AnimDebugDraw rendering
@@ -49,6 +57,9 @@ protected:
 
     const SolutionSource _solutionSource{ SolutionSource::PreviousSolution };
     QString _solutionSourceVar;
+
+    avatar::SimpleGenericHandle _sceneHandle;
+    QSharedPointer<Resource> _characterResource;
 };
 
 #endif // hifi_DeepMotionNode_h
