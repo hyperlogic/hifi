@@ -18,8 +18,6 @@ public:
     virtual void TickGeneralPurposeRuntime(float detlaTime) = 0;
 
     virtual SceneHandle DeserializeAndLoadScene(const uint8_t* rawBuffer) = 0;
-    virtual RigidBodyHandle GetRigidBodyByName(const char* name) = 0;
-    virtual bool GetRigidBodyTransform(RigidBodyHandle rbHandle, Float3* pos, Float4* ori) = 0;
 
     virtual ~IEngineInterface() {}
 private:
