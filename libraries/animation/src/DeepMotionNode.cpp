@@ -10,6 +10,10 @@
 #include <fstream>
 #include <string>
 
+#include <QLoggingCategory>
+
+Q_DECLARE_LOGGING_CATEGORY(deepMotion)
+
 static const float CHARACTER_LOAD_PRIORITY = 10.0f;
 
 DeepMotionNode::DeepMotionNode(const QString& id) : AnimNode(AnimNode::Type::InverseKinematics, id) {
@@ -26,19 +30,13 @@ DeepMotionNode::DeepMotionNode(const QString& id) : AnimNode(AnimNode::Type::Inv
 
 void DeepMotionNode::characterLoaded(const QByteArray data)
 {
+    qCInfo(deepMotion) << "Loading character";
     _sceneHandle = LoadCharacterOnScene(reinterpret_cast<const uint8_t*>(data.constData()));
 }
 
 void DeepMotionNode::characterFailedToLoad(QNetworkReply::NetworkError error)
 {
-    qCCritical(animation) << "Failed to load character from resources: " << error;
-    //TODO: fix loading resource from url and remove this loading from hardcoded path
-    std::ifstream ifs("C:\\G\\Projects\\DeepMotion\\HighFidelity\\interface\\resources\\deepMotion\\schoolBoyScene.json", std::ios::binary);
-    if (ifs.good())
-    {
-        std::string content((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
-        _sceneHandle = LoadCharacterOnScene(reinterpret_cast<const uint8_t*>(content.c_str()));
-    }
+    qCCritical(deepMotion) << "Failed to load character from resources: " << error;
 }
 
 void DeepMotionNode::loadPoses(const AnimPoseVec& poses) {
