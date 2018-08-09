@@ -10,15 +10,15 @@ namespace Detail
 enum HandleTypes
 {
     INVALID_HANDLE,
-	ANIMATION_HANDLE,
-	DISPLACEMENT_HANDLE,
+    ANIMATION_HANDLE,
+    DISPLACEMENT_HANDLE,
     SCENE_HANDLE,
     RIGIDBODY_HANDLE
 };
 
 enum ResourceIdentifierTypes
 {
-	ANIM_RESOURCE
+    ANIM_RESOURCE
 };
 }
 
