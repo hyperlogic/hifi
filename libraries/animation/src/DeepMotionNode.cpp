@@ -19,7 +19,7 @@ static const float CHARACTER_LOAD_PRIORITY = 10.0f;
 DeepMotionNode::DeepMotionNode(const QString& id) : AnimNode(AnimNode::Type::InverseKinematics, id) {
     InitializeIntegration();
 
-    auto characterUrl = PathUtils::resourcesUrl("deepMotion/schoolBoyScene.json");
+    auto characterUrl = PathUtils::resourcesUrl(_characterPath);
     _characterResource = QSharedPointer<Resource>::create(characterUrl);
     _characterResource->setSelf(_characterResource);
     _characterResource->setLoadPriority(this, CHARACTER_LOAD_PRIORITY);

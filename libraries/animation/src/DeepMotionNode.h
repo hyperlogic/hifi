@@ -59,6 +59,7 @@ protected:
     QString _solutionSourceVar;
 
     avatar::SimpleGenericHandle _sceneHandle;
+    const QString _characterPath = QString("deepMotion/schoolBoyScene.json");
     QSharedPointer<Resource> _characterResource;
 };
 
