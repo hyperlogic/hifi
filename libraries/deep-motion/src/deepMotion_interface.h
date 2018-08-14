@@ -1,6 +1,9 @@
 #pragma once
 
-#include "dm_public/types.h"
+namespace avatar
+{
+    class IEngineInterface;
+} // avatar
 
 #ifdef __cplusplus
     extern "C" {
@@ -16,10 +19,7 @@
 #   define AVATAR_DLL
 #endif
 
-AVATAR_DLL void InitializeIntegration();
-AVATAR_DLL avatar::SimpleGenericHandle LoadCharacterOnScene(const uint8_t* rawData);
-AVATAR_DLL void FinalizeIntegration();
-AVATAR_DLL void TickIntegration(float deltaTime);
+AVATAR_DLL avatar::IEngineInterface& GetEngineInterface();
 
 #ifdef __cplusplus
     }

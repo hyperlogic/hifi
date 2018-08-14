@@ -1,6 +1,8 @@
 #include "DeepMotionNode.h"
 
-#include "dm_public/types.h"
+#include "deepMotion_interface.h"
+#include "dm_public/interfaces/i_engine_interface.h"
+#include "dm_public/commands/core_commands.h"
 
 #include "RotationConstraint.h"
 #include "ResourceCache.h"
@@ -12,10 +14,25 @@
 
 static const float CHARACTER_LOAD_PRIORITY = 10.0f;
 
-DeepMotionNode::DeepMotionNode(const QString& id) : AnimNode(AnimNode::Type::InverseKinematics, id) {
-    InitializeIntegration();
+void* Allocate(size_t dataSize)
+{
+    return malloc(dataSize);
+}
 
-    auto characterUrl = PathUtils::resourcesUrl("deepMotion/schoolBoyScene.json");
+void Free(void* data)
+{
+    free(data);
+}
+
+DeepMotionNode::DeepMotionNode(const QString& id) :
+    AnimNode(AnimNode::Type::InverseKinematics, id),
+    _engineInterface(GetEngineInterface()) {
+
+    avatar::CoreCommands coreCommands { Allocate, Free };
+    _engineInterface.RegisterCoreCommands(coreCommands);
+    _engineInterface.InitializeRuntime();
+
+    auto characterUrl = PathUtils::resourcesUrl(_characterPath);
     _characterResource = QSharedPointer<Resource>::create(characterUrl);
     _characterResource->setSelf(_characterResource);
     _characterResource->setLoadPriority(this, CHARACTER_LOAD_PRIORITY);
@@ -24,21 +41,20 @@ DeepMotionNode::DeepMotionNode(const QString& id) : AnimNode(AnimNode::Type::Inv
     _characterResource->ensureLoading();
 }
 
+DeepMotionNode::~DeepMotionNode()
+{
+    _engineInterface.FinalizeRuntime();
+}
+
 void DeepMotionNode::characterLoaded(const QByteArray data)
 {
-    _sceneHandle = LoadCharacterOnScene(reinterpret_cast<const uint8_t*>(data.constData()));
+    qCInfo(animation) << "Loading character";
+    _sceneHandle = _engineInterface.DeserializeAndLoadScene(reinterpret_cast<const uint8_t*>(data.constData()));
 }
 
 void DeepMotionNode::characterFailedToLoad(QNetworkReply::NetworkError error)
 {
     qCCritical(animation) << "Failed to load character from resources: " << error;
-    //TODO: fix loading resource from url and remove this loading from hardcoded path
-    std::ifstream ifs("C:\\G\\Projects\\DeepMotion\\HighFidelity\\interface\\resources\\deepMotion\\schoolBoyScene.json", std::ios::binary);
-    if (ifs.good())
-    {
-        std::string content((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
-        _sceneHandle = LoadCharacterOnScene(reinterpret_cast<const uint8_t*>(content.c_str()));
-    }
 }
 
 void DeepMotionNode::loadPoses(const AnimPoseVec& poses) {
@@ -109,7 +125,7 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
         }
     }
 
-    TickIntegration(dt);
+    _engineInterface.TickGeneralPurposeRuntime(dt);
 
     return _relativePoses;
 }

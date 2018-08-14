@@ -10,8 +10,7 @@ namespace avatar
         CHARACTER_ASSET,
         ANIMATION_ASSET,
         MAP_ASSET,
-        CONTROL_PARAMS,
-		FRAGMENT_HOST
+        FRAGMENT_HOST
     };
 
     struct AssetDescriptor
