@@ -47,7 +47,7 @@
                 "children": [
 					{
                         "id": "dm",
-                        "type": "inverseKinematics",
+                        "type": "deepMotion",
                         "data": {
                             "solutionSource": "previousSolution",
                             "solutionSourceVar": "solutionSource",

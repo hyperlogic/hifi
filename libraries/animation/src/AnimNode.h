@@ -44,6 +44,7 @@ public:
         StateMachine,
         Manipulator,
         InverseKinematics,
+        DeepMotion,
         DefaultPose,
         TwoBoneIK,
         PoleVectorConstraint,

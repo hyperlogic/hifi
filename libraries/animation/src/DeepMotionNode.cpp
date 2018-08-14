@@ -25,7 +25,7 @@ void Free(void* data)
 }
 
 DeepMotionNode::DeepMotionNode(const QString& id) :
-    AnimNode(AnimNode::Type::InverseKinematics, id),
+    AnimNode(AnimNode::Type::DeepMotion, id),
     _engineInterface(GetEngineInterface()) {
 
     avatar::CoreCommands coreCommands { Allocate, Free };

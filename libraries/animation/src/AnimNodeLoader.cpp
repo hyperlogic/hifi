@@ -40,6 +40,7 @@ static AnimNode::Pointer loadOverlayNode(const QJsonObject& jsonObj, const QStri
 static AnimNode::Pointer loadStateMachineNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadManipulatorNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
+static AnimNode::Pointer loadDeepMotionNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadDefaultPoseNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadTwoBoneIKNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
 static AnimNode::Pointer loadPoleVectorConstraintNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl);
@@ -60,6 +61,7 @@ static const char* animNodeTypeToString(AnimNode::Type type) {
     case AnimNode::Type::StateMachine: return "stateMachine";
     case AnimNode::Type::Manipulator: return "manipulator";
     case AnimNode::Type::InverseKinematics: return "inverseKinematics";
+    case AnimNode::Type::DeepMotion: return "deepMotion";
     case AnimNode::Type::DefaultPose: return "defaultPose";
     case AnimNode::Type::TwoBoneIK: return "twoBoneIK";
     case AnimNode::Type::PoleVectorConstraint: return "poleVectorConstraint";
@@ -122,6 +124,7 @@ static NodeLoaderFunc animNodeTypeToLoaderFunc(AnimNode::Type type) {
     case AnimNode::Type::StateMachine: return loadStateMachineNode;
     case AnimNode::Type::Manipulator: return loadManipulatorNode;
     case AnimNode::Type::InverseKinematics: return loadInverseKinematicsNode;
+    case AnimNode::Type::DeepMotion: return loadDeepMotionNode;
     case AnimNode::Type::DefaultPose: return loadDefaultPoseNode;
     case AnimNode::Type::TwoBoneIK: return loadTwoBoneIKNode;
     case AnimNode::Type::PoleVectorConstraint: return loadPoleVectorConstraintNode;
@@ -139,6 +142,7 @@ static NodeProcessFunc animNodeTypeToProcessFunc(AnimNode::Type type) {
     case AnimNode::Type::StateMachine: return processStateMachineNode;
     case AnimNode::Type::Manipulator: return processDoNothing;
     case AnimNode::Type::InverseKinematics: return processDoNothing;
+    case AnimNode::Type::DeepMotion: return processDoNothing;
     case AnimNode::Type::DefaultPose: return processDoNothing;
     case AnimNode::Type::TwoBoneIK: return processDoNothing;
     case AnimNode::Type::PoleVectorConstraint: return processDoNothing;
@@ -509,8 +513,7 @@ static AnimNode::Pointer loadManipulatorNode(const QJsonObject& jsonObj, const Q
 }
 
 AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
-    //auto node = std::make_shared<AnimInverseKinematics>(id);
-    auto node = std::make_shared<DeepMotionNode>(id);
+    auto node = std::make_shared<AnimInverseKinematics>(id);
 
     auto targetsValue = jsonObj.value("targets");
     if (!targetsValue.isArray()) {
@@ -555,7 +558,7 @@ AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QS
     if (!solutionSource.isEmpty()) {
         AnimInverseKinematics::SolutionSource solutionSourceType = stringToSolutionSourceEnum(solutionSource);
         if (solutionSourceType != AnimInverseKinematics::SolutionSource::NumSolutionSources) {
-            qCWarning(animation) << "SolutionSource: " << solutionSource; // node->setSolutionSource(solutionSourceType);
+            node->setSolutionSource(solutionSourceType);
         } else {
             qCWarning(animation) << "AnimNodeLoader, bad solutionSourceType in \"solutionSource\", id = " << id << ", url = " << jsonUrl.toDisplayString();
         }
@@ -564,8 +567,52 @@ AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QS
     READ_OPTIONAL_STRING(solutionSourceVar, jsonObj);
 
     if (!solutionSourceVar.isEmpty()) {
-        qCWarning(animation) << "SolutionSource(v): " << solutionSourceVar; //node->setSolutionSourceVar(solutionSourceVar);
+        node->setSolutionSourceVar(solutionSourceVar);
     }
+
+    return node;
+}
+
+AnimNode::Pointer loadDeepMotionNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
+    auto node = std::make_shared<DeepMotionNode>(id);
+
+    auto targetsValue = jsonObj.value("targets");
+    if (!targetsValue.isArray()) {
+        qCCritical(animation) << "AnimNodeLoader, bad array \"targets\" in deepMotion node, id =" << id << ", url =" << jsonUrl.toDisplayString();
+        return nullptr;
+    }
+
+    auto targetsArray = targetsValue.toArray();
+    for (const auto& targetValue : targetsArray) {
+        if (!targetValue.isObject()) {
+            qCCritical(animation) << "AnimNodeLoader, bad state object in \"targets\", id =" << id << ", url =" << jsonUrl.toDisplayString();
+            return nullptr;
+        }
+        auto targetObj = targetValue.toObject();
+
+        READ_STRING(jointName, targetObj, id, jsonUrl, nullptr);
+        READ_STRING(positionVar, targetObj, id, jsonUrl, nullptr);
+        READ_STRING(rotationVar, targetObj, id, jsonUrl, nullptr);
+        READ_OPTIONAL_STRING(typeVar, targetObj);
+        READ_OPTIONAL_STRING(weightVar, targetObj);
+        READ_OPTIONAL_FLOAT(weight, targetObj, 1.0f);
+        READ_OPTIONAL_STRING(poleVectorEnabledVar, targetObj);
+        READ_OPTIONAL_STRING(poleReferenceVectorVar, targetObj);
+        READ_OPTIONAL_STRING(poleVectorVar, targetObj);
+
+        auto flexCoefficientsValue = targetObj.value("flexCoefficients");
+        if (!flexCoefficientsValue.isArray()) {
+            qCCritical(animation) << "AnimNodeLoader, bad or missing flexCoefficients array in \"targets\", id =" << id << ", url =" << jsonUrl.toDisplayString();
+            return nullptr;
+        }
+        auto flexCoefficientsArray = flexCoefficientsValue.toArray();
+        std::vector<float> flexCoefficients;
+        for (const auto& value : flexCoefficientsArray) {
+            flexCoefficients.push_back((float)value.toDouble());
+        }
+
+        node->setTargetVars(jointName, positionVar, rotationVar, typeVar, weightVar, weight, flexCoefficients, poleVectorEnabledVar, poleReferenceVectorVar, poleVectorVar);
+    };
 
     return node;
 }

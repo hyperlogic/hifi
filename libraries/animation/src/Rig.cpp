@@ -376,12 +376,22 @@ void Rig::clearJointAnimationPriority(int index) {
     }
 }
 
+std::shared_ptr<AnimInverseKinematics> Rig::getAnimInverseKinematicsNode() const {
+    return getNode<AnimInverseKinematics>();
+}
+
 std::shared_ptr<DeepMotionNode> Rig::getDeepMotionNode() const {
-    std::shared_ptr<DeepMotionNode> result;
+    return getNode<DeepMotionNode>();
+}
+
+template<class T>
+std::shared_ptr<T> Rig::getNode() const {
+    static_assert(std::is_base_of<AnimNode, T>::value, "T not derived from AnimNode");
+    std::shared_ptr<T> result;
     if (_animNode) {
         _animNode->traverse([&](AnimNode::Pointer node) {
             // only report clip nodes as valid roles.
-            auto ikNode = std::dynamic_pointer_cast<DeepMotionNode>(node);
+            auto ikNode = std::dynamic_pointer_cast<T>(node);
             if (ikNode) {
                 result = ikNode;
                 return false;
@@ -395,9 +405,10 @@ std::shared_ptr<DeepMotionNode> Rig::getDeepMotionNode() const {
 }
 
 void Rig::clearIKJointLimitHistory() {
-    auto ikNode = getDeepMotionNode();
+    auto ikNode = getAnimInverseKinematicsNode();
     if (ikNode) {
-        ;//ikNode->clearIKJointLimitHistory();
+        ikNode->clearIKJointLimitHistory();
+        //TODO: DeepMotionNode consider implementing
     }
 }
 
@@ -406,9 +417,10 @@ float Rig::getIKErrorOnLastSolve() const {
 
     if (_animNode) {
         _animNode->traverse([&](AnimNode::Pointer node) {
-            auto ikNode = std::dynamic_pointer_cast<DeepMotionNode>(node);
+            auto ikNode = std::dynamic_pointer_cast<AnimInverseKinematics>(node);
             if (ikNode) {
-                ;//result = ikNode->getMaxErrorOnLastSolve();
+                result = ikNode->getMaxErrorOnLastSolve();
+                //TODO: DeepMotionNode consider implementing
             }
             return true;
         });
@@ -1689,15 +1701,16 @@ void Rig::updateFromControllerParameters(const ControllerParameters& params, flo
         "RightToeBase"
     };
 
-    std::shared_ptr<DeepMotionNode> ikNode = getDeepMotionNode();
+    std::shared_ptr<AnimInverseKinematics> ikNode = getAnimInverseKinematicsNode();
     for (int i = 0; i < (int)NumSecondaryControllerTypes; i++) {
         int index = indexOfJoint(secondaryControllerJointNames[i]);
         if (index >= 0) {
             if (params.secondaryControllerFlags[i] & (uint8_t)ControllerFlags::Enabled) {
-                ;//ikNode->setSecondaryTargetInRigFrame(index, params.secondaryControllerPoses[i]);
+                ikNode->setSecondaryTargetInRigFrame(index, params.secondaryControllerPoses[i]);
             } else {
-                ;//ikNode->clearSecondaryTarget(index);
+                ikNode->clearSecondaryTarget(index);
             }
+            // TODO: DeepMotionNode consider implementing
         }
     }
 }
