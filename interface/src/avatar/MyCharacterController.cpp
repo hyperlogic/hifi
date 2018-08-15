@@ -291,12 +291,10 @@ void MyCharacterController::initRayShotgun(const btCollisionWorld* world) {
             for (int32_t j = 0; j < maxJ; ++j) {
                 btVector3 localRayEnd(offsetX + (btScalar)(j) * stepX, divisionLine + (btScalar)(i) * stepY, 0.0f);
                 btVector3 localRayStart = localRayEnd - reach;
-                if (localRayStart != localRayEnd) {
-                    MeOnlyResultCallback result(_rigidBody);
-                    world->rayTest(position + rotation * localRayStart, position + rotation * localRayEnd, result);
-                    if (result.m_closestHitFraction < 1.0f) {
-                        _topPoints.push_back(localRayStart + result.m_closestHitFraction * reach);
-                    }
+                MeOnlyResultCallback result(_rigidBody);
+                world->rayTest(position + rotation * localRayStart, position + rotation * localRayEnd, result);
+                if (result.m_closestHitFraction < 1.0f) {
+                    _topPoints.push_back(localRayStart + result.m_closestHitFraction * reach);
                 }
             }
         }
