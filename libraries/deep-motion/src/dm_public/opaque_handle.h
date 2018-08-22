@@ -7,6 +7,7 @@ template<typename UnderlyingType, uint32_t UNIQUE_ID>
 class OpaqueHandle
 {
 public:
+    OpaqueHandle() = default;
     explicit OpaqueHandle(UnderlyingType val) : m_Val(val) {}
     explicit operator UnderlyingType() const { return m_Val; }
     

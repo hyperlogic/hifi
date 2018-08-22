@@ -7,12 +7,9 @@ namespace avatar
 {	
 namespace Detail
 {
-enum HandleTypes
+enum HandleTypes : uint32_t
 {
-    INVALID_HANDLE,
-    ANIMATION_HANDLE,
-    DISPLACEMENT_HANDLE,
-    SCENE_HANDLE
+    MULTI_BODY_LINK_HANDLE
 };
 
 enum ResourceIdentifierTypes
@@ -21,9 +18,20 @@ enum ResourceIdentifierTypes
 };
 }
 
-using AnimHandle = OpaqueHandle<void*, Detail::ANIMATION_HANDLE>;
-using AnimResId = OpaqueHandle<Guid, Detail::ANIM_RESOURCE>;
-using DisplacementHandle = OpaqueHandle<void*, Detail::DISPLACEMENT_HANDLE>;
-using SceneHandle = OpaqueHandle<void*, Detail::SCENE_HANDLE>;
+struct Vector3
+{
+    float m_V[3];
+};
+
+struct Quaternion
+{
+    float m_V[4];
+};
+
+struct Transform
+{
+    Vector3 m_Position;
+    Quaternion m_Orientation;
+};
 
 }

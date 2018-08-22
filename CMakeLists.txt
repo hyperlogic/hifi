@@ -84,6 +84,12 @@ option(
 
 set(PLATFORM_QT_GL OpenGL)
 
+SET(DEEPMOTION_DLL_PATH "" CACHE PATH "DeepMotion dll path (e.g. ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/x64 )")
+
+IF ((EXISTS ${DEEPMOTION_DLL_PATH}/dm_core_tech.lib) AND (EXISTS ${DEEPMOTION_DLL_PATH}/dm_core_tech.dll))
+	add_definitions(-DDM_DLL_EXISTS)
+ENDIF()
+
 if (USE_GLES)
   add_definitions(-DUSE_GLES)
   set(PLATFORM_GL_BACKEND gpu-gl-common gpu-gles)
