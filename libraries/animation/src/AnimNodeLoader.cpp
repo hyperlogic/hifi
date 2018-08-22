@@ -575,45 +575,6 @@ AnimNode::Pointer loadInverseKinematicsNode(const QJsonObject& jsonObj, const QS
 
 AnimNode::Pointer loadDeepMotionNode(const QJsonObject& jsonObj, const QString& id, const QUrl& jsonUrl) {
     auto node = std::make_shared<DeepMotionNode>(id);
-
-    auto targetsValue = jsonObj.value("targets");
-    if (!targetsValue.isArray()) {
-        qCCritical(animation) << "AnimNodeLoader, bad array \"targets\" in deepMotion node, id =" << id << ", url =" << jsonUrl.toDisplayString();
-        return nullptr;
-    }
-
-    auto targetsArray = targetsValue.toArray();
-    for (const auto& targetValue : targetsArray) {
-        if (!targetValue.isObject()) {
-            qCCritical(animation) << "AnimNodeLoader, bad state object in \"targets\", id =" << id << ", url =" << jsonUrl.toDisplayString();
-            return nullptr;
-        }
-        auto targetObj = targetValue.toObject();
-
-        READ_STRING(jointName, targetObj, id, jsonUrl, nullptr);
-        READ_STRING(positionVar, targetObj, id, jsonUrl, nullptr);
-        READ_STRING(rotationVar, targetObj, id, jsonUrl, nullptr);
-        READ_OPTIONAL_STRING(typeVar, targetObj);
-        READ_OPTIONAL_STRING(weightVar, targetObj);
-        READ_OPTIONAL_FLOAT(weight, targetObj, 1.0f);
-        READ_OPTIONAL_STRING(poleVectorEnabledVar, targetObj);
-        READ_OPTIONAL_STRING(poleReferenceVectorVar, targetObj);
-        READ_OPTIONAL_STRING(poleVectorVar, targetObj);
-
-        auto flexCoefficientsValue = targetObj.value("flexCoefficients");
-        if (!flexCoefficientsValue.isArray()) {
-            qCCritical(animation) << "AnimNodeLoader, bad or missing flexCoefficients array in \"targets\", id =" << id << ", url =" << jsonUrl.toDisplayString();
-            return nullptr;
-        }
-        auto flexCoefficientsArray = flexCoefficientsValue.toArray();
-        std::vector<float> flexCoefficients;
-        for (const auto& value : flexCoefficientsArray) {
-            flexCoefficients.push_back((float)value.toDouble());
-        }
-
-        node->setTargetVars(jointName, positionVar, rotationVar, typeVar, weightVar, weight, flexCoefficients, poleVectorEnabledVar, poleReferenceVectorVar, poleVectorVar);
-    };
-
     return node;
 }
 
