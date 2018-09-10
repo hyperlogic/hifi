@@ -13,6 +13,6 @@ namespace avatar
     public:
         virtual Transform GetTransform() const = 0;
 
-        virtual std::unique_ptr<IColliderHandle> GetCollider() = 0;
+        virtual IColliderHandle* GetCollider() = 0;
     };
 }

@@ -1,6 +1,9 @@
 #pragma once
 #include "dm_public/non_copyable.h"
 #include "dm_public/types.h"
+#include "dm_public/i_array_interface.h"
+
+#include <memory>
 
 namespace avatar
 {
@@ -64,7 +67,7 @@ namespace avatar
     {
     public:
         virtual ColliderType GetColliderType() const override { return ColliderType::COMPOUND; }
-
-        // TODO: Add support for adding/removing/querying child colliders
+        virtual void GetChildColliders(IArrayInterface<IColliderHandle*>& collidersOut) = 0;
+        virtual bool GetChildColliderTransform(const IColliderHandle& colliderHandle, Transform& transformOut) const = 0;
     };
 }

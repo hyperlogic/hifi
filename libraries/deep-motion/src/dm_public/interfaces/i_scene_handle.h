@@ -13,6 +13,6 @@ namespace avatar
         virtual ~ISceneHandle() {}
 
         virtual float GetSceneTime() const = 0;
-        virtual void GetSceneObjects(IArrayInterface<std::unique_ptr<ISceneObjectHandle>>& sceneObjectsOut) = 0;
+        virtual void GetSceneObjects(IArrayInterface<ISceneObjectHandle*>& sceneObjectsOut) = 0;
     };
 }
