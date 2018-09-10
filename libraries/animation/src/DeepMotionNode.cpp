@@ -10,7 +10,6 @@
 #include "dm_public/commands/core_commands.h"
 #include "dm_public/std_vector_array_interface.h"
 #include "dm_public/interfaces/i_rigid_body_handle.h"
-#include "dm_public/interfaces/i_controller_handle.h"
 
 #include "RotationConstraint.h"
 #include "ResourceCache.h"
@@ -116,7 +115,93 @@ namespace {
         AnimPose newPose{ scale, ori, trans };
         return newPose;
     }
+
+    avatar::IMultiBodyHandle::LinkHandle& getLinkByName(
+        const QString& name, 
+        avatar::IMultiBodyHandle* characterHandle, 
+        std::vector<avatar::IMultiBodyHandle::LinkHandle>& characterLinks) {
+
+        if (characterHandle) {
+            for (auto& link : characterLinks) {
+                if (name.compare(characterHandle->GetLinkName(link)) == 0)
+                    return link;
+            }
+        }
+        qCCritical(animation) << "Can't find link with name: " << name;
+        return avatar::IMultiBodyHandle::LinkHandle(nullptr);
+    }
+
+    avatar::IHumanoidControllerHandle::BoneTarget toControllerBoneTarget(const QString& controllerBoneTargetName) {
+            if(controllerBoneTargetName.compare("Head") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Head;
+            else if(controllerBoneTargetName.compare("Left_Hand") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Left_Hand;
+            else if(controllerBoneTargetName.compare("Right_Hand") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Right_Hand;
+            else if(controllerBoneTargetName.compare("Left_Foot") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Left_Foot;
+            else if(controllerBoneTargetName.compare("Right_Foot") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Right_Foot;
+            else if(controllerBoneTargetName.compare("Root") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Root;
+            else if(controllerBoneTargetName.compare("Left_Elbow") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Left_Elbow;
+            else if(controllerBoneTargetName.compare("Right_Elbow") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Right_Elbow;
+            else if(controllerBoneTargetName.compare("Left_Shoulder") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Left_Shoulder;
+            else if(controllerBoneTargetName.compare("Right_Shoulder") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Right_Shoulder;
+            else if(controllerBoneTargetName.compare("Left_Knee") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Left_Knee;
+            else if(controllerBoneTargetName.compare("Right_Knee") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Right_Knee;
+            else if(controllerBoneTargetName.compare("Left_Hip") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Left_Hip;
+            else if(controllerBoneTargetName.compare("Right_Hip") == 0)
+                return avatar::IHumanoidControllerHandle::BoneTarget::Right_Hip;
+            else {
+                qCCritical(animation) << "Bad controllerBoneTarget name: " << controllerBoneTargetName;
+                return avatar::IHumanoidControllerHandle::BoneTarget::Head;
+            }
+    }
 } // anon
+
+DeepMotionNode::IKTargetVar::IKTargetVar(
+    const QString& jointNameIn, const QString& controllerBoneTargetIn, 
+    const QString& targetLinkName,
+    const QString& positionVar, const QString& rotationVar, 
+    bool trackPosition, bool trackRotation, const QString& typeVar) :
+    jointName(jointNameIn),
+    controllerBoneTargetName(controllerBoneTargetIn),
+    targetLinkName(targetLinkName),
+    positionVar(positionVar),
+    rotationVar(rotationVar),
+    trackPosition(trackPosition),
+    trackRotation(trackRotation),
+    typeVar(typeVar) {
+}
+
+DeepMotionNode::IKTargetVar& DeepMotionNode::IKTargetVar::operator=(const IKTargetVar& other) {
+    jointName = other.jointName;
+    controllerBoneTargetName = other.controllerBoneTargetName;
+    targetLinkName = other.targetLinkName;
+    positionVar = other.positionVar;
+    rotationVar = other.rotationVar;
+    trackPosition = other.trackPosition;
+    trackRotation = other.trackRotation;
+    typeVar = other.typeVar;
+
+    return *this;
+}
+
+DeepMotionNode::IKTarget::IKTarget(const IKTargetVar& targetVar, avatar::IMultiBodyHandle* characterHandle, std::vector<avatar::IMultiBodyHandle::LinkHandle>& characterLinks) :
+    controllerBoneTarget(toControllerBoneTarget(targetVar.controllerBoneTargetName)),
+    targetLink(getLinkByName(targetVar.targetLinkName, characterHandle, characterLinks)),
+    trackPosition(targetVar.trackPosition),
+    trackRotation(targetVar.trackRotation),
+    jointIndex(targetVar.jointIndex) {
+}
 
 DeepMotionNode::DeepMotionNode(const QString& id) : 
     AnimNode(AnimNode::Type::DeepMotion, id),
@@ -138,6 +223,8 @@ DeepMotionNode::DeepMotionNode(const QString& id) :
 
 DeepMotionNode::~DeepMotionNode()
 {
+    _targetVarVec.clear();
+
     _engineInterface.FinalizeRuntime();
 }
 
@@ -183,6 +270,29 @@ void DeepMotionNode::loadPoses(const AnimPoseVec& poses) {
     }
 }
 
+void DeepMotionNode::setTargetVars(const QString& jointName, const QString& controllerBoneTarget, const QString& targetLinkName, 
+                                   const QString& positionVar, const QString& rotationVar, 
+                                   bool trackPosition, bool trackRotation, const QString& typeVar) {
+    IKTargetVar targetVar(jointName, controllerBoneTarget, 
+        targetLinkName, 
+        positionVar, rotationVar, 
+        trackPosition, trackRotation, typeVar);
+
+    // if there are duplications, last one wins.
+    bool found = false;
+    for (auto& targetVarIter : _targetVarVec) {
+        if (targetVarIter.jointName == jointName) {
+            targetVarIter = targetVar;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        // create a new entry
+        _targetVarVec.push_back(targetVar);
+    }
+}
+
 //virtual
 const AnimPoseVec& DeepMotionNode::evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) {
     // don't call this function, call overlay() instead
@@ -225,6 +335,14 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
         || _relativePoses.empty())
         return underPoses;
 
+    std::vector<IKTarget> targets;
+    computeTargets(animVars, targets);
+    for(const auto& target : targets) {
+        qCCritical(animation) << "GK_GK target " << fixed(_skeleton->getJointName(target.getJointIndex()).toStdString(), 30).c_str() << " tracker pose: " << to_string(target.getPose()).c_str();
+        qCCritical(animation) << "GK_GK target " << fixed(_skeleton->getJointName(target.getJointIndex()).toStdString(), 30).c_str() << " bone pose   : " << to_string(_skeleton->getAbsolutePose(target.getJointIndex(), _relativePoses)).c_str();
+        qCCritical(animation) << "GK_GK";
+    }
+
     _engineInterface.TickGeneralPurposeRuntime(dt);
 
     for (int i = 0; i < (int)_characterLinks.size(); ++i) {
@@ -246,7 +364,7 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
     }
 
     drawDebug(context);
-    //qCCritical(animation) << "---";
+    qCCritical(animation) << "---";
 
     return _relativePoses;
 }
@@ -288,6 +406,37 @@ void DeepMotionNode::overridePhysCharacterPositionAndOrientation(glm::vec3& posi
     //position = rootPose.trans();
     //rotation = rootPose.rot();
     //_relativePoses[0] = rootPose;
+}
+
+void DeepMotionNode::computeTargets(const AnimVariantMap& animVars, std::vector<IKTarget>& targets) {
+
+    for (auto& targetVar : _targetVarVec) {
+
+        // update targetVar jointIndex cache
+        if (targetVar.jointIndex == -1) {
+            int jointIndex = _skeleton->nameToJointIndex(targetVar.jointName);
+            if (jointIndex >= 0) {
+                // this targetVar has a valid joint --> cache the indices
+                targetVar.jointIndex = jointIndex;
+            }
+            else {
+                qCWarning(animation) << "DeepMotionNode could not find jointName" << targetVar.jointName << "in skeleton";
+            }
+        }
+
+        if (targetVar.jointIndex != -1) {
+            int targetType = animVars.lookup(targetVar.typeVar, (int)IKTarget::Type::Unknown);
+            if (targetType == (int)IKTarget::Type::DMTracker) {
+                IKTarget target { targetVar, _characterHandle, _characterLinks };
+                AnimPose absPose = _skeleton->getAbsolutePose(target.getJointIndex(), _relativePoses);
+
+                target.setPosition(animVars.lookupRigToGeometry(targetVar.positionVar, absPose.trans()));
+                target.setRotation(animVars.lookupRigToGeometry(targetVar.rotationVar, absPose.rot()));
+
+                targets.push_back(target);
+            }
+        }
+    }
 }
 
 AnimPose DeepMotionNode::getLinkTransformInRigSpace(const avatar::IMultiBodyHandle::LinkHandle& link) const
