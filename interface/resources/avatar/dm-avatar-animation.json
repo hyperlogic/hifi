@@ -83,7 +83,7 @@
 								{
 									"jointName": "Head",
 									"controllerBoneTarget": "Head",
-									"targetLinkName": "torso_head",
+									"targetLinkName": "head",
 									"positionVar": "headPosition",
 									"rotationVar": "headRotation",
 									"trackPosition": true,
