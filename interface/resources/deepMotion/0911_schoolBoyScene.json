@@ -5640,9 +5640,9 @@
                         "value": {
                             "Bone": "ground",
                             "Half Size": {
-                                "X": 20,
-                                "Y": 0.7,
-                                "Z": 20,
+                                "X": 100,
+                                "Y": 1,
+                                "Z": 100,
                                 "_object_version_2028649992105214399": 0
                             },
                             "Name": "groundCollider",
@@ -5689,7 +5689,7 @@
                         },
                         "Position": {
                             "X": 0.0,
-                            "Y": -0.713,
+                            "Y": -1.0,
                             "Z": 0.0,
                             "_object_version_2028649992105214399": 0
                         },
