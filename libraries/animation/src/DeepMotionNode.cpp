@@ -601,16 +601,16 @@ void DeepMotionNode::updateRelativePosesFromCharacterLinks() {
 
 AnimPose DeepMotionNode::getLinkTransformInRigSpace(const avatar::IMultiBodyHandle::LinkHandle& link) const
 {
-    std::string linkName = _characterHandle->GetLinkName(link);
-    if (0 == linkName.compare("root"))
-        return toAnimPose(_characterHandle->GetLinkTransform(link));
-
-    const auto& linkDmWorldTransform = toAnimPose(_characterHandle->GetLinkTransform(link));
-    const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
-
     const avatar::IMultiBodyHandle::LinkHandle& rootLink = _characterLinks[0];
     int rootTargetJointIndex = getTargetJointIndex(rootLink);
     const auto& rootTargetJointPose = _skeleton->getAbsolutePose(rootTargetJointIndex, _relativePoses);
+
+    std::string linkName = _characterHandle->GetLinkName(link);
+    if (0 == linkName.compare("root"))
+        return AnimPose(toQuat(_characterHandle->GetLinkTransform(link).m_Orientation), rootTargetJointPose.trans());
+
+    const auto& linkDmWorldTransform = toAnimPose(_characterHandle->GetLinkTransform(link));
+    const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
 
     const auto& linkRelToDmChar = dmCharTransform.inverse() * linkDmWorldTransform;
 
