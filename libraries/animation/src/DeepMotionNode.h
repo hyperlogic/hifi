@@ -81,7 +81,7 @@ protected:
             Unknown
         };
 
-        explicit IKTarget(const IKTargetVar&, avatar::IMultiBodyHandle*, std::vector<avatar::IMultiBodyHandle::LinkHandle>&);
+        explicit IKTarget(const IKTargetVar&, avatar::IMultiBodyHandle::LinkHandle&);
 
         void setPosition(vec3 position) { pose.trans() = position; }
         void setRotation(quat rotation) { pose.rot() = rotation; }
@@ -92,20 +92,21 @@ protected:
         bool isTrackingPosition() const { return trackPosition; }
         bool isTrackingRotation() const { return trackRotation; }
         int getJointIndex() const { return jointIndex; }
-        AnimPose getPose() const { return pose; }
-        //avatar::Transform getTransform() const { return toAvtTransform(pose); }
+        //AnimPose getPose() const { return pose; }
+        avatar::Transform calculateTransform();
+        avatar::Transform getTransform() const { return transform; }
 
+        AnimPose pose;
+        avatar::Transform transform;
     private:
         avatar::IHumanoidControllerHandle::BoneTarget controllerBoneTarget;
         avatar::IMultiBodyHandle::LinkHandle& targetLink;
         bool trackPosition = false;
         bool trackRotation = false;
         int jointIndex = -1;
-        AnimPose pose;
-        //avatar::Transform transform;
     };
 
-    void computeTargets(const AnimVariantMap& animVars, std::vector<IKTarget>& targets);
+    void computeTargets(const AnimVariantMap& animVars, std::vector<IKTarget>& targets, bool drawDebug = false);
     void updateRelativePosesFromCharacterLinks();
     // for AnimDebugDraw rendering
     virtual const AnimPoseVec& getPosesInternal() const override { return _relativePoses; }
@@ -173,8 +174,6 @@ protected:
 
     mat4 _geometryToRigMatrix = Matrices::IDENTITY;
     mat4 _rigToWorldMatrix = Matrices::IDENTITY;
-
-    vec3 _rootToCharacterShift = Vectors::MAX;
 };
 
 #endif // hifi_DeepMotionNode_h

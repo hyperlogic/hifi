@@ -217,12 +217,17 @@ DeepMotionNode::IKTargetVar& DeepMotionNode::IKTargetVar::operator=(const IKTarg
     return *this;
 }
 
-DeepMotionNode::IKTarget::IKTarget(const IKTargetVar& targetVar, avatar::IMultiBodyHandle* characterHandle, std::vector<avatar::IMultiBodyHandle::LinkHandle>& characterLinks) :
+DeepMotionNode::IKTarget::IKTarget(const IKTargetVar& targetVar, avatar::IMultiBodyHandle::LinkHandle& link) :
     controllerBoneTarget(toControllerBoneTarget(targetVar.controllerBoneTargetName)),
-    targetLink(getLinkByName(targetVar.targetLinkName, characterHandle, characterLinks)),
+    targetLink(link),
     trackPosition(targetVar.trackPosition),
     trackRotation(targetVar.trackRotation),
     jointIndex(targetVar.jointIndex) {
+}
+
+avatar::Transform DeepMotionNode::IKTarget::calculateTransform()
+{
+    return avatar::Transform();
 }
 
 DeepMotionNode::DeepMotionNode(const QString& id) : 
@@ -246,6 +251,9 @@ DeepMotionNode::DeepMotionNode(const QString& id) :
 
 DeepMotionNode::~DeepMotionNode()
 {
+    for (const auto& targetVar : _targetVarVec)
+        DebugDraw::getInstance().removeMyAvatarMarker("tracker_" + targetVar.controllerBoneTargetName);
+
     _targetVarVec.clear();
 
     _engineInterface.FinalizeRuntime();
@@ -365,22 +373,25 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
     if (_relativePoses.empty())
         return underPoses;
 
+    //qCCritical(animation) << "Ground: " << to_string(_groundHandle->GetTransform()).c_str();
+
+
     std::vector<IKTarget> targets;
-    computeTargets(animVars, targets);
+    computeTargets(animVars, targets, context.getEnableDebugDrawIKTargets());
+
     for (const auto& target : targets) {
-        
+
         const auto& boneTarget = target.getControllerBoneTarget();
-        const auto trackerTransform = toAvtTransform(target.getPose());
+        const auto& trackerTransform = target.getTransform();
 
         _characterController->SetLimbPositionTrackingEnabled(boneTarget, target.isTrackingPosition());
         if (target.isTrackingPosition())
             _characterController->SetTrackingPosition(target.getControllerBoneTarget(), trackerTransform.m_Position);
-
+        
         _characterController->SetLimbOrientationTrackingEnabled(boneTarget, target.isTrackingRotation());
         if (target.isTrackingRotation())
             _characterController->SetTrackingOrientation(target.getControllerBoneTarget(), trackerTransform.m_Orientation);
     }
-
 
     _engineInterface.TickGeneralPurposeRuntime(dt);
 
@@ -402,6 +413,8 @@ void DeepMotionNode::overridePhysCharacterPositionAndOrientation(glm::vec3& posi
     static const vec3 dmRootToCharacterShift = position - dmRootLink;
 
     auto& desiredPos = dmRootLink + dmRootToCharacterShift;
+    //TODO: override position
+
     //qCCritical(animation) << "GK_GK root: " << to_string(dmRootLink).c_str()  << "\tshift: " << to_string(dmRootToCharacterShift).c_str() << "\tposition: " << to_string(position).c_str() << "\tdesiredPos: " << to_string(desiredPos).c_str();
 
 
@@ -477,7 +490,10 @@ void DeepMotionNode::overridePhysCharacterPositionAndOrientation(glm::vec3& posi
     //   prevDmCharPosition = dmCharPosition;
 }
 
-void DeepMotionNode::computeTargets(const AnimVariantMap& animVars, std::vector<IKTarget>& targets) {
+void DeepMotionNode::computeTargets(const AnimVariantMap& animVars, std::vector<IKTarget>& targets, bool drawDebug) {
+
+    glm::mat4 rigToAvatarMat = createMatFromQuatAndPos(Quaternions::Y_180, glm::vec3());
+    const vec4 GREEN(0.0f, 1.0f, 0.0f, 1.0f);
 
     for (auto& targetVar : _targetVarVec) {
 
@@ -493,38 +509,73 @@ void DeepMotionNode::computeTargets(const AnimVariantMap& animVars, std::vector<
             }
         }
 
+        int targetType = (int)IKTarget::Type::Unknown;
         if (targetVar.jointIndex != -1) {
-            int targetType = animVars.lookup(targetVar.typeVar, (int)IKTarget::Type::Unknown);
+            targetType = animVars.lookup(targetVar.typeVar, (int)IKTarget::Type::Unknown);
             if (targetType == (int)IKTarget::Type::DMTracker) {
-                IKTarget target { targetVar, _characterHandle, _characterLinks };
+                IKTarget target { targetVar, getLinkByName(targetVar.targetLinkName, _characterHandle, _characterLinks) };
                 AnimPose absPose = _skeleton->getAbsolutePose(target.getJointIndex(), _relativePoses);
 
                 target.setPosition(animVars.lookupRigToGeometry(targetVar.positionVar, absPose.trans()));
                 target.setRotation(animVars.lookupRigToGeometry(targetVar.rotationVar, absPose.rot()));
 
-                //const auto& targetJointPose = getTargetJointAbsPose(link);
-                //const auto& linkTransformRigSpace = getLinkTransformInRigSpace(link);
-                //const auto& linkToJoint = linkTransformRigSpace.inverse() * targetJointPose;
-                //
-                //const auto& targetJointTransform = linkTransformRigSpace * (linkTransformRigSpace.inverse() * targetJointPose);
+                qCCritical(animation) << "GK_GK calculating transform for: " << targetVar.controllerBoneTargetName;
+                qCCritical(animation) << "GK_GK controlled joint: " << targetVar.jointName;
+                qCCritical(animation) << "GK_GK controlled link:  " << targetVar.targetLinkName;
 
-                //  const auto& ikTargetPose = target.getPose();
-                //  const auto& bonePose = _skeleton->getAbsolutePose(target.getJointIndex(), _relativePoses);
-                //  
-                //  const auto& targetJointPose = getTargetJointAbsPose(target.getTargetLink());
-                //  const auto& linkTransformRigSpace = getLinkTransformInRigSpace(target.getTargetLink());
+                const auto& trackerPose = target.pose;
+                const auto& jointPose = absPose;
+                auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at(targetVar.targetLinkName.toStdString())));
+                const auto& jointUnskinnedPose = jointPose * linkToFbxJoint.inverse();
+                const auto& linkPose = getLinkTransformInRigSpace(target.getTargetLink());
+                const auto& linkTransform = _characterHandle->GetLinkTransform(target.getTargetLink());
+                const auto& linkTransformAP = toAnimPose(_characterHandle->GetLinkTransform(target.getTargetLink()));
 
-                //const auto& computedIkTarget = ikTargetPose * ()
+                const auto& trackerRot = target.pose.rot();
+                const quat& trackerRotFix = { -trackerRot.w, -trackerRot.x, -trackerRot.y, -trackerRot.z };
+                target.pose.rot() = trackerRotFix;
 
+                qCCritical(animation) << "GK_GK trackerPose:                " << to_string(trackerPose).c_str();
+                qCCritical(animation) << "GK_GK jointPose:                  " << to_string(jointPose).c_str();
+                qCCritical(animation) << "GK_GK jointUnskinnedPose:         " << to_string(jointUnskinnedPose).c_str();
+                qCCritical(animation) << "GK_GK linkPose:                   " << to_string(linkPose).c_str();
+                qCCritical(animation) << "GK_GK linkTransform:              " << to_string(linkTransform).c_str();
+                qCCritical(animation) << "GK_GK linkTransformAP:            " << to_string(linkTransformAP).c_str();
+                qCCritical(animation) << "GK_GK";
 
+                const auto& trackerRelToJoint = jointPose.inverse() * trackerPose;
+                const auto& trackerRelToJointUnskinned = jointUnskinnedPose.inverse() * trackerPose;
 
-                //qCCritical(animation) << "GK_GK target " << fixed(_skeleton->getJointName(target.getJointIndex()).toStdString(), 30).c_str() << " tracker pose: " << to_string(target.getPose()).c_str();
-                //qCCritical(animation) << "GK_GK target " << fixed(_skeleton->getJointName(target.getJointIndex()).toStdString(), 30).c_str() << " bone pose   : " << to_string(_skeleton->getAbsolutePose(target.getJointIndex(), _relativePoses)).c_str();
-                //qCCritical(animation) << "GK_GK";
+                const auto& trackerSkinned = linkTransformAP * trackerRelToJoint;
+                const auto& trackerUnskinned = linkTransformAP * trackerRelToJointUnskinned;
+
+                const auto& trackerSkinnedTransform = toAvtTransform(trackerSkinned);
+                const auto& trackerUnskinnedTransform = toAvtTransform(trackerUnskinned);
+
+                qCCritical(animation) << "GK_GK trackerRelToJoint:          " << to_string(trackerRelToJoint).c_str();
+                qCCritical(animation) << "GK_GK trackerRelToJointUnskinned: " << to_string(trackerRelToJointUnskinned).c_str();
+                qCCritical(animation) << "GK_GK trackerSkinned:             " << to_string(trackerSkinned).c_str();
+                qCCritical(animation) << "GK_GK trackerUnskinned:           " << to_string(trackerUnskinned).c_str();
+                qCCritical(animation) << "GK_GK trackerSkinnedTransform:    " << to_string(trackerSkinnedTransform).c_str();
+                qCCritical(animation) << "GK_GK trackerUnskinnedTransform:  " << to_string(trackerUnskinnedTransform).c_str();
+
+                target.transform = trackerSkinnedTransform;
+
+                // debug render ik targets
+                if (drawDebug) {
+
+                    glm::mat4 geomTargetMat = createMatFromQuatAndPos(target.pose.rot(), target.pose.trans());
+                    glm::mat4 avatarTargetMat = rigToAvatarMat * _geometryToRigMatrix * geomTargetMat;
+
+                    DebugDraw::getInstance().addMyAvatarMarker("tracker_" + targetVar.controllerBoneTargetName, glmExtractRotation(avatarTargetMat), extractTranslation(avatarTargetMat), GREEN);
+                }
 
                 targets.push_back(target);
             }
         }
+
+        if (!drawDebug || targetVar.jointIndex == -1 || targetType != (int)IKTarget::Type::DMTracker)
+            DebugDraw::getInstance().removeMyAvatarMarker("tracker_" + targetVar.controllerBoneTargetName);
     }
 }
 
