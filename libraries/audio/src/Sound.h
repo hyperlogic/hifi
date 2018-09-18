@@ -108,8 +108,8 @@ public:
     SoundScriptingInterface(SharedSoundPointer sound);
     SharedSoundPointer getSound() { return _sound; }
 
-    bool isReady() const { return _sound->isReady(); }
-    float getDuration() { return _sound->getDuration(); }
+    bool isReady() const { return _sound && _sound->isReady(); }
+    float getDuration() { return _sound ? _sound->getDuration() : 0.0f; }
 
 /**jsdoc
  * Triggered when the sound has been downloaded and is ready to be played.
