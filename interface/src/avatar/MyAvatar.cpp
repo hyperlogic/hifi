@@ -1877,7 +1877,7 @@ void MyAvatar::harvestResultsFromPhysicsSimulation(float deltaTime) {
     if (_skeletonModel) {
         auto dmNode = _skeletonModel->getRig().getDeepMotionNode();
         if (dmNode) {
-            dmNode->overridePhysCharacterPositionAndOrientation(position, orientation);
+            dmNode->overridePhysCharacterPositionAndOrientation(_characterController.getFloorDistance(), position, orientation);
         }
     }
 

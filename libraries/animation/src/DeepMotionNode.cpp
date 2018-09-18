@@ -233,7 +233,7 @@ avatar::Transform DeepMotionNode::IKTarget::calculateTransform()
 DeepMotionNode::DeepMotionNode(const QString& id) : 
     AnimNode(AnimNode::Type::DeepMotion, id),
     _engineInterface(avatar::GetEngineInterface()) {
-    const_cast<QLoggingCategory*>(&animation())->setEnabled(QtDebugMsg, true); //uncomment if you wan't to see qCDebug(animation) prints
+    //const_cast<QLoggingCategory*>(&animation())->setEnabled(QtDebugMsg, true); //uncomment if you wan't to see qCDebug(animation) prints
 
     avatar::CoreCommands coreCommands { Allocate, Free };
     _engineInterface.RegisterCoreCommands(coreCommands);
@@ -245,7 +245,6 @@ DeepMotionNode::DeepMotionNode(const QString& id) :
     _characterResource->setLoadPriority(this, CHARACTER_LOAD_PRIORITY);
     connect(_characterResource.data(), &Resource::loaded, this, &DeepMotionNode::characterLoaded);
     connect(_characterResource.data(), &Resource::failed, DeepMotionNode::characterFailedToLoad);
-    qCCritical(animation) << "GK_GK scene file path: " << _characterResource->getURL().toString() << " | " << _characterResource->getURL().path();
     _characterResource->ensureLoading();
 }
 
@@ -373,9 +372,6 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
     if (_relativePoses.empty())
         return underPoses;
 
-    //qCCritical(animation) << "Ground: " << to_string(_groundHandle->GetTransform()).c_str();
-
-
     std::vector<IKTarget> targets;
     computeTargets(animVars, targets, context.getEnableDebugDrawIKTargets());
 
@@ -398,96 +394,43 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
     updateRelativePosesFromCharacterLinks();
 
     drawDebug(context);
-    qCCritical(animation) << "GK_GK ---";
 
     return _relativePoses;
 }
 
-void DeepMotionNode::overridePhysCharacterPositionAndOrientation(glm::vec3& position, glm::quat& rotation) {
+void DeepMotionNode::overridePhysCharacterPositionAndOrientation(float floorDistance, glm::vec3& position, glm::quat& rotation) {
+    static auto dmToHfCharacterShift = Vectors::MAX;
 
     if (!_characterHandle || _relativePoses.empty())
         return;
 
-    auto& dmRootLink = toAnimPose(_characterHandle->GetTransform()).trans();
+    auto dmCharacterPos = toVec3(_characterHandle->GetTransform().m_Position) / METERS_TO_CENTIMETERS;
+    dmCharacterPos.x *= -1.0f;
+    dmCharacterPos.z *= -1.0f;
+    auto& dmGroundPos = toVec3(_groundHandle->GetTransform().m_Position) / METERS_TO_CENTIMETERS;
 
-    static const vec3 dmRootToCharacterShift = position - dmRootLink;
+    const float dmRootToToesDistance = 1.3551f;
+    auto dmGroundDistance = (dmCharacterPos - dmGroundPos).y - dmRootToToesDistance;
 
-    auto& desiredPos = dmRootLink + dmRootToCharacterShift;
-    //TODO: override position
+    if (dmToHfCharacterShift == Vectors::MAX) {
 
-    //qCCritical(animation) << "GK_GK root: " << to_string(dmRootLink).c_str()  << "\tshift: " << to_string(dmRootToCharacterShift).c_str() << "\tposition: " << to_string(position).c_str() << "\tdesiredPos: " << to_string(desiredPos).c_str();
+        // align position to match floor distance
+        position.y += dmGroundDistance - floorDistance;
 
+        dmToHfCharacterShift = position - dmCharacterPos;
+    }
 
+#if APPLY_X_Z_MOVEMENT_TO_CHARACTER
+    position = dmCharacterPos + dmToHfCharacterShift;
+#else
+    position.y = (dmCharacterPos + dmToHfCharacterShift).y;
+#endif
 
-    //auto& dmRootLinkUnscaled = toVec3_noScaling(_characterHandle->GetTransform().m_Position);
-
-
-    //qCCritical(animation) << "GK_GK Character root link:          " << to_string(dmRootLink).c_str();
-
-    //auto& linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at("root")));
-    //auto& dmRootLinkSkinned = dmRootLink * linkToFbxJoint;
-    //qCCritical(animation) << "GK_GK Character root link skinned:  " << to_string(dmRootLinkSkinned).c_str();
-
-    //auto& hfHipsJoint = _skeleton->getAbsolutePose(_skeleton->nameToJointIndex("Hips"), _relativePoses);
-    //auto& hfRoot = dmRootLinkSkinned * hfHipsJoint.inverse();
-    
-
-    //qCCritical(animation) << "GK_GK calculated root:     " << to_string(hfRoot.trans()).c_str();
-
-    //auto& characterPos = toVec3_noScaling(_characterHandle->GetTransform().m_Position);
-
-    //auto& position1 = (hfRoot * AnimPose(_rigToWorldMatrix)).trans();
-    //vec3 position2;
-    //vec3 position2;
-    //if (_rootToCharacterShift == Vectors::MAX) {
-    //    _rootToCharacterShift = position - characterPos;
-    //} else {
-    //    position2 = characterPos + _rootToCharacterShift;
-        //position = position2;
-    //}
-
-    //qCCritical(animation) << "GK_GK calculated position: " << to_string(position1).c_str();
-    //qCCritical(animation) << "GK_GK calculated position (inv):    " << to_string(position2).c_str();
-    //qCCritical(animation) << "GK_GK orig position:       " << to_string(position).c_str();
-
-    //qCCritical(animation) << "GK_GK hfRoot: " << to_string(hfRoot.trans()).c_str() << "\tpos1: " << to_string(position1).c_str() << "\tpos2: " << to_string(position2).c_str() << "\topos: " << to_string(position).c_str();
-
-    //qCCritical(animation) << "GK_GK overridePhysCharacterPositionAndOrientation | END";
-
-    //position = position1.trans();
-
-
-    //auto& hfRootJoint = _skeleton->getAbsolutePose(_skeleton->nameToJointIndex("Root"), _relativePoses);
-    //qCCritical(animation) << "GK_GK SchoolBoy Root joint:     " << to_string(hfRootJoint).c_str();
-    //
-    //auto& hfHipsJoint = _skeleton->getAbsolutePose(_skeleton->nameToJointIndex("Hips"), _relativePoses);
-    //qCCritical(animation) << "GK_GK SchoolBoy Hips joint:     " << to_string(hfHipsJoint).c_str();
-    //
-    //auto& linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at("root")));
-    //auto& hfHipsUnskinned = hfHipsJoint * linkToFbxJoint.inverse();
-    //qCCritical(animation) << "GK_GK SchoolBoy Hips unskinned: " << to_string(hfHipsUnskinned).c_str();
-    //
-    //auto& dmRootLink = toAnimPose(_characterHandle->GetTransform());
-    //qCCritical(animation) << "GK_GK Character root link:      " << to_string(dmRootLink).c_str();
-
-
-
-    //   static vec3 prevHfCharPosition = Vectors::MAX;
-    //   static vec3 prevDmCharPosition = Vectors::MAX;
-    //   
-    //   vec3 dmCharPosition = toVec3(_characterHandle->GetTransform().m_Position);
-    //   
-    //   if (prevHfCharPosition == Vectors::MAX && prevDmCharPosition == Vectors::MAX) {
-    //       prevHfCharPosition = position;
-    //       prevDmCharPosition = dmCharPosition;
-    //       return;
-    //   }
-    //   
-    //   vec3 dmCharShift = dmCharPosition - prevDmCharPosition;
-    //   //position = prevHfCharPosition + dmCharShift;
-    //   
-    //   prevHfCharPosition = position;
-    //   prevDmCharPosition = dmCharPosition;
+    //const vec3 appliedPosition = position;
+    //const vec3 dmCharPos = dmCharacterPos;
+    //qCCritical(animation) << "GK_GK dmCharacterPos: " << to_string(dmCharPos).c_str();
+    //qCCritical(animation) << "GK_GK dmToHfCharacterShift: " << to_string(dmToHfCharacterShift).c_str();
+    //qCCritical(animation) << "GK_GK position: " << to_string(appliedPosition).c_str();
 }
 
 void DeepMotionNode::computeTargets(const AnimVariantMap& animVars, std::vector<IKTarget>& targets, bool drawDebug) {
@@ -519,47 +462,44 @@ void DeepMotionNode::computeTargets(const AnimVariantMap& animVars, std::vector<
                 target.setPosition(animVars.lookupRigToGeometry(targetVar.positionVar, absPose.trans()));
                 target.setRotation(animVars.lookupRigToGeometry(targetVar.rotationVar, absPose.rot()));
 
-                qCCritical(animation) << "GK_GK calculating transform for: " << targetVar.controllerBoneTargetName;
-                qCCritical(animation) << "GK_GK controlled joint: " << targetVar.jointName;
-                qCCritical(animation) << "GK_GK controlled link:  " << targetVar.targetLinkName;
-
-                const auto& trackerPose = target.pose;
-                const auto& jointPose = absPose;
-                auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at(targetVar.targetLinkName.toStdString())));
-                const auto& jointUnskinnedPose = jointPose * linkToFbxJoint.inverse();
-                const auto& linkPose = getLinkTransformInRigSpace(target.getTargetLink());
-                const auto& linkTransform = _characterHandle->GetLinkTransform(target.getTargetLink());
-                const auto& linkTransformAP = toAnimPose(_characterHandle->GetLinkTransform(target.getTargetLink()));
-
+#if USE_FIX_FOR_TRACKER_ROT
                 const auto& trackerRot = target.pose.rot();
                 const quat& trackerRotFix = { -trackerRot.w, -trackerRot.x, -trackerRot.y, -trackerRot.z };
                 target.pose.rot() = trackerRotFix;
+#endif
 
-                qCCritical(animation) << "GK_GK trackerPose:                " << to_string(trackerPose).c_str();
-                qCCritical(animation) << "GK_GK jointPose:                  " << to_string(jointPose).c_str();
-                qCCritical(animation) << "GK_GK jointUnskinnedPose:         " << to_string(jointUnskinnedPose).c_str();
-                qCCritical(animation) << "GK_GK linkPose:                   " << to_string(linkPose).c_str();
-                qCCritical(animation) << "GK_GK linkTransform:              " << to_string(linkTransform).c_str();
-                qCCritical(animation) << "GK_GK linkTransformAP:            " << to_string(linkTransformAP).c_str();
-                qCCritical(animation) << "GK_GK";
+                const avatar::IMultiBodyHandle::LinkHandle& rootLink = _characterLinks[0];
+                int rootTargetJointIndex = getTargetJointIndex(rootLink);
+                const auto& rootTargetJointPose = _skeleton->getAbsolutePose(rootTargetJointIndex, _relativePoses);
+                //{ // getLinkTransformInRigSpace
+                //
+                //    std::string linkName = _characterHandle->GetLinkName(link);
+                //    if (0 == linkName.compare("root"))
+                //        auto ret = AnimPose(toQuat(_characterHandle->GetLinkTransform(link).m_Orientation), rootTargetJointPose.trans());
+                //
+                //
+                //    const auto& linkDmWorldTransform = toAnimPose(_characterHandle->GetLinkTransform(link));
+                //    const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
+                //
+                //    const auto& linkRelToDmChar = dmCharTransform.inverse() * linkDmWorldTransform;
+                //
+                //    auto ret = rootTargetJointPose * linkRelToDmChar;
+                //}
 
-                const auto& trackerRelToJoint = jointPose.inverse() * trackerPose;
-                const auto& trackerRelToJointUnskinned = jointUnskinnedPose.inverse() * trackerPose;
+                auto linkName = _characterHandle->GetLinkName(target.getTargetLink());
+                auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at(linkName)));
+                auto unskinnedTrackerPose = target.pose * linkToFbxJoint.inverse();
 
-                const auto& trackerSkinned = linkTransformAP * trackerRelToJoint;
-                const auto& trackerUnskinned = linkTransformAP * trackerRelToJointUnskinned;
+                const auto& trackerRelToRootTarget = rootTargetJointPose.inverse() * unskinnedTrackerPose;
+                const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
 
-                const auto& trackerSkinnedTransform = toAvtTransform(trackerSkinned);
-                const auto& trackerUnskinnedTransform = toAvtTransform(trackerUnskinned);
+                auto& trackerPoseInDmCharSpace = dmCharTransform * trackerRelToRootTarget;
 
-                qCCritical(animation) << "GK_GK trackerRelToJoint:          " << to_string(trackerRelToJoint).c_str();
-                qCCritical(animation) << "GK_GK trackerRelToJointUnskinned: " << to_string(trackerRelToJointUnskinned).c_str();
-                qCCritical(animation) << "GK_GK trackerSkinned:             " << to_string(trackerSkinned).c_str();
-                qCCritical(animation) << "GK_GK trackerUnskinned:           " << to_string(trackerUnskinned).c_str();
-                qCCritical(animation) << "GK_GK trackerSkinnedTransform:    " << to_string(trackerSkinnedTransform).c_str();
-                qCCritical(animation) << "GK_GK trackerUnskinnedTransform:  " << to_string(trackerUnskinnedTransform).c_str();
+#if USE_MAX_TRACKER_DISTANCE_PER_AXIS
 
-                target.transform = trackerSkinnedTransform;
+#endif
+
+                target.transform = toAvtTransform(trackerPoseInDmCharSpace);
 
                 // debug render ik targets
                 if (drawDebug) {
@@ -608,6 +548,7 @@ AnimPose DeepMotionNode::getLinkTransformInRigSpace(const avatar::IMultiBodyHand
     std::string linkName = _characterHandle->GetLinkName(link);
     if (0 == linkName.compare("root"))
         return AnimPose(toQuat(_characterHandle->GetLinkTransform(link).m_Orientation), rootTargetJointPose.trans());
+
 
     const auto& linkDmWorldTransform = toAnimPose(_characterHandle->GetLinkTransform(link));
     const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
@@ -686,12 +627,12 @@ void DeepMotionNode::debugDrawRelativePoses(const AnimContext& context) const {
             if (targetIndex == i) {
                 auto linkName = _characterHandle->GetLinkName(link);
                 auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at(linkName)));
-                auto virtualLinkPose = pose * linkToFbxJoint.inverse();
+                auto unskinnedLinkPose = pose * linkToFbxJoint.inverse();
 
-                glm::vec3 xAxis = transformVectorFast(geomToWorldMatrix, virtualLinkPose.rot() * Vectors::UNIT_X);
-                glm::vec3 yAxis = transformVectorFast(geomToWorldMatrix, virtualLinkPose.rot() * Vectors::UNIT_Y);
-                glm::vec3 zAxis = transformVectorFast(geomToWorldMatrix, virtualLinkPose.rot() * Vectors::UNIT_Z);
-                glm::vec3 vpos = transformPoint(geomToWorldMatrix, virtualLinkPose.trans());
+                glm::vec3 xAxis = transformVectorFast(geomToWorldMatrix, unskinnedLinkPose.rot() * Vectors::UNIT_X);
+                glm::vec3 yAxis = transformVectorFast(geomToWorldMatrix, unskinnedLinkPose.rot() * Vectors::UNIT_Y);
+                glm::vec3 zAxis = transformVectorFast(geomToWorldMatrix, unskinnedLinkPose.rot() * Vectors::UNIT_Z);
+                glm::vec3 vpos = transformPoint(geomToWorldMatrix, unskinnedLinkPose.trans());
                 DebugDraw::getInstance().drawRay(vpos, vpos + 2.0f * xAxis, vec4(0.8f, 0.0f, 0.0f, 1.0f));
                 DebugDraw::getInstance().drawRay(vpos, vpos + 2.0f * yAxis, vec4(0.0f, 0.8f, 0.0f, 1.0f));
                 DebugDraw::getInstance().drawRay(vpos, vpos + 2.0f * zAxis, vec4(0.0f, 0.0f, 0.8f, 1.0f));

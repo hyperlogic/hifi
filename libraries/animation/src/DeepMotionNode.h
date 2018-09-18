@@ -13,6 +13,15 @@
 
 #include <map>
 
+#define APPLY_X_Z_MOVEMENT_TO_CHARACTER 1;
+#define USE_MAX_TRACKER_DISTANCE_PER_AXIS 1;
+
+#define USE_FIX_FOR_TRACKER_ROT 1;
+
+#ifdef USE_MAX_TRACKER_DISTANCE_PER_AXIS
+const float MAX_TRACKER_DISTANCE_PER_AXIS = 10.0f;
+#endif
+
 const float METERS_TO_CENTIMETERS = 100.0f;
 const float AVATAR_SCALE = 1.4f;
 
@@ -52,7 +61,7 @@ public:
     virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) override;
     virtual const AnimPoseVec& overlay(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut, const AnimPoseVec& underPoses) override;
     
-    void overridePhysCharacterPositionAndOrientation(glm::vec3& position, glm::quat& rotation);
+    void overridePhysCharacterPositionAndOrientation(float floorDistance, glm::vec3& position, glm::quat& rotation);
 
 protected:
     struct IKTargetVar {
