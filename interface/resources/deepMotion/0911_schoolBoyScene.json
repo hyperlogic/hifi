@@ -5724,7 +5724,7 @@
             "_object_version_2028649992105214399": 0
         },
         "Ignore Layer Collision": [],
-        "Num Solver Iterations": 16,
+        "Num Solver Iterations": 4,
         "Restorable Simulation State Mode": false,
         "Solver Fidelity Index": 0,
         "_object_version_11035644593335452691": 0
