@@ -60,69 +60,8 @@ public:
     void overridePhysCharacterPositionAndOrientation(float floorDistance, glm::vec3& position, glm::quat& rotation);
 
 protected:
-    struct LinkInfo {
-        int targetJointIndex;
-        std::vector<int> additionalTargetJointsIndices;
-        avatar::IMultiBodyHandle::LinkHandle linkHandle;
-        std::string linkName;
-        avatar::Vector3 linkToFbxJointTransform;
 
-        LinkInfo(avatar::IMultiBodyHandle::LinkHandle& link, std::string& name, avatar::Vector3& linkToFbx)
-            : linkHandle(link), linkName(name), linkToFbxJointTransform(linkToFbx)
-        {}
-    };
-    struct IKTargetVar {
-        IKTargetVar(const QString& jointNameIn, const QString& controllerBoneTargetIn,
-            const QString& targetLinkName,
-            const QString& positionVar, const QString& rotationVar,
-            bool trackPosition, bool trackRotation, const QString& typeVar);
-        IKTargetVar(const IKTargetVar&) = default;
-        IKTargetVar& operator=(const IKTargetVar&);
-
-        QString jointName;
-        QString controllerBoneTargetName;
-        QString targetLinkName;
-        QString positionVar;
-        QString rotationVar;
-        bool trackPosition = false;
-        bool trackRotation = false;
-        QString typeVar;
-        int jointIndex = -1; // cached joint index
-#ifdef DLL_WITH_DEBUG_VISU
-        avatar::IRigidBodyHandle* debugBody = nullptr;
-#endif
-    };
-
-    class IKTarget {
-    public:
-        enum class Type {
-            DMTracker = 0,
-            Unknown
-        };
-
-        explicit IKTarget(const IKTargetVar&);
-
-        void setPosition(vec3 position) { pose.trans() = position; }
-        void setRotation(quat rotation) { pose.rot() = rotation; }
-        //void setTransform(avatar::Transform trans) { transform = trans; }
-
-        avatar::IHumanoidControllerHandle::BoneTarget getControllerBoneTarget() const { return controllerBoneTarget; }
-        bool isTrackingPosition() const { return trackPosition; }
-        bool isTrackingRotation() const { return trackRotation; }
-        int getJointIndex() const { return jointIndex; }
-        //AnimPose getPose() const { return pose; }
-        avatar::Transform getTransform() const { return transform; }
-
-        AnimPose pose;
-        avatar::Transform transform;
-    private:
-        avatar::IHumanoidControllerHandle::BoneTarget controllerBoneTarget;
-        bool trackPosition = false;
-        bool trackRotation = false;
-        int jointIndex = -1;
-    };
-
-    void computeTargets(const AnimContext& context, const AnimVariantMap& animVars, std::vector<IKTarget>& targets);
+    void computeTargets(const AnimContext& context, const AnimVariantMap& animVars);
     void updateRelativePosesFromCharacterLinks();
     void updateRelativePoseFromCharacterLink(const AnimPose& linkPose, int jointIndex);
     // for AnimDebugDraw rendering
@@ -144,6 +83,59 @@ protected:
     void drawBoxCollider(const AnimContext& context, AnimPose transform, avatar::IBoxColliderHandle& collider, glm::vec4 color, const mat4& geomToWorld, bool drawDiagonals = false) const;
 
     void drawDebug(const AnimContext& context);
+
+    struct LinkInfo {
+        int targetJointIndex;
+        std::vector<int> additionalTargetJointsIndices;
+        avatar::IMultiBodyHandle::LinkHandle linkHandle;
+        std::string linkName;
+        avatar::Vector3 linkToFbxJointTransform;
+
+        LinkInfo(avatar::IMultiBodyHandle::LinkHandle& link, std::string& name, avatar::Vector3& linkToFbx)
+            : linkHandle(link), linkName(name), linkToFbxJointTransform(linkToFbx)
+        {}
+    };
+    class IKTargetVar {
+    public:
+        friend void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVariantMap& animVars);
+
+        enum class IKTargetType {
+            DMTracker = 0,
+            Unknown
+        };
+
+        IKTargetVar(const QString& jointNameIn, const QString& controllerBoneTargetIn,
+            const QString& targetLinkName,
+            const QString& positionVar, const QString& rotationVar,
+            bool trackPosition, bool trackRotation, const QString& typeVar);
+        IKTargetVar(const IKTargetVar&) = default;
+        IKTargetVar& operator=(const IKTargetVar&);
+
+        avatar::IHumanoidControllerHandle::BoneTarget getControllerBoneTarget() const;
+        QString getControllerBoneTargetName() const { return controllerBoneTargetName; }
+        QString getJointName() const { return jointName; }
+        void setPosition(vec3 position) { pose.trans() = position; }
+        void setRotation(quat rotation) { pose.rot() = rotation; }
+        avatar::Transform getTransform() const { return transform; }
+
+
+    private:
+        AnimPose pose;
+        avatar::Transform transform;
+        bool trackPosition = false;
+        bool trackRotation = false;
+
+        QString jointName;
+        QString controllerBoneTargetName;
+        QString targetLinkName;
+        QString positionVar;
+        QString rotationVar;
+        QString typeVar;
+        int jointIndex = -1; // cached joint index
+#ifdef DLL_WITH_DEBUG_VISU
+        avatar::IRigidBodyHandle* debugBody = nullptr;
+#endif
+    };
 
     std::vector<IKTargetVar> _targetVarVec;
 
