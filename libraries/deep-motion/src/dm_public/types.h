@@ -30,8 +30,9 @@ struct Quaternion
 
 struct Transform
 {
-    Vector3 m_Position;
-    Quaternion m_Orientation;
+    Vector3 m_Position{0,0,0};
+    Quaternion m_Orientation{0,0,0,1};
+    Vector3 m_Scale{1,1,1};
 };
 
 }

@@ -55,6 +55,7 @@ public:
 
     void setGravity(float gravity);
     float getGravity();
+    float getFloorDistance() const { return _floorDistance; }
     void recomputeFlying();
 
     virtual void updateShapeIfNecessary() = 0;

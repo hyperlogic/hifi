@@ -6,6 +6,14 @@ namespace avatar
     class ISceneObjectHandle : public NonCopyable
     {
     public:
+        virtual ~ISceneObjectHandle() {}
+        enum class ObjectType
+        {
+            RigidBody,
+            MultiBody,
+            Controller
+        };
         virtual const char* GetName() const = 0;
+        virtual ObjectType GetType() const = 0;
     };
 }
