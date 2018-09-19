@@ -504,6 +504,8 @@ void CharacterController::getPositionAndOrientation(glm::vec3& position, glm::qu
         rotation = bulletToGLM(avatarTransform.getRotation());
         position = bulletToGLM(avatarTransform.getOrigin()) - rotation * _shapeLocalOffset;
     }
+    else
+        qCWarning(physics) << "No rigidBody, can't get position and orientation";
 }
 
 void CharacterController::setParentVelocity(const glm::vec3& velocity) {

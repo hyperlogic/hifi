@@ -63,6 +63,7 @@
 #include "EntityEditPacketSender.h"
 #include "MovingEntitiesOperator.h"
 #include "SceneScriptingInterface.h"
+#include "DeepMotionNode.h"
 
 using namespace std;
 
@@ -1872,6 +1873,14 @@ void MyAvatar::harvestResultsFromPhysicsSimulation(float deltaTime) {
         position = getWorldPosition();
         orientation = getWorldOrientation();
     }
+
+    if (_skeletonModel) {
+        auto dmNode = _skeletonModel->getRig().getDeepMotionNode();
+        if (dmNode) {
+            dmNode->overridePhysCharacterPositionAndOrientation(_characterController.getFloorDistance(), position, orientation);
+        }
+    }
+
     nextAttitude(position, orientation);
     _bodySensorMatrix = _follow.postPhysicsUpdate(*this, _bodySensorMatrix);
 

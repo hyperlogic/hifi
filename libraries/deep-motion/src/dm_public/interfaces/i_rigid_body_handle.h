@@ -12,7 +12,8 @@ namespace avatar
     {
     public:
         virtual Transform GetTransform() const = 0;
-
-        virtual std::unique_ptr<IColliderHandle> GetCollider() = 0;
+        virtual IColliderHandle* GetCollider() = 0;
+        virtual bool GetIsKinematic() const = 0;
+        virtual void SetIsKinematic(bool) = 0;
     };
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "dm_public/i_array_interface.h"
+#include <vector>
 
 namespace avatar
 {

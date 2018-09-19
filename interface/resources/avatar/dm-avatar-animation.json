@@ -49,8 +49,68 @@
                         "id": "dm",
                         "type": "deepMotion",
                         "data": {
-                            "solutionSource": "previousSolution",
-                            "solutionSourceVar": "solutionSource"
+							"targets": [
+								{
+									"jointName": "Hips",
+									"controllerBoneTarget": "Root",
+									"targetLinkName": "root",
+									"positionVar": "hipsPosition",
+									"rotationVar": "hipsRotation",
+									"trackPosition": true,
+									"trackRotation": true,
+									"typeVar": "hipsType"
+								},
+								{
+									"jointName": "RightHand",
+									"controllerBoneTarget": "Right_Hand",
+									"targetLinkName": "rWrist",
+									"positionVar": "rightHandPosition",
+									"rotationVar": "rightHandRotation",
+									"trackPosition": true,
+									"trackRotation": true,
+									"typeVar": "rightHandType"
+								},
+								{
+									"jointName": "LeftHand",
+									"controllerBoneTarget": "Left_Hand",
+									"targetLinkName": "lWrist",
+									"positionVar": "leftHandPosition",
+									"rotationVar": "leftHandRotation",
+									"trackPosition": true,
+									"trackRotation": true,
+									"typeVar": "leftHandType"
+								},
+								{
+									"jointName": "Head",
+									"controllerBoneTarget": "Head",
+									"targetLinkName": "head",
+									"positionVar": "headPosition",
+									"rotationVar": "headRotation",
+									"trackPosition": true,
+									"trackRotation": true,
+									"typeVar": "headType"
+								},
+								{
+									"jointName": "RightFoot",
+									"controllerBoneTarget": "Right_Foot",
+									"targetLinkName": "rAnkle",
+									"positionVar": "rightFootPosition",
+									"rotationVar": "rightFootRotation",
+									"trackPosition": true,
+									"trackRotation": false,
+									"typeVar": "rightFootType"
+								},
+								{
+									"jointName": "LeftFoot",
+									"controllerBoneTarget": "Left_Foot",
+									"targetLinkName": "lAnkle",
+									"positionVar": "leftFootPosition",
+									"rotationVar": "leftFootRotation",
+									"trackPosition": true,
+									"trackRotation": false,
+									"typeVar": "leftFootType"
+								}
+							]
                         },
                         "children": []
                     },
