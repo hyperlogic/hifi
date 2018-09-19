@@ -6,7 +6,7 @@ namespace avatar
     class ISceneObjectHandle : public NonCopyable
     {
     public:
-        virtual ~ISceneObjectHandle() = default;
+        virtual ~ISceneObjectHandle() {}
         enum class ObjectType
         {
             RigidBody,
