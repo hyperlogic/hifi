@@ -10,6 +10,10 @@
 #include "dm_public/commands/core_commands.h"
 #include "dm_public/std_vector_array_interface.h"
 #include "dm_public/interfaces/i_rigid_body_handle.h"
+#ifdef DLL_WITH_DEBUG_VISU
+    #include "dm_public/object_definitions/rigid_body_definition.h"
+    #include "dm_public/object_definitions/collider_definitions.h"
+#endif
 
 #include "RotationConstraint.h"
 #include "ResourceCache.h"
@@ -24,6 +28,7 @@
 #include "DebugDraw.h"
 
 static const float CHARACTER_LOAD_PRIORITY = 10.0f;
+static const int ROOT_LINK_INDEX = 0;
 
 void* Allocate(size_t dataSize)
 {
@@ -84,9 +89,7 @@ namespace
     {
         return to_string(pose.trans()) + "\t" + to_string(pose.rot()) + "\t" + to_string(pose.scale());
     }
-}
 
-namespace {
     glm::vec3 toVec3_noScaling(const avatar::Vector3& avatarVec) {
         glm::vec3 vec;
         vec.x = avatarVec.m_V[0];
@@ -138,21 +141,6 @@ namespace {
         return trans;
     }
 
-    avatar::IMultiBodyHandle::LinkHandle& getLinkByName(
-        const QString& name, 
-        avatar::IMultiBodyHandle* characterHandle, 
-        std::vector<avatar::IMultiBodyHandle::LinkHandle>& characterLinks) {
-
-        if (characterHandle) {
-            for (auto& link : characterLinks) {
-                if (name.compare(characterHandle->GetLinkName(link)) == 0)
-                    return link;
-            }
-        }
-        qCCritical(animation) << "Can't find link with name: " << name;
-        return avatar::IMultiBodyHandle::LinkHandle(nullptr);
-    }
-
     avatar::IHumanoidControllerHandle::BoneTarget toControllerBoneTarget(const QString& controllerBoneTargetName) {
             if(controllerBoneTargetName.compare("Head") == 0)
                 return avatar::IHumanoidControllerHandle::BoneTarget::Head;
@@ -187,6 +175,35 @@ namespace {
                 return avatar::IHumanoidControllerHandle::BoneTarget::Head;
             }
     }
+
+    std::unordered_map<std::string, avatar::Vector3> linkToFbxJointTransform = {
+        { "root"             , {-0.000359838f , -0.01583385f , -0.005984783f } },
+        { "pelvis_lowerback" , { 0.003543873f , -0.0486927f  , -0.008932948f } },
+        { "lowerback_torso"  , { 0.003712396f , -0.1127622f  ,  0.02840054f  } },
+        { "torso_head"       , { 0.0009440518f, -0.03898144f , -0.0004016161f} },
+        { "head"             , { 0.005072041f , -0.2198207f  , -0.02136278f  } },
+        { "backpack"         , { 0.0f         ,  0.0f        ,  0.0f         } },
+        { "lHip"             , {-0.002366312f ,  0.2312979f  ,  0.01390105f  } },
+        { "lKnee"            , { 0.006621502f ,  0.2065052f  ,  0.04739026f  } },
+        { "lAnkle"           , {-0.01445057f  ,  0.06185609f , -0.01608679f  } },
+        { "lToe"             , {-0.007985473f , -0.0392971f  , -0.01618613f  } },
+        { "rHip"             , { 0.002366304f ,  0.2312979f  ,  0.01390105f  } },
+        { "rKnee"            , {-0.007434346f ,  0.2063918f  ,  0.04195724f  } },
+        { "rAnkle"           , { 0.01106738f  ,  0.06277531f , -0.0280784f   } },
+        { "rToe"             , { 0.007094949f , -0.04029393f , -0.02847863f  } },
+        { "lClav"            , {-0.04634323f  ,  0.01708317f , -0.005042613f } },
+        { "lShoulder"        , {-0.1400821f   ,  0.02479744f , -0.0009180307f} },
+        { "lElbow"           , {-0.1195495f   ,  0.02081084f , -0.01671298f  } },
+        { "lWrist"           , {-0.04874176f  ,  0.008770943f,  0.02434396f  } },
+        { "lFinger01"        , {-0.03893751f  ,  0.01506829f ,  0.04148491f  } },
+        { "lFinger02"        , {-0.02153414f  ,  0.009898186f,  0.04781658f  } },
+        { "rClav"            , { 0.04634323f  ,  0.01708317f , -0.005042613f } },
+        { "rShoulder"        , { 0.1400821f   ,  0.02479744f , -0.0009180307f} },
+        { "rElbow"           , { 0.119549f    ,  0.02081704f , -0.0167146f   } },
+        { "rWrist"           , { 0.04874116f  ,  0.008776665f,  0.02434108f  } },
+        { "rFinger01"        , { 0.03893763f  ,  0.0150733f  ,  0.0414814f   } },
+        { "rFinger02"        , { 0.02153325f  ,  0.009903431f,  0.04781274f  } }
+    };
 } // anon
 
 DeepMotionNode::IKTargetVar::IKTargetVar(
@@ -217,17 +234,11 @@ DeepMotionNode::IKTargetVar& DeepMotionNode::IKTargetVar::operator=(const IKTarg
     return *this;
 }
 
-DeepMotionNode::IKTarget::IKTarget(const IKTargetVar& targetVar, avatar::IMultiBodyHandle::LinkHandle& link) :
+DeepMotionNode::IKTarget::IKTarget(const IKTargetVar& targetVar) :
     controllerBoneTarget(toControllerBoneTarget(targetVar.controllerBoneTargetName)),
-    targetLink(link),
     trackPosition(targetVar.trackPosition),
     trackRotation(targetVar.trackRotation),
     jointIndex(targetVar.jointIndex) {
-}
-
-avatar::Transform DeepMotionNode::IKTarget::calculateTransform()
-{
-    return avatar::Transform();
 }
 
 DeepMotionNode::DeepMotionNode(const QString& id) : 
@@ -250,8 +261,15 @@ DeepMotionNode::DeepMotionNode(const QString& id) :
 
 DeepMotionNode::~DeepMotionNode()
 {
-    for (const auto& targetVar : _targetVarVec)
+    for (auto& targetVar : _targetVarVec) {
         DebugDraw::getInstance().removeMyAvatarMarker("tracker_" + targetVar.controllerBoneTargetName);
+#ifdef DLL_WITH_DEBUG_VISU
+        if (targetVar.debugBody && _sceneHandle) {
+            _sceneHandle->DeleteSceneObject(targetVar.debugBody);
+            targetVar.debugBody = nullptr;
+        }
+#endif
+    }
 
     _targetVarVec.clear();
 
@@ -275,8 +293,18 @@ void DeepMotionNode::characterLoaded(const QByteArray& data)
         if (sceneObject->GetType() == avatar::ISceneObjectHandle::ObjectType::MultiBody) {
             _characterHandle = static_cast<avatar::IMultiBodyHandle*>(sceneObject);
 
-            avatar::STDVectorArrayInterface<avatar::IMultiBodyHandle::LinkHandle> linksInterface(_characterLinks);
+            std::vector<avatar::IMultiBodyHandle::LinkHandle> characterLinks;
+            avatar::STDVectorArrayInterface<avatar::IMultiBodyHandle::LinkHandle> linksInterface(characterLinks);
             _characterHandle->GetLinkHandles(linksInterface);
+
+            _characterLinks.reserve(characterLinks.size());
+            _linkNameToIndex.reserve(characterLinks.size());
+            for (int linkIndex = 0; linkIndex < characterLinks.size(); ++linkIndex) {
+                auto& link = characterLinks[linkIndex];
+                std::string linkName = _characterHandle->GetLinkName(link);
+                _characterLinks.emplace_back(characterLinks[linkIndex], linkName, linkToFbxJointTransform.at(linkName));
+                _linkNameToIndex.insert({ linkName, linkIndex });
+            }
         } else if (sceneObject->GetType() == avatar::ISceneObjectHandle::ObjectType::Controller) {
             if (static_cast<avatar::IControllerHandle*>(sceneObject)->GetControllerType() == avatar::IControllerHandle::ControllerType::Biped)
                 _characterController = static_cast<avatar::IHumanoidControllerHandle*>(sceneObject);
@@ -298,6 +326,13 @@ void DeepMotionNode::loadPoses(const AnimPoseVec& poses) {
         // override Hips rotation to eliminate flying pose
         int hipsIndex = _skeleton->nameToJointIndex("Hips");
         _relativePoses[hipsIndex].rot() = Quaternions::IDENTITY;
+
+        // cache target joints indices
+        for (int linkIndex = 0; linkIndex < _characterLinks.size(); ++linkIndex) {
+            _characterLinks[linkIndex].targetJointIndex = getTargetJointIndex(linkIndex);
+            std::string boneName = _skeleton->getJointName(_characterLinks[linkIndex].targetJointIndex).toStdString();
+            getAdditionalTargetJointIndices(boneName, _characterLinks[linkIndex].additionalTargetJointsIndices);
+        }
     } else {
         _relativePoses.clear();
     }
@@ -340,9 +375,6 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
     return underPoses;
 #endif
 
-    _rigToWorldMatrix = context.getRigToWorldMatrix();
-    _geometryToRigMatrix = context.getGeometryToRigMatrix();
-
     const float MAX_OVERLAY_DT = 1.0f / 60.0f;
     if (dt > MAX_OVERLAY_DT) {
         dt = MAX_OVERLAY_DT;
@@ -373,7 +405,7 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
         return underPoses;
 
     std::vector<IKTarget> targets;
-    computeTargets(animVars, targets, context.getEnableDebugDrawIKTargets());
+    computeTargets(context, animVars, targets);
 
     for (const auto& target : targets) {
 
@@ -420,7 +452,7 @@ void DeepMotionNode::overridePhysCharacterPositionAndOrientation(float floorDist
         dmToHfCharacterShift = position - dmCharacterPos;
     }
 
-#if APPLY_X_Z_MOVEMENT_TO_CHARACTER
+#ifdef APPLY_X_Z_MOVEMENT_TO_CHARACTER
     position = dmCharacterPos + dmToHfCharacterShift;
 #else
     position.y = (dmCharacterPos + dmToHfCharacterShift).y;
@@ -433,10 +465,22 @@ void DeepMotionNode::overridePhysCharacterPositionAndOrientation(float floorDist
     //qCCritical(animation) << "GK_GK position: " << to_string(appliedPosition).c_str();
 }
 
-void DeepMotionNode::computeTargets(const AnimVariantMap& animVars, std::vector<IKTarget>& targets, bool drawDebug) {
+namespace {
+    bool wasDebugDrawIKTargetsDisabledInLastFrame(const AnimContext& context) {
+        static bool previousValue = context.getEnableDebugDrawIKTargets();
+        
+        if (previousValue && !context.getEnableDebugDrawIKTargets())
+            return true;
+        previousValue = context.getEnableDebugDrawIKTargets();
+    }
+} // anon
 
-    glm::mat4 rigToAvatarMat = createMatFromQuatAndPos(Quaternions::Y_180, glm::vec3());
-    const vec4 GREEN(0.0f, 1.0f, 0.0f, 1.0f);
+void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVariantMap& animVars, std::vector<IKTarget>& targets) {
+
+    static const glm::mat4 rigToAvatarMat = createMatFromQuatAndPos(Quaternions::Y_180, glm::vec3());
+    static const vec4 GREEN(0.0f, 1.0f, 0.0f, 1.0f);
+
+    const bool debugDrawIKTargetsDisabledInLastFrame = wasDebugDrawIKTargetsDisabledInLastFrame(context);
 
     for (auto& targetVar : _targetVarVec) {
 
@@ -456,101 +500,115 @@ void DeepMotionNode::computeTargets(const AnimVariantMap& animVars, std::vector<
         if (targetVar.jointIndex != -1) {
             targetType = animVars.lookup(targetVar.typeVar, (int)IKTarget::Type::Unknown);
             if (targetType == (int)IKTarget::Type::DMTracker) {
-                IKTarget target { targetVar, getLinkByName(targetVar.targetLinkName, _characterHandle, _characterLinks) };
+                auto linkIndex = _linkNameToIndex.at(targetVar.targetLinkName.toStdString());
+                IKTarget target { targetVar };
                 AnimPose absPose = _skeleton->getAbsolutePose(target.getJointIndex(), _relativePoses);
 
                 target.setPosition(animVars.lookupRigToGeometry(targetVar.positionVar, absPose.trans()));
                 target.setRotation(animVars.lookupRigToGeometry(targetVar.rotationVar, absPose.rot()));
 
-#if USE_FIX_FOR_TRACKER_ROT
+#ifdef USE_FIX_FOR_TRACKER_ROT
                 const auto& trackerRot = target.pose.rot();
                 const quat& trackerRotFix = { -trackerRot.w, -trackerRot.x, -trackerRot.y, -trackerRot.z };
                 target.pose.rot() = trackerRotFix;
 #endif
 
-                const avatar::IMultiBodyHandle::LinkHandle& rootLink = _characterLinks[0];
-                int rootTargetJointIndex = getTargetJointIndex(rootLink);
+                int rootTargetJointIndex = _characterLinks[ROOT_LINK_INDEX].targetJointIndex;
                 const auto& rootTargetJointPose = _skeleton->getAbsolutePose(rootTargetJointIndex, _relativePoses);
-                //{ // getLinkTransformInRigSpace
-                //
-                //    std::string linkName = _characterHandle->GetLinkName(link);
-                //    if (0 == linkName.compare("root"))
-                //        auto ret = AnimPose(toQuat(_characterHandle->GetLinkTransform(link).m_Orientation), rootTargetJointPose.trans());
-                //
-                //
-                //    const auto& linkDmWorldTransform = toAnimPose(_characterHandle->GetLinkTransform(link));
-                //    const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
-                //
-                //    const auto& linkRelToDmChar = dmCharTransform.inverse() * linkDmWorldTransform;
-                //
-                //    auto ret = rootTargetJointPose * linkRelToDmChar;
-                //}
 
-                auto linkName = _characterHandle->GetLinkName(target.getTargetLink());
-                auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at(linkName)));
+                auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_characterLinks[linkIndex].linkToFbxJointTransform));
                 auto unskinnedTrackerPose = target.pose * linkToFbxJoint.inverse();
 
                 const auto& trackerRelToRootTarget = rootTargetJointPose.inverse() * unskinnedTrackerPose;
                 const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
 
                 auto& trackerPoseInDmCharSpace = dmCharTransform * trackerRelToRootTarget;
-
-#if USE_MAX_TRACKER_DISTANCE_PER_AXIS
-
-#endif
-
                 target.transform = toAvtTransform(trackerPoseInDmCharSpace);
 
                 // debug render ik targets
-                if (drawDebug) {
+                if (context.getEnableDebugDrawIKTargets()) {
+                    QString name = "tracker_" + targetVar.controllerBoneTargetName;
+#ifdef DLL_WITH_DEBUG_VISU
+                    if (!targetVar.debugBody) {
+                        auto colliderDefinition = new avatar::BoxColliderDefinition();
+                        colliderDefinition->m_HalfSize = avatar::Vector3 {0.1f, 0.1f, 0.1f};
+                        avatar::RigidBodyDefinition objDefinition;
+                        objDefinition.m_Collidable = false;
+                        objDefinition.m_Transform = target.transform;
+                        objDefinition.m_Collider = std::unique_ptr<avatar::ColliderDefinition>(colliderDefinition);
+
+                        targetVar.debugBody = _sceneHandle->AddNewRigidBody(name.toStdString().c_str(), objDefinition);
+                        // TODO: uncomment once fix for kinematic RBs will be delivered
+                        //if (targetVar.debugBody)
+                        //    targetVar.debugBody->SetIsKinematic(true);
+                    } else {
+                        targetVar.debugBody->SetTransform(target.transform);
+                    }
+#endif
 
                     glm::mat4 geomTargetMat = createMatFromQuatAndPos(target.pose.rot(), target.pose.trans());
-                    glm::mat4 avatarTargetMat = rigToAvatarMat * _geometryToRigMatrix * geomTargetMat;
+                    glm::mat4 avatarTargetMat = rigToAvatarMat * context.getGeometryToRigMatrix() * geomTargetMat;
 
-                    DebugDraw::getInstance().addMyAvatarMarker("tracker_" + targetVar.controllerBoneTargetName, glmExtractRotation(avatarTargetMat), extractTranslation(avatarTargetMat), GREEN);
+                    DebugDraw::getInstance().addMyAvatarMarker(name, glmExtractRotation(avatarTargetMat), extractTranslation(avatarTargetMat), GREEN);
                 }
 
                 targets.push_back(target);
             }
         }
 
-        if (!drawDebug || targetVar.jointIndex == -1 || targetType != (int)IKTarget::Type::DMTracker)
+        if (debugDrawIKTargetsDisabledInLastFrame || targetVar.jointIndex == -1 || targetType != (int)IKTarget::Type::DMTracker) {
             DebugDraw::getInstance().removeMyAvatarMarker("tracker_" + targetVar.controllerBoneTargetName);
-    }
-}
-
-void DeepMotionNode::updateRelativePosesFromCharacterLinks() {
-    for (int i = 0; i < (int)_characterLinks.size(); ++i) {
-        auto link = _characterLinks[i];
-        auto jointIndex = getTargetJointIndex(link);
-
-        if (jointIndex >= 0) {
-            AnimPose linkPose = getLinkTransformInRigSpace(link);
-
-            // drive rotations
-            AnimPose absPose = _skeleton->getAbsolutePose(jointIndex, _relativePoses);
-            AnimPose rotationOnly(linkPose.rot(), absPose.trans());
-
-            AnimPose parentAbsPose = _skeleton->getAbsolutePose(_skeleton->getParentIndex(jointIndex), _relativePoses);
-            AnimPose linkRelativePose = parentAbsPose.inverse() * rotationOnly;
-
-            _relativePoses[jointIndex] = linkRelativePose;
+#ifdef DLL_WITH_DEBUG_VISU
+            if (targetVar.debugBody) {
+                _sceneHandle->DeleteSceneObject(targetVar.debugBody);
+                targetVar.debugBody = nullptr;
+            }
+#endif
         }
     }
 }
 
-AnimPose DeepMotionNode::getLinkTransformInRigSpace(const avatar::IMultiBodyHandle::LinkHandle& link) const
+void DeepMotionNode::updateRelativePosesFromCharacterLinks() {
+    for (int linkIndex = 0; linkIndex < (int)_characterLinks.size(); ++linkIndex) {
+        auto link = _characterLinks[linkIndex].linkHandle;
+        int jointIndex = _characterLinks[linkIndex].targetJointIndex;
+
+        if (jointIndex < 0)
+            return;
+
+        AnimPose linkPose = getLinkTransformInRigSpace(linkIndex);
+        updateRelativePoseFromCharacterLink(linkPose, jointIndex);
+        for (auto jointIndex : _characterLinks[linkIndex].additionalTargetJointsIndices)
+            updateRelativePoseFromCharacterLink(linkPose, jointIndex);
+    }
+}
+
+void DeepMotionNode::updateRelativePoseFromCharacterLink(const AnimPose& linkPose, int jointIndex) {
+    if (jointIndex >= 0) {
+
+        // drive rotations
+        AnimPose absPose = _skeleton->getAbsolutePose(jointIndex, _relativePoses);
+        AnimPose rotationOnly(linkPose.rot(), absPose.trans());
+
+        AnimPose parentAbsPose = _skeleton->getAbsolutePose(_skeleton->getParentIndex(jointIndex), _relativePoses);
+        AnimPose linkRelativePose = parentAbsPose.inverse() * rotationOnly;
+
+        _relativePoses[jointIndex] = linkRelativePose;
+    }
+}
+
+AnimPose DeepMotionNode::getLinkTransformInRigSpace(int linkIndex) const
 {
-    const avatar::IMultiBodyHandle::LinkHandle& rootLink = _characterLinks[0];
-    int rootTargetJointIndex = getTargetJointIndex(rootLink);
+    auto& linkInfo = _characterLinks[linkIndex];
+    int rootTargetJointIndex = _characterLinks[ROOT_LINK_INDEX].targetJointIndex;
     const auto& rootTargetJointPose = _skeleton->getAbsolutePose(rootTargetJointIndex, _relativePoses);
 
-    std::string linkName = _characterHandle->GetLinkName(link);
+    std::string linkName = linkInfo.linkName;
     if (0 == linkName.compare("root"))
-        return AnimPose(toQuat(_characterHandle->GetLinkTransform(link).m_Orientation), rootTargetJointPose.trans());
+        return AnimPose(toQuat(_characterHandle->GetLinkTransform(linkInfo.linkHandle).m_Orientation), rootTargetJointPose.trans());
 
 
-    const auto& linkDmWorldTransform = toAnimPose(_characterHandle->GetLinkTransform(link));
+    const auto& linkDmWorldTransform = toAnimPose(_characterHandle->GetLinkTransform(linkInfo.linkHandle));
     const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
 
     const auto& linkRelToDmChar = dmCharTransform.inverse() * linkDmWorldTransform;
@@ -558,16 +616,16 @@ AnimPose DeepMotionNode::getLinkTransformInRigSpace(const avatar::IMultiBodyHand
     return rootTargetJointPose * linkRelToDmChar;
 }
 
-AnimPose DeepMotionNode::getFbxJointPose(const avatar::IMultiBodyHandle::LinkHandle& link) const {
-    const auto& linkPose = getLinkTransformInRigSpace(link);
+AnimPose DeepMotionNode::getFbxJointPose(int linkIndex) const {
+    const auto& linkPose = getLinkTransformInRigSpace(linkIndex);
 
-    auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at(_characterHandle->GetLinkName(link))));
+    auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_characterLinks[linkIndex].linkToFbxJointTransform));
                       // link --> fbxJoint, fbxJoint relative to link
     return linkPose * linkToFbxJoint;
 }
 
-int DeepMotionNode::getTargetJointIndex(const avatar::IMultiBodyHandle::LinkHandle& link) const {
-    const auto targetName = _characterHandle->GetTargetBoneName(link);
+int DeepMotionNode::getTargetJointIndex(int linkIndex) const {
+    const auto targetName = _characterHandle->GetTargetBoneName(_characterLinks[linkIndex].linkHandle);
     std::string target(targetName);
     size_t right = target.find("Right");
     size_t left = target.find("Left");
@@ -579,10 +637,34 @@ int DeepMotionNode::getTargetJointIndex(const avatar::IMultiBodyHandle::LinkHand
     return _skeleton->nameToJointIndex(QString(target.c_str()));
 }
 
-AnimPose DeepMotionNode::getTargetJointAbsPose(const avatar::IMultiBodyHandle::LinkHandle& link) const {
-    int jointIndex = getTargetJointIndex(link);
+void DeepMotionNode::getAdditionalTargetJointIndices(std::string targetBoneName, std::vector<int>& additionalTargetJointIndices) const {
+    std::string target(targetBoneName);
+    size_t middle = target.find("Middle");
+
+    if (std::string::npos == middle)
+        return;
+
+    std::string prefix = target.substr(0, middle);
+    std::string suffix = target.substr(middle + 6, target.size());
+
+    //qCCritical(animation) << "GK_GK additional joints for: " << targetBoneName.c_str();
+    //qCCritical(animation) << "GK_GK " << (prefix + "Pinky" + suffix).c_str();
+    //qCCritical(animation) << "GK_GK " << (prefix + "Ring" + suffix).c_str();
+    //qCCritical(animation) << "GK_GK " << (prefix + "Index" + suffix).c_str();
+
+    additionalTargetJointIndices.reserve(3);
+    std::string pinky = prefix + "Pinky" + suffix;
+    std::string ring  = prefix + "Ring" + suffix;
+    std::string index = prefix + "Index" + suffix;
+    additionalTargetJointIndices.push_back(_skeleton->nameToJointIndex(pinky.c_str()));
+    additionalTargetJointIndices.push_back(_skeleton->nameToJointIndex(ring.c_str()));
+    additionalTargetJointIndices.push_back(_skeleton->nameToJointIndex(index.c_str()));
+}
+
+AnimPose DeepMotionNode::getTargetJointAbsPose(int linkIndex) const {
+    int jointIndex = _characterLinks[linkIndex].targetJointIndex;
     if (jointIndex < 0) {
-        qCCritical(animation) << "Can't find target joint index for link: " << _characterHandle->GetLinkName(link);
+        qCCritical(animation) << "Can't find target joint index for link: " << _characterLinks[linkIndex].linkName.c_str();
         return AnimPose();
     }
 
@@ -597,15 +679,15 @@ void DeepMotionNode::debugDrawRelativePoses(const AnimContext& context) const {
 
     mat4 geomToWorldMatrix = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
 
-    const vec4 RED(1.0f, 0.0f, 0.0f, 0.5f);
-    const vec4 GREEN(0.0f, 1.0f, 0.0f, 0.5f);
-    const vec4 BLUE(0.0f, 0.0f, 1.0f, 0.5f);
-    const vec4 GRAY(0.2f, 0.2f, 0.2f, 0.5f);
-    const float AXIS_LENGTH = 3.0f; // cm
+    static const vec4 RED(1.0f, 0.0f, 0.0f, 0.5f);
+    static const vec4 GREEN(0.0f, 1.0f, 0.0f, 0.5f);
+    static const vec4 BLUE(0.0f, 0.0f, 1.0f, 0.5f);
+    static const vec4 GRAY(0.2f, 0.2f, 0.2f, 0.5f);
+    static const float AXIS_LENGTH = 3.0f; // cm
 
-    for (int i = 0; i < (int)poses.size(); ++i) {
+    for (int jointIndex = 0; jointIndex < (int)poses.size(); ++jointIndex) {
         // transform local axes into world space.
-        auto pose = poses[i];
+        auto pose = poses[jointIndex];
         glm::vec3 xAxis = transformVectorFast(geomToWorldMatrix, pose.rot() * Vectors::UNIT_X);
         glm::vec3 yAxis = transformVectorFast(geomToWorldMatrix, pose.rot() * Vectors::UNIT_Y);
         glm::vec3 zAxis = transformVectorFast(geomToWorldMatrix, pose.rot() * Vectors::UNIT_Z);
@@ -615,18 +697,16 @@ void DeepMotionNode::debugDrawRelativePoses(const AnimContext& context) const {
         DebugDraw::getInstance().drawRay(pos, pos + AXIS_LENGTH * zAxis, BLUE);
 
         // draw line to parent
-        int parentIndex = _skeleton->getParentIndex(i);
+        int parentIndex = _skeleton->getParentIndex(jointIndex);
         if (parentIndex != -1) {
             glm::vec3 parentPos = transformPoint(geomToWorldMatrix, poses[parentIndex].trans());
             DebugDraw::getInstance().drawRay(pos, parentPos, GRAY);
         }
 
-        for (const auto& link : _characterLinks) 
+        for (int linkIndex = 0; linkIndex < _characterLinks.size(); ++linkIndex)
         {
-            int targetIndex = getTargetJointIndex(link);
-            if (targetIndex == i) {
-                auto linkName = _characterHandle->GetLinkName(link);
-                auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_linkToFbxJointTransform.at(linkName)));
+            if (_characterLinks[linkIndex].targetJointIndex == jointIndex) {
+                auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_characterLinks[linkIndex].linkToFbxJointTransform));
                 auto unskinnedLinkPose = pose * linkToFbxJoint.inverse();
 
                 glm::vec3 xAxis = transformVectorFast(geomToWorldMatrix, unskinnedLinkPose.rot() * Vectors::UNIT_X);
@@ -704,11 +784,11 @@ void DeepMotionNode::drawCompoundCollider(const AnimContext& context, AnimPose t
     }
 }
 
-void DeepMotionNode::debugDrawLink(const AnimContext& context, const avatar::IMultiBodyHandle::LinkHandle& link) const {
+void DeepMotionNode::debugDrawLink(const AnimContext& context, int linkIndex) const {
 
-    const auto& targetJointPose = getTargetJointAbsPose(link);
-    const auto& linkTransformRigSpace = getLinkTransformInRigSpace(link);
-    const auto& fbxJointPose = getFbxJointPose(link);
+    const auto& targetJointPose = getTargetJointAbsPose(linkIndex);
+    const auto& linkTransformRigSpace = getLinkTransformInRigSpace(linkIndex);
+    const auto& fbxJointPose = getFbxJointPose(linkIndex);
 
     const mat4 geomToWorldMatrix = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
 
@@ -742,7 +822,7 @@ void DeepMotionNode::debugDrawLink(const AnimContext& context, const avatar::IMu
     glm::vec3 targetJointpos = transformPoint(geomToWorldMatrix, targetJointPose.trans());
     DebugDraw::getInstance().drawRay(fbxJointPos, targetJointpos, ORANGE);
 
-    static std::map<std::string, glm::vec4> linkColliderColor = {
+    static const std::map<std::string, glm::vec4> linkColliderColor = {
         { "root"             , glm::vec4(0.0f, 0.0f, 0.5f, 1.0f) },
         { "pelvis_lowerback" , glm::vec4(0.0f, 0.0f, 1.0f, 1.0f) },
         { "lowerback_torso"  , glm::vec4(0.0f, 0.4f, 0.1f, 1.0f) },
@@ -771,32 +851,32 @@ void DeepMotionNode::debugDrawLink(const AnimContext& context, const avatar::IMu
         { "rFinger02"        , glm::vec4(0.9f, 1.0f, 0.3f, 1.0f) }
         };
     
-    auto linkCollider = _characterHandle->GetLinkCollider(link);
+    auto linkCollider = _characterHandle->GetLinkCollider(_characterLinks[linkIndex].linkHandle);
     if (linkCollider) {
-        glm::vec4 color = linkColliderColor.at(_characterHandle->GetLinkName(link));
+        glm::vec4 color = linkColliderColor.at(_characterLinks[linkIndex].linkName);
         drawCollider(context, linkTransformRigSpace, *linkCollider, color, geomToWorldMatrix);
     }
 }
 
 void DeepMotionNode::drawCollider(const AnimContext& context, AnimPose transform, avatar::IColliderHandle& collider, glm::vec4 color, const mat4& geomToWorld, bool drawDiagonals) const {
     switch(collider.GetColliderType()) {
-    case avatar::IColliderHandle::ColliderType::BOX: {
+    case avatar::ColliderType::BOX: {
         drawBoxCollider(context, transform, static_cast<avatar::IBoxColliderHandle&>(collider), color, geomToWorld, drawDiagonals);
         break;
     }
-    case avatar::IColliderHandle::ColliderType::CAPSULE: {
+    case avatar::ColliderType::CAPSULE: {
         qCCritical(animation) << "Trying to draw capsule collider";
         break;
     }
-    case avatar::IColliderHandle::ColliderType::CYLINDER: {
+    case avatar::ColliderType::CYLINDER: {
         qCCritical(animation) << "Trying to draw cylinder collider";
         break;
     }
-    case avatar::IColliderHandle::ColliderType::SPHERE: {
+    case avatar::ColliderType::SPHERE: {
         qCCritical(animation) << "Trying to draw sphere collider";
         break;
     }
-    case avatar::IColliderHandle::ColliderType::COMPOUND: {
+    case avatar::ColliderType::COMPOUND: {
         drawCompoundCollider(context, transform, static_cast<avatar::ICompoundColliderHandle&>(collider), color, geomToWorld, drawDiagonals);
         break;
     }
@@ -809,8 +889,8 @@ void DeepMotionNode::drawCollider(const AnimContext& context, AnimPose transform
 
 void DeepMotionNode::debugDrawCharacter(const AnimContext& context) const {
 
-    for (const auto& link : _characterLinks) {
-        debugDrawLink(context, link);
+    for (int linkIndex = 0; linkIndex < _characterLinks.size(); ++linkIndex) {
+        debugDrawLink(context, linkIndex);
     }
 }
 

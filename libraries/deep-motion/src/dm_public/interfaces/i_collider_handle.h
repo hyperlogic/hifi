@@ -2,6 +2,7 @@
 #include "dm_public/non_copyable.h"
 #include "dm_public/types.h"
 #include "dm_public/i_array_interface.h"
+#include "dm_public/object_definitions/collider_definitions.h"
 
 #include <memory>
 
@@ -10,15 +11,6 @@ namespace avatar
     class IColliderHandle : public NonCopyable
     {
     public:
-        enum class ColliderType
-        {
-            BOX,
-            CAPSULE,
-            SPHERE,
-            CYLINDER,
-            COMPOUND
-        };
-
         virtual ColliderType GetColliderType() const = 0;
     };
 
