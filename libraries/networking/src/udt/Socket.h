@@ -17,6 +17,7 @@
 #include <functional>
 #include <unordered_map>
 #include <mutex>
+#include <list>
 
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -94,6 +95,7 @@ public:
 
 signals:
     void clientHandshakeRequestComplete(const HifiSockAddr& sockAddr);
+    void pendingDatagrams(int datagramCount);
 
 public slots:
     void cleanupConnection(HifiSockAddr sockAddr);
@@ -101,8 +103,8 @@ public slots:
     
 private slots:
     void readPendingDatagrams();
+    void processPendingDatagrams(int datagramCount);
     void checkForReadyReadBackup();
-    void rateControlSync();
 
     void handleSocketError(QAbstractSocket::SocketError socketError);
     void handleStateChanged(QAbstractSocket::SocketState socketState);
@@ -133,9 +135,6 @@ private:
     std::unordered_map<HifiSockAddr, BasePacketHandler> _unfilteredHandlers;
     std::unordered_map<HifiSockAddr, SequenceNumber> _unreliableSequenceNumbers;
     std::unordered_map<HifiSockAddr, std::unique_ptr<Connection>> _connectionsHash;
-    
-    int _synInterval { 10 }; // 10ms
-    QTimer* _synTimer { nullptr };
 
     QTimer* _readyReadBackupTimer { nullptr };
 
@@ -148,6 +147,17 @@ private:
     int _lastPacketSizeRead { 0 };
     SequenceNumber _lastReceivedSequenceNumber;
     HifiSockAddr _lastPacketSockAddr;
+
+    struct Datagram {
+        QHostAddress _senderAddress;
+        int _senderPort;
+        int _datagramLength;
+        std::unique_ptr<char[]> _datagram;
+        p_high_resolution_clock::time_point _receiveTime;
+    };
+
+    std::list<Datagram> _incomingDatagrams;
+    int _maxDatagramsRead { 0 };
     
     friend UDTTest;
 };

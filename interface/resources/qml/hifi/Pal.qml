@@ -271,6 +271,8 @@ Rectangle {
                             connectionsUserModel.getFirstPage();
                         }
                         activeTab = "connectionsTab";
+                        connectionsOnlineDot.visible = false;
+                        pal.sendToScript({method: 'hideNotificationDot'});
                         connectionsHelpText.color = hifi.colors.blueAccent;
                     }
                 }
@@ -298,6 +300,16 @@ Rectangle {
                             }
                         }
                     }
+                    Rectangle {
+                        id: connectionsOnlineDot;
+                        visible: false;
+                        width: 10;
+                        height: width;
+                        radius: width;
+                        color: "#EF3B4E"
+                        anchors.left: parent.left;
+                        anchors.verticalCenter: parent.verticalCenter;
+                    }
                     // "CONNECTIONS" text
                     RalewaySemiBold {
                         id: connectionsTabSelectorText;
@@ -305,7 +317,11 @@ Rectangle {
                         // Text size
                         size: hifi.fontSizes.tabularData;
                         // Anchors
-                        anchors.fill: parent;
+                        anchors.left: connectionsOnlineDot.visible ? connectionsOnlineDot.right : parent.left;
+                        anchors.leftMargin: connectionsOnlineDot.visible ? 4 : 0;
+                        anchors.top: parent.top;
+                        anchors.bottom: parent.bottom;
+                        anchors.right: parent.right;
                         // Style
                         font.capitalization: Font.AllUppercase;
                         color: activeTab === "connectionsTab" ? hifi.colors.blueAccent : hifi.colors.baseGray;
@@ -326,7 +342,7 @@ Rectangle {
                         anchors.left: connectionsTabSelectorTextContainer.left;
                         anchors.top: connectionsTabSelectorTextContainer.top;
                         anchors.topMargin: 1;
-                        anchors.leftMargin: connectionsTabSelectorTextMetrics.width + 42;
+                        anchors.leftMargin: connectionsTabSelectorTextMetrics.width + 42 + connectionsOnlineDot.width + connectionsTabSelectorText.anchors.leftMargin;
                         RalewayRegular {
                             id: connectionsHelpText;
                             text: "[?]";
@@ -780,6 +796,12 @@ Rectangle {
             headerVisible: true;
             sortIndicatorColumn: settings.connectionsSortIndicatorColumn;
             sortIndicatorOrder: settings.connectionsSortIndicatorOrder;
+            onSortIndicatorColumnChanged: {
+                settings.connectionsSortIndicatorColumn = sortIndicatorColumn;
+            }
+            onSortIndicatorOrderChanged: {
+                settings.connectionsSortIndicatorOrder = sortIndicatorOrder;
+            }
 
             TableViewColumn {
                 id: connectionsUserNameHeader;
@@ -1046,12 +1068,13 @@ Rectangle {
                     enabled: myData.userName !== "Unknown user" && !userInfoViewer.visible;
                     hoverEnabled: true;
                     onClicked: {
+                        // TODO: Change language from "Happening Now" to something else (or remove entirely)
                         popupComboDialog("Set your availability:",
                         availabilityComboBox.availabilityStrings,
                         ["Your username will be visible in everyone's 'Nearby' list. Anyone will be able to jump to your location from within the 'Nearby' list.",
-                        "Your location will be visible in the 'Connections' list only for those with whom you are connected or friends. They'll be able to jump to your location if the domain allows.",
-                        "Your location will be visible in the 'Connections' list only for those with whom you are friends. They'll be able to jump to your location if the domain allows. You will only receive 'Happening Now' notifications in 'Go To' from friends.",
-                        "You will appear offline in the 'Connections' list, and you will not receive 'Happening Now' notifications in 'Go To'."],
+                        "Your location will be visible in the 'Connections' list only for those with whom you are connected or friends. They'll be able to jump to your location if the domain allows, and you will see 'Snaps' Blasts from them in 'Go To'.",
+                        "Your location will be visible in the 'Connections' list only for those with whom you are friends. They'll be able to jump to your location if the domain allows, and you will see 'Snaps' Blasts from them in 'Go To'",
+                        "You will appear offline in the 'Connections' list, and you will not receive Snaps Blasts from connections or friends in 'Go To'."],
                         ["all", "connections", "friends", "none"]);
                     }
                     onEntered: availabilityComboBox.color = hifi.colors.lightGrayText;
@@ -1259,6 +1282,9 @@ Rectangle {
             break;
         case 'http.response':
             http.handleHttpResponse(message);
+            break;
+        case 'changeConnectionsDotStatus':
+            connectionsOnlineDot.visible = message.shouldShowDot;
             break;
         default:
             console.log('Unrecognized message:', JSON.stringify(message));

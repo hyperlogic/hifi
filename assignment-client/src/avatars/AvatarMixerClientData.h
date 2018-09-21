@@ -15,13 +15,14 @@
 #include <algorithm>
 #include <cfloat>
 #include <unordered_map>
-#include <unordered_set>
+#include <vector>
 #include <queue>
 
 #include <QtCore/QJsonObject>
 #include <QtCore/QUrl>
 
 #include <AvatarData.h>
+#include <AssociatedTraitValues.h>
 #include <NodeData.h>
 #include <NumericalConstants.h>
 #include <udt/PacketHeaders.h>
@@ -33,15 +34,18 @@
 const QString OUTBOUND_AVATAR_DATA_STATS_KEY = "outbound_av_data_kbps";
 const QString INBOUND_AVATAR_DATA_STATS_KEY = "inbound_av_data_kbps";
 
+struct SlaveSharedData;
+
 class AvatarMixerClientData : public NodeData {
     Q_OBJECT
 public:
-    AvatarMixerClientData(const QUuid& nodeID = QUuid());
+    AvatarMixerClientData(const QUuid& nodeID, Node::LocalID nodeLocalID);
     virtual ~AvatarMixerClientData() {}
     using HRCTime = p_high_resolution_clock::time_point;
 
     int parseData(ReceivedMessage& message) override;
     AvatarData& getAvatar() { return *_avatar; }
+    const AvatarData& getAvatar() const { return *_avatar; }
     const AvatarData* getConstAvatarData() const { return _avatar.get(); }
     AvatarSharedPointer getAvatarSharedPointer() const { return _avatar; }
 
@@ -54,10 +58,7 @@ public:
     void setLastBroadcastTime(const QUuid& nodeUUID, uint64_t broadcastTime) { _lastBroadcastTimes[nodeUUID] = broadcastTime; }
     Q_INVOKABLE void removeLastBroadcastTime(const QUuid& nodeUUID) { _lastBroadcastTimes.erase(nodeUUID); }
 
-    Q_INVOKABLE void cleanupKilledNode(const QUuid& nodeUUID) {
-        removeLastBroadcastSequenceNumber(nodeUUID);
-        removeLastBroadcastTime(nodeUUID);
-    }
+    Q_INVOKABLE void cleanupKilledNode(const QUuid& nodeUUID, Node::LocalID nodeLocalID);
 
     uint16_t getLastReceivedSequenceNumber() const { return _lastReceivedSequenceNumber; }
 
@@ -65,8 +66,6 @@ public:
     void flagIdentityChange() { _identityChangeTimestamp = usecTimestampNow(); }
     bool getAvatarSessionDisplayNameMustChange() const { return _avatarSessionDisplayNameMustChange; }
     void setAvatarSessionDisplayNameMustChange(bool set = true) { _avatarSessionDisplayNameMustChange = set; }
-    bool getAvatarSkeletonModelUrlMustChange() const { return _avatarSkeletonModelUrlMustChange; }
-    void setAvatarSkeletonModelUrlMustChange(bool set = true) { _avatarSkeletonModelUrlMustChange = set; }
 
     void resetNumAvatarsSentLastFrame() { _numAvatarsSentLastFrame = 0; }
     void incrementNumAvatarsSentLastFrame() { ++_numAvatarsSentLastFrame; }
@@ -92,11 +91,11 @@ public:
     void loadJSONStats(QJsonObject& jsonObject) const;
 
     glm::vec3 getPosition() const { return _avatar ? _avatar->getWorldPosition() : glm::vec3(0); }
-    glm::vec3 getGlobalBoundingBoxCorner() const { return _avatar ? _avatar->getGlobalBoundingBoxCorner() : glm::vec3(0); }
-    bool isRadiusIgnoring(const QUuid& other) const { return _radiusIgnoredOthers.find(other) != _radiusIgnoredOthers.end(); }
-    void addToRadiusIgnoringSet(const QUuid& other) { _radiusIgnoredOthers.insert(other); }
-    void removeFromRadiusIgnoringSet(SharedNodePointer self, const QUuid& other);
+    bool isRadiusIgnoring(const QUuid& other) const;
+    void addToRadiusIgnoringSet(const QUuid& other);
+    void removeFromRadiusIgnoringSet(const QUuid& other);
     void ignoreOther(SharedNodePointer self, SharedNodePointer other);
+    void ignoreOther(const Node* self, const Node* other);
 
     void readViewFrustumPacket(const QByteArray& message);
 
@@ -118,7 +117,26 @@ public:
     QVector<JointData>& getLastOtherAvatarSentJoints(QUuid otherAvatar) { return _lastOtherAvatarSentJoints[otherAvatar]; }
 
     void queuePacket(QSharedPointer<ReceivedMessage> message, SharedNodePointer node);
-    int processPackets(); // returns number of packets processed
+    int processPackets(const SlaveSharedData& slaveSharedData); // returns number of packets processed
+
+    void processSetTraitsMessage(ReceivedMessage& message, const SlaveSharedData& slaveSharedData, Node& sendingNode);
+    void checkSkeletonURLAgainstWhitelist(const SlaveSharedData& slaveSharedData, Node& sendingNode,
+                                          AvatarTraits::TraitVersion traitVersion);
+
+    using TraitsCheckTimestamp = std::chrono::steady_clock::time_point;
+
+    TraitsCheckTimestamp getLastReceivedTraitsChange() const { return _lastReceivedTraitsChange; }
+
+    AvatarTraits::TraitVersions& getLastReceivedTraitVersions() { return _lastReceivedTraitVersions; }
+    const AvatarTraits::TraitVersions& getLastReceivedTraitVersions() const { return _lastReceivedTraitVersions; }
+
+    TraitsCheckTimestamp getLastOtherAvatarTraitsSendPoint(Node::LocalID otherAvatar) const;
+    void setLastOtherAvatarTraitsSendPoint(Node::LocalID otherAvatar, TraitsCheckTimestamp sendPoint)
+        { _lastSentTraitsTimestamps[otherAvatar] = sendPoint; }
+
+    AvatarTraits::TraitVersions& getLastSentTraitVersions(Node::LocalID otherAvatar) { return _sentTraitVersions[otherAvatar]; }
+
+    void resetSentTraitData(Node::LocalID nodeID);
 
 private:
     struct PacketQueue : public std::queue<QSharedPointer<ReceivedMessage>> {
@@ -149,13 +167,19 @@ private:
     int _numOutOfOrderSends = 0;
 
     SimpleMovingAverage _avgOtherAvatarDataRate;
-    std::unordered_set<QUuid> _radiusIgnoredOthers;
+    std::vector<QUuid> _radiusIgnoredOthers;
     ConicalViewFrustums _currentViewFrustums;
 
     int _recentOtherAvatarsInView { 0 };
     int _recentOtherAvatarsOutOfView { 0 };
     QString _baseDisplayName{}; // The santized key used in determinging unique sessionDisplayName, so that we can remove from dictionary.
     bool _requestsDomainListData { false };
+
+    AvatarTraits::TraitVersions _lastReceivedTraitVersions;
+    TraitsCheckTimestamp _lastReceivedTraitsChange;
+
+    std::unordered_map<Node::LocalID, TraitsCheckTimestamp> _lastSentTraitsTimestamps;
+    std::unordered_map<Node::LocalID, AvatarTraits::TraitVersions> _sentTraitVersions;
 };
 
 #endif // hifi_AvatarMixerClientData_h

@@ -1,6 +1,6 @@
 //
 //  ScriptableAvatar.h
-//
+//  assignment-client/src/avatars
 //
 //  Created by Clement on 7/22/14.
 //  Copyright 2014 High Fidelity, Inc.
@@ -123,7 +123,9 @@
 class ScriptableAvatar : public AvatarData, public Dependency {
     Q_OBJECT
 public:
-  
+
+    ScriptableAvatar();
+
     /**jsdoc
      * @function Avatar.startAnimation
      * @param {string} url
@@ -155,9 +157,16 @@ public:
 
     virtual QByteArray toByteArrayStateful(AvatarDataDetail dataDetail, bool dropFaceTracking = false) override;
 
+    void setHasProceduralBlinkFaceMovement(bool hasProceduralBlinkFaceMovement);
+    bool getHasProceduralBlinkFaceMovement() const override { return _headData->getHasProceduralBlinkFaceMovement(); }
+    void setHasProceduralEyeFaceMovement(bool hasProceduralEyeFaceMovement);
+    bool getHasProceduralEyeFaceMovement() const override { return _headData->getHasProceduralEyeFaceMovement(); }
+    void setHasAudioEnabledFaceMovement(bool hasAudioEnabledFaceMovement);
+    bool getHasAudioEnabledFaceMovement() const override { return _headData->getHasAudioEnabledFaceMovement(); }
+
 private slots:
     void update(float deltatime);
-    
+
 private:
     AnimationPointer _animation;
     AnimationDetails _animationDetails;

@@ -17,6 +17,7 @@
 #include <QVariant>
 
 #include <shared/ReadWriteLockable.h>
+#include <TransformNode.h>
 
 enum IntersectionType {
     NONE = 0,
@@ -164,7 +165,7 @@ public:
         Ray = 0,
         Stylus,
         Parabola,
-
+        Collision,
         NUM_PICK_TYPES
     };
     Q_ENUM(PickType)
@@ -212,6 +213,10 @@ public:
     virtual bool isLeftHand() const { return false; }
     virtual bool isRightHand() const { return false; }
     virtual bool isMouse() const { return false; }
+
+    virtual Transform getResultTransform() const = 0;
+
+    std::shared_ptr<TransformNode> parentTransform;
 
 private:
     PickFilter _filter;
