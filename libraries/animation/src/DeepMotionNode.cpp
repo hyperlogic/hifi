@@ -42,9 +42,12 @@ void Free(void* data)
 
 namespace
 {
-    std::string fixed(std::string text, int length = 20)
+
+#ifdef ENABLE_PRINTING
+
+    std::string fixed(std::string text, size_t length = 20)
     {
-        const int max_width = length;
+        const size_t max_width = length;
         std::string part = text.substr(0, max_width);
         while (part.length() < max_width)
         {
@@ -89,6 +92,7 @@ namespace
     {
         return to_string(pose.trans()) + "\t" + to_string(pose.rot()) + "\t" + to_string(pose.scale());
     }
+#endif
 
     glm::vec3 toVec3_noScaling(const avatar::Vector3& avatarVec) {
         glm::vec3 vec;
@@ -99,7 +103,7 @@ namespace
     }
 
     avatar::Vector3 toAvtVec3_noScaling(const glm::vec3& glmVec) {
-        return { glmVec.x, glmVec.y, glmVec.z };
+        return {{glmVec.x, glmVec.y, glmVec.z}};
     }
 
     glm::vec3 toVec3(const avatar::Vector3& avatarVec) {
@@ -121,7 +125,7 @@ namespace
     }
 
     avatar::Quaternion toAvtQuat(const glm::quat& glmQuat) {
-        return { glmQuat.x, glmQuat.y, glmQuat.z, glmQuat.w };
+        return {{glmQuat.x, glmQuat.y, glmQuat.z, glmQuat.w}};
     }
 
     AnimPose toAnimPose(const avatar::Transform& avatarTransform) {
@@ -177,32 +181,32 @@ namespace
     }
 
     std::unordered_map<std::string, avatar::Vector3> linkToFbxJointTransform = {
-        { "root"             , {-0.000359838f , -0.01583385f , -0.005984783f } },
-        { "pelvis_lowerback" , { 0.003543873f , -0.0486927f  , -0.008932948f } },
-        { "lowerback_torso"  , { 0.003712396f , -0.1127622f  ,  0.02840054f  } },
-        { "torso_head"       , { 0.0009440518f, -0.03898144f , -0.0004016161f} },
-        { "head"             , { 0.005072041f , -0.2198207f  , -0.02136278f  } },
-        { "backpack"         , { 0.0f         ,  0.0f        ,  0.0f         } },
-        { "lHip"             , {-0.002366312f ,  0.2312979f  ,  0.01390105f  } },
-        { "lKnee"            , { 0.006621502f ,  0.2065052f  ,  0.04739026f  } },
-        { "lAnkle"           , {-0.01445057f  ,  0.06185609f , -0.01608679f  } },
-        { "lToe"             , {-0.007985473f , -0.0392971f  , -0.01618613f  } },
-        { "rHip"             , { 0.002366304f ,  0.2312979f  ,  0.01390105f  } },
-        { "rKnee"            , {-0.007434346f ,  0.2063918f  ,  0.04195724f  } },
-        { "rAnkle"           , { 0.01106738f  ,  0.06277531f , -0.0280784f   } },
-        { "rToe"             , { 0.007094949f , -0.04029393f , -0.02847863f  } },
-        { "lClav"            , {-0.04634323f  ,  0.01708317f , -0.005042613f } },
-        { "lShoulder"        , {-0.1400821f   ,  0.02479744f , -0.0009180307f} },
-        { "lElbow"           , {-0.1195495f   ,  0.02081084f , -0.01671298f  } },
-        { "lWrist"           , {-0.04874176f  ,  0.008770943f,  0.02434396f  } },
-        { "lFinger01"        , {-0.03893751f  ,  0.01506829f ,  0.04148491f  } },
-        { "lFinger02"        , {-0.02153414f  ,  0.009898186f,  0.04781658f  } },
-        { "rClav"            , { 0.04634323f  ,  0.01708317f , -0.005042613f } },
-        { "rShoulder"        , { 0.1400821f   ,  0.02479744f , -0.0009180307f} },
-        { "rElbow"           , { 0.119549f    ,  0.02081704f , -0.0167146f   } },
-        { "rWrist"           , { 0.04874116f  ,  0.008776665f,  0.02434108f  } },
-        { "rFinger01"        , { 0.03893763f  ,  0.0150733f  ,  0.0414814f   } },
-        { "rFinger02"        , { 0.02153325f  ,  0.009903431f,  0.04781274f  } }
+        { "root"             , {{-0.000359838f , -0.01583385f , -0.005984783f }} },
+        { "pelvis_lowerback" , {{ 0.003543873f , -0.0486927f  , -0.008932948f }} },
+        { "lowerback_torso"  , {{ 0.003712396f , -0.1127622f  ,  0.02840054f  }} },
+        { "torso_head"       , {{ 0.0009440518f, -0.03898144f , -0.0004016161f}} },
+        { "head"             , {{ 0.005072041f , -0.2198207f  , -0.02136278f  }} },
+        { "backpack"         , {{ 0.0f         ,  0.0f        ,  0.0f         }} },
+        { "lHip"             , {{-0.002366312f ,  0.2312979f  ,  0.01390105f  }} },
+        { "lKnee"            , {{ 0.006621502f ,  0.2065052f  ,  0.04739026f  }} },
+        { "lAnkle"           , {{-0.01445057f  ,  0.06185609f , -0.01608679f  }} },
+        { "lToe"             , {{-0.007985473f , -0.0392971f  , -0.01618613f  }} },
+        { "rHip"             , {{ 0.002366304f ,  0.2312979f  ,  0.01390105f  }} },
+        { "rKnee"            , {{-0.007434346f ,  0.2063918f  ,  0.04195724f  }} },
+        { "rAnkle"           , {{ 0.01106738f  ,  0.06277531f , -0.0280784f   }} },
+        { "rToe"             , {{ 0.007094949f , -0.04029393f , -0.02847863f  }} },
+        { "lClav"            , {{-0.04634323f  ,  0.01708317f , -0.005042613f }} },
+        { "lShoulder"        , {{-0.1400821f   ,  0.02479744f , -0.0009180307f}} },
+        { "lElbow"           , {{-0.1195495f   ,  0.02081084f , -0.01671298f  }} },
+        { "lWrist"           , {{-0.04874176f  ,  0.008770943f,  0.02434396f  }} },
+        { "lFinger01"        , {{-0.03893751f  ,  0.01506829f ,  0.04148491f  }} },
+        { "lFinger02"        , {{-0.02153414f  ,  0.009898186f,  0.04781658f  }} },
+        { "rClav"            , {{ 0.04634323f  ,  0.01708317f , -0.005042613f }} },
+        { "rShoulder"        , {{ 0.1400821f   ,  0.02479744f , -0.0009180307f}} },
+        { "rElbow"           , {{ 0.119549f    ,  0.02081704f , -0.0167146f   }} },
+        { "rWrist"           , {{ 0.04874116f  ,  0.008776665f,  0.02434108f  }} },
+        { "rFinger01"        , {{ 0.03893763f  ,  0.0150733f  ,  0.0414814f   }} },
+        { "rFinger02"        , {{ 0.02153325f  ,  0.009903431f,  0.04781274f  }} }
     };
 } // anon
 
@@ -211,24 +215,24 @@ DeepMotionNode::IKTargetVar::IKTargetVar(
     const QString& targetLinkName,
     const QString& positionVar, const QString& rotationVar, 
     bool trackPosition, bool trackRotation, const QString& typeVar) :
+    trackPosition(trackPosition),
+    trackRotation(trackRotation),
     jointName(jointNameIn),
     controllerBoneTargetName(controllerBoneTargetIn),
     targetLinkName(targetLinkName),
     positionVar(positionVar),
     rotationVar(rotationVar),
-    trackPosition(trackPosition),
-    trackRotation(trackRotation),
     typeVar(typeVar) {
 }
 
 DeepMotionNode::IKTargetVar& DeepMotionNode::IKTargetVar::operator=(const IKTargetVar& other) {
+    trackPosition = other.trackPosition;
+    trackRotation = other.trackRotation;
     jointName = other.jointName;
     controllerBoneTargetName = other.controllerBoneTargetName;
     targetLinkName = other.targetLinkName;
     positionVar = other.positionVar;
     rotationVar = other.rotationVar;
-    trackPosition = other.trackPosition;
-    trackRotation = other.trackRotation;
     typeVar = other.typeVar;
 
     return *this;
@@ -296,7 +300,7 @@ void DeepMotionNode::characterLoaded(const QByteArray& data)
 
             _characterLinks.reserve(characterLinks.size());
             _linkNameToIndex.reserve(characterLinks.size());
-            for (int linkIndex = 0; linkIndex < characterLinks.size(); ++linkIndex) {
+            for (auto linkIndex = 0u; linkIndex < characterLinks.size(); ++linkIndex) {
                 auto& link = characterLinks[linkIndex];
                 std::string linkName = _characterHandle->GetLinkName(link);
                 _characterLinks.emplace_back(characterLinks[linkIndex], linkName, linkToFbxJointTransform.at(linkName));
@@ -325,7 +329,7 @@ void DeepMotionNode::loadPoses(const AnimPoseVec& poses) {
         _relativePoses[hipsIndex].rot() = Quaternions::IDENTITY;
 
         // cache target joints indices
-        for (int linkIndex = 0; linkIndex < _characterLinks.size(); ++linkIndex) {
+        for (auto linkIndex = 0u; linkIndex < _characterLinks.size(); ++linkIndex) {
             _characterLinks[linkIndex].targetJointIndex = getTargetJointIndex(linkIndex);
             std::string boneName = _skeleton->getJointName(_characterLinks[linkIndex].targetJointIndex).toStdString();
             getAdditionalTargetJointIndices(boneName, _characterLinks[linkIndex].additionalTargetJointsIndices);
@@ -414,17 +418,21 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
 
 void DeepMotionNode::overridePhysCharacterPositionAndOrientation(float floorDistance, glm::vec3& position, glm::quat& rotation) {
     static auto dmToHfCharacterShift = Vectors::MAX;
+    const float maxFloorDistance = 1000.0f; // for couple first calls the floorDistance have a very high value, than it jumps to 1.5
 
     if (!_characterHandle || _relativePoses.empty())
         return;
 
-    auto dmCharacterPos = toVec3(_characterHandle->GetTransform().m_Position) / METERS_TO_CENTIMETERS;
+    if (floorDistance > maxFloorDistance)
+        return;
+
+    auto dmCharacterPos = toVec3_noScaling(_characterHandle->GetTransform().m_Position) / AVATAR_SCALE;
     dmCharacterPos.x *= -1.0f;
     dmCharacterPos.z *= -1.0f;
-    auto& dmGroundPos = toVec3(_groundHandle->GetTransform().m_Position) / METERS_TO_CENTIMETERS;
+    auto dmGroundPos = toVec3_noScaling(_groundHandle->GetTransform().m_Position) / AVATAR_SCALE;
 
     const float dmRootToToesDistance = 1.3551f;
-    auto dmGroundDistance = (dmCharacterPos - dmGroundPos).y - dmRootToToesDistance;
+    const auto dmGroundDistance = (dmCharacterPos - dmGroundPos).y - dmRootToToesDistance;
 
     if (dmToHfCharacterShift == Vectors::MAX) {
 
@@ -439,12 +447,6 @@ void DeepMotionNode::overridePhysCharacterPositionAndOrientation(float floorDist
 #else
     position.y = (dmCharacterPos + dmToHfCharacterShift).y;
 #endif
-
-    //const vec3 appliedPosition = position;
-    //const vec3 dmCharPos = dmCharacterPos;
-    //qCCritical(animation) << "GK_GK dmCharacterPos: " << to_string(dmCharPos).c_str();
-    //qCCritical(animation) << "GK_GK dmToHfCharacterShift: " << to_string(dmToHfCharacterShift).c_str();
-    //qCCritical(animation) << "GK_GK position: " << to_string(appliedPosition).c_str();
 }
 
 namespace {
@@ -504,7 +506,7 @@ void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVarian
                 const auto& trackerRelToRootTarget = rootTargetJointPose.inverse() * unskinnedTrackerPose;
                 const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
 
-                auto& trackerPoseInDmCharSpace = dmCharTransform * trackerRelToRootTarget;
+                const auto& trackerPoseInDmCharSpace = dmCharTransform * trackerRelToRootTarget;
                 targetVar.transform = toAvtTransform(trackerPoseInDmCharSpace);
 
                 // debug render ik targets
@@ -567,7 +569,6 @@ void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVarian
 
 void DeepMotionNode::updateRelativePosesFromCharacterLinks() {
     for (int linkIndex = 0; linkIndex < (int)_characterLinks.size(); ++linkIndex) {
-        auto link = _characterLinks[linkIndex].linkHandle;
         int jointIndex = _characterLinks[linkIndex].targetJointIndex;
 
         if (jointIndex < 0)
@@ -700,7 +701,7 @@ void DeepMotionNode::debugDrawRelativePoses(const AnimContext& context) const {
             DebugDraw::getInstance().drawRay(pos, parentPos, GRAY);
         }
 
-        for (int linkIndex = 0; linkIndex < _characterLinks.size(); ++linkIndex)
+        for (auto linkIndex = 0u; linkIndex < _characterLinks.size(); ++linkIndex)
         {
             if (_characterLinks[linkIndex].targetJointIndex == jointIndex) {
                 auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_characterLinks[linkIndex].linkToFbxJointTransform));
@@ -886,7 +887,7 @@ void DeepMotionNode::drawCollider(const AnimContext& context, AnimPose transform
 
 void DeepMotionNode::debugDrawCharacter(const AnimContext& context) const {
 
-    for (int linkIndex = 0; linkIndex < _characterLinks.size(); ++linkIndex) {
+    for (auto linkIndex = 0u; linkIndex < _characterLinks.size(); ++linkIndex) {
         debugDrawLink(context, linkIndex);
     }
 }
