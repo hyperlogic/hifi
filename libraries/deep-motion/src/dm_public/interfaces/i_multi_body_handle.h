@@ -42,5 +42,10 @@ namespace avatar
 
         virtual bool GetIsKinematic() const = 0;
         virtual void SetIsKinematic(bool flag) = 0;
+
+        virtual int32_t GetBaseCollisionLayerID() const = 0;
+        virtual void SetBaseCollisionLayerID(int32_t) = 0;
+        virtual int32_t GetLinkCollisionLayerID(const LinkHandle&) const = 0;
+        virtual void SetLinkCollisionLayerID(const LinkHandle&, int32_t) = 0;
     };
 }

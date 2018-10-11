@@ -25,7 +25,7 @@ namespace avatar
     struct BoxColliderDefinition : ColliderDefinition
     {
         virtual ColliderType GetColliderType() const override { return ColliderType::BOX; }
-        Vector3 m_HalfSize = { 1.0f, 1.0f, 1.0f };
+        Vector3 m_HalfSize = {{ 1.0f, 1.0f, 1.0f }};
     };
 
     struct CapsuleColliderDefinition : ColliderDefinition
@@ -50,8 +50,13 @@ namespace avatar
 
     struct CompoundColliderDefinition : ColliderDefinition
     {
+        struct ChildCollider
+        {
+            Transform m_Transform;
+            std::shared_ptr<ColliderDefinition> m_Collider;
+        };
         virtual ColliderType GetColliderType() const override { return ColliderType::COMPOUND; }
-        std::vector<std::pair<Transform, std::unique_ptr<ColliderDefinition>>> m_ChildColliders;
+        std::vector<ChildCollider> m_ChildColliders;
     };
 
     inline ColliderDefinition::~ColliderDefinition() {}

@@ -15,6 +15,7 @@ namespace avatar
 
         virtual size_t Size() const override { return m_Vec.size(); }
         virtual void Reserve(size_t size) override { m_Vec.reserve(size); }
+        using IArrayInterface<T, std::is_copy_constructible<T>::value>::PushBack;
         virtual void PushBack(T&& value) override { m_Vec.push_back(std::move(value)); }
         virtual const T& operator[](size_t index) const override { return m_Vec[index]; }
         virtual T& operator[](size_t index) override { return m_Vec[index]; }
@@ -29,6 +30,7 @@ namespace avatar
     {
     public:
         explicit STDVectorArrayInterface(std::vector<T>& vec) : STDVectorArrayInterface<T, false>(vec) {}
+        using STDVectorArrayInterface<T, false>::PushBack;
         virtual void PushBack(const T& value) override { this->m_Vec.push_back(value); }
     };
 }

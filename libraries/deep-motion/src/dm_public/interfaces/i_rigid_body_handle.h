@@ -12,8 +12,11 @@ namespace avatar
     {
     public:
         virtual Transform GetTransform() const = 0;
+        virtual void SetTransform(const Transform&) = 0;
         virtual IColliderHandle* GetCollider() = 0;
         virtual bool GetIsKinematic() const = 0;
         virtual void SetIsKinematic(bool) = 0;
+        virtual int32_t GetCollisionLayerID() const = 0;
+        virtual void SetCollisionLayerID(int32_t) = 0;
     };
 }

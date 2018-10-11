@@ -61,6 +61,10 @@ namespace avatar
         virtual float GetMaxLimbTrackingForce() const = 0;
         virtual void SetAntiLegCrossing(bool) = 0;
         virtual bool GetAntiLegCrossing() = 0;
+
+        virtual bool SetDesiredHeading(float) = 0;
+        virtual float GetHeadingAngle() const = 0;
+
     };
 
     class IDogControllerHandle : public IControllerHandle

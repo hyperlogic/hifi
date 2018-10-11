@@ -14,9 +14,9 @@ namespace avatar
             Minimum,
             Maximum
         };
-        std::unique_ptr<ColliderDefinition> m_Collider;
+        std::shared_ptr<ColliderDefinition> m_Collider;
         float m_Mass = 0;
-        Vector3 m_Moi = { 0,0,0 };
+        Vector3 m_Moi = {{ 0,0,0 }};
         Transform m_Transform;
         float m_Friction = 1.0f;
         CombineMode m_FrictionCombineMode = CombineMode::Multiply;
