@@ -16,6 +16,12 @@
 
 #include "AnimationLogging.h"
 
+// AJT: hard code the reorient offset for the head.
+// This particular offset only works for the following avatar, that has a -x forward head.
+// https://s3.amazonaws.com/hifi-public/tony/steel-debug-dude/steel-debug-dude-head-x.fst
+// eventually these offsets should come from the .fst file
+static const AnimPose HEAD_REORIENT_POSE(glm::quat(0.707107f, 0.0f, -0.707107f, 0.0f), glm::vec3());
+
 AnimSkeleton::AnimSkeleton(const FBXGeometry& fbxGeometry) {
     // convert to std::vector of joints
     std::vector<FBXJoint> joints;
@@ -24,6 +30,24 @@ AnimSkeleton::AnimSkeleton(const FBXGeometry& fbxGeometry) {
         joints.push_back(joint);
     }
     buildSkeletonFromJoints(joints);
+
+    // AJT: Proof of concept only, this mutates the FBXGeometry to munge the bind pose.
+    // The FBXGeometry structure should be const, because it can be shared between avatars/entities.
+    // DO NOT SHIP THIS.
+    for (int i = 0; i < (int)fbxGeometry.meshes.size(); i++) {
+        const FBXMesh& mesh = fbxGeometry.meshes.at(i);
+        for (int j = 0; j < mesh.clusters.size(); j++) {
+            // cast into a non-const reference, so we can mutate the FBXCluster
+            FBXCluster& cluster = const_cast<FBXCluster&>(mesh.clusters.at(j));
+            if (cluster.jointIndex == nameToJointIndex("Head")) {
+                // AJT: mutate bind pose! this allows us to oreint the skeleton back into the authored orientaiton before
+                // rendering, with no runtime overhead.
+                cluster.inverseBindMatrix = (glm::mat4)HEAD_REORIENT_POSE.inverse() * cluster.inverseBindMatrix;
+                cluster.inverseBindTransform.evalFromRawMatrix(cluster.inverseBindMatrix);
+            }
+        }
+    }
+
 }
 
 AnimSkeleton::AnimSkeleton(const std::vector<FBXJoint>& joints) {
@@ -189,8 +213,21 @@ void AnimSkeleton::buildSkeletonFromJoints(const std::vector<FBXJoint>& joints) 
         // build relative and absolute default poses
         glm::mat4 relDefaultMat = glm::translate(_joints[i].translation) * preRotationTransform * glm::mat4_cast(_joints[i].rotation) * postRotationTransform;
         AnimPose relDefaultPose(relDefaultMat);
-        _relativeDefaultPoses.push_back(relDefaultPose);
         int parentIndex = getParentIndex(i);
+
+        // AJT: Apply skeleton reorient offset to relative pose
+        if (_joints[i].name == "Head") {
+            relDefaultPose = relDefaultPose * HEAD_REORIENT_POSE;
+        }
+
+        // AJT: Because translation is in the parents frame, we have to account for the parents reorient offset.
+        if (parentIndex >= 0 && _joints[parentIndex].name == "Head") {
+            // AJT: rotate the translation into the parents post-oriented frame.
+            relDefaultPose = HEAD_REORIENT_POSE.inverse() * AnimPose(glm::quat(), relDefaultPose.trans()) * HEAD_REORIENT_POSE * AnimPose(relDefaultPose.rot(), glm::vec3());
+        }
+
+        _relativeDefaultPoses.push_back(relDefaultPose);
+
         if (parentIndex >= 0) {
             _absoluteDefaultPoses.push_back(_absoluteDefaultPoses[parentIndex] * relDefaultPose);
         } else {
