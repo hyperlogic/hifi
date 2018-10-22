@@ -14,12 +14,10 @@
 #include <map>
 #include <unordered_map>
 
-#define APPLY_X_Z_MOVEMENT_TO_CHARACTER
 #define USE_FIX_FOR_TRACKER_ROT
 //#define ENABLE_PRINTING
-//#define DLL_WITH_DEBUG_VISU;
+//#define DLL_WITH_DEBUG_VISU
 
-const float METERS_TO_CENTIMETERS = 100.0f;
 const float AVATAR_SCALE = 1.4f;
 
 class RotationConstraint;
@@ -68,7 +66,7 @@ protected:
     // for AnimDebugDraw rendering
     virtual const AnimPoseVec& getPosesInternal() const override { return _relativePoses; }
 
-    AnimPose getLinkTransformInRigSpace(int linkIndex) const;
+    AnimPose getLinkTransformInGeomSpace(int linkIndex) const;
     AnimPose getFbxJointPose(int linkIndex) const;
     int getTargetJointIndex(int linkIndex) const;
     void getAdditionalTargetJointIndices(std::string targetBoneName, std::vector<int>& additionalTargetJointIndices) const;
@@ -79,9 +77,9 @@ protected:
     void debugDrawGround(const AnimContext& context) const;
 
     void debugDrawLink(const AnimContext& context, int linkIndex) const;
-    void drawCollider(const AnimContext& context, AnimPose transform, avatar::IColliderHandle& collider, glm::vec4 color, const mat4& geomToWorld, bool drawDiagonals = false) const;
-    void drawCompoundCollider(const AnimContext& context, AnimPose transform, avatar::ICompoundColliderHandle& collider, glm::vec4 color, const mat4& geomToWorld, bool drawDiagonals = false) const;
-    void drawBoxCollider(const AnimContext& context, AnimPose transform, avatar::IBoxColliderHandle& collider, glm::vec4 color, const mat4& geomToWorld, bool drawDiagonals = false) const;
+    void drawCollider(const AnimContext& context, AnimPose transform, avatar::IColliderHandle& collider, glm::vec4 color, bool drawDiagonals = false) const;
+    void drawCompoundCollider(const AnimContext& context, AnimPose transform, avatar::ICompoundColliderHandle& collider, glm::vec4 color, bool drawDiagonals = false) const;
+    void drawBoxCollider(const AnimContext& context, AnimPose transform, avatar::IBoxColliderHandle& collider, glm::vec4 color, bool drawDiagonals = false) const;
 
     void drawDebug(const AnimContext& context);
 
@@ -134,6 +132,7 @@ protected:
         QString typeVar;
         int jointIndex = -1; // cached joint index
 #ifdef DLL_WITH_DEBUG_VISU
+    public:
         avatar::IRigidBodyHandle* debugBody = nullptr;
 #endif
     };
@@ -155,6 +154,11 @@ protected:
     avatar::IHumanoidControllerHandle* _characterController = nullptr;
 
     avatar::IRigidBodyHandle* _groundHandle = nullptr;
+
+    mat4 _rigToWorldMatrix = Matrices::IDENTITY;
+    mat4 _geomToRigMatrix = Matrices::IDENTITY;
+
+    float _dbgAngle = 1.0f;
 };
 
 #endif // hifi_DeepMotionNode_h
