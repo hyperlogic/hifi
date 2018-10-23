@@ -14,9 +14,8 @@
 #include <map>
 #include <unordered_map>
 
-#define USE_FIX_FOR_TRACKER_ROT
-//#define ENABLE_PRINTING
-//#define DLL_WITH_DEBUG_VISU
+#define ENABLE_PRINTING
+#define DLL_WITH_DEBUG_VISU
 
 const float AVATAR_SCALE = 1.4f;
 
@@ -66,8 +65,10 @@ protected:
     // for AnimDebugDraw rendering
     virtual const AnimPoseVec& getPosesInternal() const override { return _relativePoses; }
 
+    AnimPose getLinkTransformInHFWorldSpace(int linkIndex) const;
     AnimPose getLinkTransformInGeomSpace(int linkIndex) const;
-    AnimPose getFbxJointPose(int linkIndex) const;
+
+    AnimPose getSkinnedLinkTransformInHFWorldSpace(int linkIndex) const;
     int getTargetJointIndex(int linkIndex) const;
     void getAdditionalTargetJointIndices(std::string targetBoneName, std::vector<int>& additionalTargetJointIndices) const;
     AnimPose getTargetJointAbsPose(int linkIndex) const;

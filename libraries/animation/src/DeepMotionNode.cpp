@@ -486,23 +486,15 @@ void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVarian
                 targetVar.setPosition(animVars.lookupRigToGeometry(targetVar.positionVar, absPose.trans()));
                 targetVar.setRotation(animVars.lookupRigToGeometry(targetVar.rotationVar, absPose.rot()));
 
-#ifdef USE_FIX_FOR_TRACKER_ROT
-                const auto& trackerRot = targetVar.pose.rot();
-                const quat& trackerRotFix = { -trackerRot.w, -trackerRot.x, -trackerRot.y, -trackerRot.z };
-                targetVar.pose.rot() = trackerRotFix;
-#endif
+                const auto trackerInGeomSpace = targetVar.pose;
+                const auto trackerInHFWorldSpace = AnimPose(context.getRigToWorldMatrix() * context.getGeometryToRigMatrix()) * trackerInGeomSpace;
 
-                int rootTargetJointIndex = _characterLinks[ROOT_LINK_INDEX].targetJointIndex;
-                const auto& rootTargetJointPose = _skeleton->getAbsolutePose(rootTargetJointIndex, _relativePoses);
+                const auto trackerInDMWorldSpace = AnimPose(DM_TO_HF_MATRIX).inverse() * trackerInHFWorldSpace;
 
                 auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_characterLinks[linkIndex].linkToFbxJointTransform));
-                auto unskinnedTrackerPose = targetVar.pose * linkToFbxJoint.inverse();
+                const auto unskinnedTracker = linkToFbxJoint.inverse() * trackerInDMWorldSpace;
 
-                const auto& trackerRelToRootTarget = rootTargetJointPose.inverse() * unskinnedTrackerPose;
-                const auto& dmCharTransform = toAnimPose(_characterHandle->GetTransform());
-
-                const auto& trackerPoseInDmCharSpace = dmCharTransform * trackerRelToRootTarget;
-                targetVar.transform = toAvtTransform(trackerPoseInDmCharSpace);
+                targetVar.transform = toAvtTransform(unskinnedTracker);
 
                 // debug render ik targets
                 if (context.getEnableDebugDrawIKTargets()) {
@@ -510,7 +502,7 @@ void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVarian
 #ifdef DLL_WITH_DEBUG_VISU
                     if (!targetVar.debugBody) {
                         auto colliderDefinition = new avatar::BoxColliderDefinition();
-                        colliderDefinition->m_HalfSize = avatar::Vector3 {0.1f, 0.1f, 0.1f};
+                        colliderDefinition->m_HalfSize = avatar::Vector3 {0.5f, 0.5f, 0.5f};
                         avatar::RigidBodyDefinition objDefinition;
                         objDefinition.m_Collidable = false;
                         objDefinition.m_Transform = targetVar.transform;
@@ -537,7 +529,7 @@ void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVarian
                 _characterController->SetLimbPositionTrackingEnabled(boneTarget, targetVar.trackPosition);
                 if (targetVar.trackPosition)
                     _characterController->SetTrackingPosition(boneTarget, trackerTransform.m_Position);
-
+                
                 if (boneTarget != avatar::IHumanoidControllerHandle::BoneTarget::Root) {
                     _characterController->SetLimbOrientationTrackingEnabled(boneTarget, targetVar.trackRotation);
                     if (targetVar.trackRotation)
@@ -593,20 +585,27 @@ void DeepMotionNode::updateRelativePoseFromCharacterLink(const AnimPose& linkPos
     }
 }
 
-AnimPose DeepMotionNode::getLinkTransformInGeomSpace(int linkIndex) const
+AnimPose DeepMotionNode::getLinkTransformInHFWorldSpace(int linkIndex) const
 {
     auto& linkInfo = _characterLinks[linkIndex];
-    mat4 geomToWorldMatrix = _rigToWorldMatrix * _geomToRigMatrix;
-    mat4 linkMatrix = DM_TO_HF_MATRIX * inverse(geomToWorldMatrix);
-    return AnimPose(linkMatrix) * toAnimPose(_characterHandle->GetLinkTransform(linkInfo.linkHandle));
+    return AnimPose(DM_TO_HF_MATRIX) * toAnimPose(_characterHandle->GetLinkTransform(linkInfo.linkHandle));
 }
 
-AnimPose DeepMotionNode::getFbxJointPose(int linkIndex) const {
-    const auto& linkPose = getLinkTransformInGeomSpace(linkIndex);
+AnimPose DeepMotionNode::getLinkTransformInGeomSpace(int linkIndex) const
+{
+    const auto linkInWorld = getLinkTransformInHFWorldSpace(linkIndex);
+    return AnimPose(inverse(_rigToWorldMatrix * _geomToRigMatrix)) * linkInWorld;
+}
 
-    auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_characterLinks[linkIndex].linkToFbxJointTransform));
-        // link --> fbxJoint, fbxJoint relative to link
-    return linkToFbxJoint * linkPose;
+AnimPose DeepMotionNode::getSkinnedLinkTransformInHFWorldSpace(int linkIndex) const {
+
+    auto& linkInfo = _characterLinks[linkIndex];
+    const auto linkTransform = toAnimPose(_characterHandle->GetLinkTransform(linkInfo.linkHandle));
+    auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(linkInfo.linkToFbxJointTransform));
+    // link --> fbxJoint, fbxJoint relative to link
+    const auto skinnedLink = linkTransform * linkToFbxJoint;
+
+    return AnimPose(DM_TO_HF_MATRIX) * skinnedLink;
 }
 
 int DeepMotionNode::getTargetJointIndex(int linkIndex) const {
@@ -682,24 +681,6 @@ void DeepMotionNode::debugDrawRelativePoses(const AnimContext& context) const {
         if (parentIndex != -1) {
             glm::vec3 parentPos = transformPoint(geomToWorldMatrix, poses[parentIndex].trans());
             DebugDraw::getInstance().drawRay(pos, parentPos, GRAY);
-        }
-
-        for (auto linkIndex = 0u; linkIndex < _characterLinks.size(); ++linkIndex)
-        {
-            if (_characterLinks[linkIndex].targetJointIndex == jointIndex) {
-                auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_characterLinks[linkIndex].linkToFbxJointTransform));
-                auto unskinnedLinkPose = pose * linkToFbxJoint.inverse();
-        
-                glm::vec3 xAxis = transformVectorFast(geomToWorldMatrix, unskinnedLinkPose.rot() * Vectors::UNIT_X);
-                glm::vec3 yAxis = transformVectorFast(geomToWorldMatrix, unskinnedLinkPose.rot() * Vectors::UNIT_Y);
-                glm::vec3 zAxis = transformVectorFast(geomToWorldMatrix, unskinnedLinkPose.rot() * Vectors::UNIT_Z);
-                glm::vec3 vpos = transformPoint(geomToWorldMatrix, unskinnedLinkPose.trans());
-                DebugDraw::getInstance().drawRay(vpos, vpos + 2.0f * xAxis, vec4(0.8f, 0.0f, 0.0f, 1.0f));
-                DebugDraw::getInstance().drawRay(vpos, vpos + 2.0f * yAxis, vec4(0.0f, 0.8f, 0.0f, 1.0f));
-                DebugDraw::getInstance().drawRay(vpos, vpos + 2.0f * zAxis, vec4(0.0f, 0.0f, 0.8f, 1.0f));
-        
-                DebugDraw::getInstance().drawRay(pos, vpos, vec4(1.0f, 1.0f, 0.0f, 1.0f));
-            }
         }
     }
 }
@@ -797,29 +778,26 @@ void DeepMotionNode::debugDrawLink(const AnimContext& context, int linkIndex) co
     }
 
     // draw fbx joint position
-    if (context.getEnableDebugDrawIKTargets())
     {
-        auto linkToFbxJoint = AnimPose(Quaternions::IDENTITY, toVec3(_characterLinks[linkIndex].linkToFbxJointTransform));
-        const auto& fbxJointPose = linkToFbxJoint * linkTransform;
-
-        vec3 fbxJointPos = transformPoint(DM_TO_HF_MATRIX, fbxJointPose.trans());
-        quat fbxJointRot = fbxJointPose.rot();
+        const auto skinnedLinkInWorld = getSkinnedLinkTransformInHFWorldSpace(linkIndex);
     
-        vec3 fbx_xAxis = transformVectorFast(DM_TO_HF_MATRIX, fbxJointRot * -Vectors::UNIT_X);
-        vec3 fbx_yAxis = transformVectorFast(DM_TO_HF_MATRIX, fbxJointRot * -Vectors::UNIT_Y);
-        vec3 fbx_zAxis = transformVectorFast(DM_TO_HF_MATRIX, fbxJointRot * -Vectors::UNIT_Z);
-        DebugDraw::getInstance().drawRay(fbxJointPos, fbxJointPos + AXIS_LENGTH * 0.3f * fbx_xAxis, vec4(0.4f, 0.0f, 0.0f, 0.5f));
-        DebugDraw::getInstance().drawRay(fbxJointPos, fbxJointPos + AXIS_LENGTH * 0.3f * fbx_yAxis, vec4(0.0f, 0.4f, 0.0f, 0.5f));
-        DebugDraw::getInstance().drawRay(fbxJointPos, fbxJointPos + AXIS_LENGTH * 0.3f * fbx_zAxis, vec4(0.0f, 0.0f, 0.4f, 0.5f));
+        vec3 fbx_xAxis = skinnedLinkInWorld.rot() * -Vectors::UNIT_X;
+        vec3 fbx_yAxis = skinnedLinkInWorld.rot() * -Vectors::UNIT_Y;
+        vec3 fbx_zAxis = skinnedLinkInWorld.rot() * -Vectors::UNIT_Z;
+        const vec3 fbx_pos = skinnedLinkInWorld.trans();
+        DebugDraw::getInstance().drawRay(fbx_pos, fbx_pos + AXIS_LENGTH * 0.6f * fbx_xAxis, vec4(0.4f, 0.0f, 0.0f, 0.5f));
+        DebugDraw::getInstance().drawRay(fbx_pos, fbx_pos + AXIS_LENGTH * 0.6f * fbx_yAxis, vec4(0.0f, 0.4f, 0.0f, 0.5f));
+        DebugDraw::getInstance().drawRay(fbx_pos, fbx_pos + AXIS_LENGTH * 0.6f * fbx_zAxis, vec4(0.0f, 0.0f, 0.4f, 0.5f));
     
         // draw line from link to joint
         const mat4 geomToWorldMatrix = context.getRigToWorldMatrix() * context.getGeometryToRigMatrix();
         glm::vec3 targetJointpos = transformPoint(geomToWorldMatrix, targetJointPose.trans());
-        DebugDraw::getInstance().drawRay(fbxJointPos, targetJointpos, ORANGE);
+        DebugDraw::getInstance().drawRay(fbx_pos, targetJointpos, ORANGE);
+
+        DebugDraw::getInstance().drawRay(fbx_pos, transformPoint(DM_TO_HF_MATRIX, linkTransform.trans()), ORANGE);
     }
 
     // draw colliders
-    if (context.getEnableDebugDrawIKTargets())
     {
         static const std::map<std::string, glm::vec4> linkColliderColor = {
             { "root"             , glm::vec4(0.0f, 0.0f, 0.5f, 1.0f) },
