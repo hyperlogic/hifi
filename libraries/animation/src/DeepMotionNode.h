@@ -8,13 +8,13 @@
 #include "dm_public/i_array_interface.h"
 #include "dm_public/interfaces/i_scene_object_handle.h"
 #include "dm_public/interfaces/i_scene_handle.h"
-#include "dm_public/interfaces/i_multi_body_handle.h"
+#include "dm_public/interfaces/i_articulation_handle.h"
 #include "dm_public/interfaces/i_controller_handle.h"
 
 #include <map>
 #include <unordered_map>
 
-//#define ENABLE_PRINTING
+#define ENABLE_PRINTING
 //#define DLL_WITH_DEBUG_VISU
 
 const float AVATAR_SCALE = 1.4f;
@@ -59,8 +59,8 @@ public:
     void overridePhysCharacterPositionAndOrientation(float floorDistance, glm::vec3& position, glm::quat& rotation);
 
 protected:
-
     void computeTargets(const AnimContext& context, const AnimVariantMap& animVars);
+    void processMovement(const AnimVariantMap& animVars, float dt);
     void updateRelativePosesFromCharacterLinks();
     void updateRelativePoseFromCharacterLink(const AnimPose& linkPose, int jointIndex);
     // for AnimDebugDraw rendering
@@ -88,11 +88,11 @@ protected:
     struct LinkInfo {
         int targetJointIndex;
         std::vector<int> additionalTargetJointsIndices;
-        avatar::IMultiBodyHandle::LinkHandle linkHandle;
+        avatar::IArticulation::LinkHandle linkHandle;
         std::string linkName;
         avatar::Vector3 linkToFbxJointTransform;
 
-        LinkInfo(avatar::IMultiBodyHandle::LinkHandle& link, std::string& name, avatar::Vector3& linkToFbx)
+        LinkInfo(avatar::IArticulation::LinkHandle& link, std::string& name, avatar::Vector3& linkToFbx)
             : linkHandle(link), linkName(name), linkToFbxJointTransform(linkToFbx)
         {}
     };
@@ -149,7 +149,7 @@ protected:
 
     avatar::IEngineInterface& _engineInterface;
     std::shared_ptr<avatar::ISceneHandle> _sceneHandle = nullptr;
-    avatar::IMultiBodyHandle* _characterHandle = nullptr;
+    avatar::IArticulation* _characterHandle = nullptr;
     std::vector<LinkInfo> _characterLinks;
     std::unordered_map<std::string, int> _linkNameToIndex;
     avatar::IHumanoidControllerHandle* _characterController = nullptr;
@@ -158,6 +158,8 @@ protected:
 
     glm::mat4 _rigToWorldMatrix = Matrices::IDENTITY;
     glm::mat4 _geomToRigMatrix = Matrices::IDENTITY;
+
+    bool _isAnyTrackerActive = false;
 };
 
 #endif // hifi_DeepMotionNode_h

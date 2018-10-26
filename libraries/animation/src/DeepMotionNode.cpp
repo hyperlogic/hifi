@@ -30,6 +30,13 @@
 static const float CHARACTER_LOAD_PRIORITY = 10.0f;
 static const int ROOT_LINK_INDEX = 0;
 
+static const float MAX_FORWARD_SPEED =  1.0f;
+static const float MIN_FORWARD_SPEED = -1.0f;
+static const float MAX_FORWARD_ACCELERATION = 1.0f;
+static const float MAX_LATERAL_SPEED =  1.0f;
+static const float MIN_LATERAL_SPEED = -1.0f;
+static const float MAX_LATERAL_ACCELERATION = 0.3f;
+
 static const glm::mat4 DM_TO_HF_MATRIX = createMatFromQuatAndPos(Quaternions::Y_180, {0.0f, -11.48f, 0.0f});
 
 void* Allocate(size_t dataSize)
@@ -293,11 +300,11 @@ void DeepMotionNode::characterLoaded(const QByteArray& data) {
     _sceneHandle->GetSceneObjects(sceneObjectsInterface);
 
     for(auto& sceneObject : sceneObjects) {
-        if (sceneObject->GetType() == avatar::ISceneObjectHandle::ObjectType::MultiBody) {
-            _characterHandle = static_cast<avatar::IMultiBodyHandle*>(sceneObject);
+        if (sceneObject->GetType() == avatar::ISceneObjectHandle::ObjectType::Articulation) {
+            _characterHandle = static_cast<avatar::IArticulation*>(sceneObject);
 
-            std::vector<avatar::IMultiBodyHandle::LinkHandle> characterLinks;
-            avatar::STDVectorArrayInterface<avatar::IMultiBodyHandle::LinkHandle> linksInterface(characterLinks);
+            std::vector<avatar::IArticulation::LinkHandle> characterLinks;
+            avatar::STDVectorArrayInterface<avatar::IArticulation::LinkHandle> linksInterface(characterLinks);
             _characterHandle->GetLinkHandles(linksInterface);
 
             _characterLinks.reserve(characterLinks.size());
@@ -410,6 +417,8 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
 
     computeTargets(context, animVars);
 
+    processMovement(animVars, dt);
+
     _engineInterface.TickGeneralPurposeRuntime(dt);
 
     updateRelativePosesFromCharacterLinks();
@@ -423,21 +432,27 @@ void DeepMotionNode::overridePhysCharacterPositionAndOrientation(float floorDist
     static auto dmToHfCharacterShift = Vectors::MAX;
     const float maxFloorDistance = 1000.0f; // for couple first calls the floorDistance have a very high value, than it jumps to 1.5
 
-    if (!_characterHandle || _relativePoses.empty())
+    if (!_characterHandle || _relativePoses.empty() || !_characterController)
         return;
 
     if (floorDistance > maxFloorDistance)
         return;
 
-    const auto dmCharacterPos = transformPoint(DM_TO_HF_MATRIX, toAnimPose(_characterHandle->GetTransform()).trans());
-    float rotationAngle = glm::angle(rotation);
-    const glm::vec3 rotationAxis = glm::axis(rotation);
-    if (rotationAxis.y < 0.0f)
-        rotationAngle = 2.0f * PI - rotationAngle;
+    const auto dmCharacterTransform = getLinkTransformInHFWorldSpace(ROOT_LINK_INDEX);
+    //const auto dmCharacterPos = transformPoint(DM_TO_HF_MATRIX, toAnimPose(_characterHandle->GetTransform()).trans());
+    position = dmCharacterTransform.trans();
 
-    position = dmCharacterPos;
-    if (_characterController)
+    if (_isAnyTrackerActive) {
+        //const auto eulerAngles = glm::eulerAngles(dmCharacterTransform.rot());
+        float headingAngle = _characterController->GetHeadingAngle();
+        rotation = glm::angleAxis(headingAngle, Vectors::UNIT_Y);
+    } else {
+        float rotationAngle = glm::angle(rotation);
+        const glm::vec3 rotationAxis = glm::axis(rotation);
+        if (rotationAxis.y < 0.0f)
+            rotationAngle = 2.0f * PI - rotationAngle;
         _characterController->SetDesiredHeading(rotationAngle);
+    }
 }
 
 namespace {
@@ -453,6 +468,8 @@ namespace {
 
 void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVariantMap& animVars) {
     const bool debugDrawIKTargetsDisabledInLastFrame = wasDebugDrawIKTargetsDisabledInLastFrame(context);
+
+    _isAnyTrackerActive = false;
 
     for (auto& targetVar : _targetVarVec) {
         // update targetVar jointIndex cache
@@ -520,13 +537,17 @@ void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVarian
                 const auto& trackerTransform = targetVar.transform;
 
                 _characterController->SetLimbPositionTrackingEnabled(boneTarget, targetVar.trackPosition);
-                if (targetVar.trackPosition)
+                if (targetVar.trackPosition) {
                     _characterController->SetTrackingPosition(boneTarget, trackerTransform.m_Position);
+                    _isAnyTrackerActive = true;
+                }
                 
                 if (boneTarget != avatar::IHumanoidControllerHandle::BoneTarget::Root) {
                     _characterController->SetLimbOrientationTrackingEnabled(boneTarget, targetVar.trackRotation);
-                    if (targetVar.trackRotation)
+                    if (targetVar.trackRotation) {
                         _characterController->SetTrackingOrientation(boneTarget, trackerTransform.m_Orientation);
+                        _isAnyTrackerActive = true;
+                    }
                 }
             }
         }
@@ -548,6 +569,56 @@ void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVarian
                 _characterController->SetLimbOrientationTrackingEnabled(boneTarget, false);
         }
     }
+}
+
+void DeepMotionNode::processMovement(const AnimVariantMap& animVars, float dt) {
+    if (!_characterController || _isAnyTrackerActive)
+        return;
+
+    float forwardSpeed = 0.0f;
+    forwardSpeed = animVars.lookup("moveForwardSpeed", forwardSpeed);
+
+    float lateralSpeed = 0.0f;
+    lateralSpeed = animVars.lookup("moveLateralSpeed", lateralSpeed);
+
+    bool isMovingLeft = false;
+    isMovingLeft = animVars.lookup("isMovingLeft", isMovingLeft);
+    if (!isMovingLeft) isMovingLeft = animVars.lookup("isMovingLeftHmd", isMovingLeft);
+
+    bool isMovingRight = false;
+    isMovingRight = animVars.lookup("isMovingRight", isMovingRight);
+    if (!isMovingRight) isMovingRight = animVars.lookup("isMovingRightHmd", isMovingRight);
+
+    if (isMovingRight)
+        lateralSpeed *= -1.0f;
+
+    if (!isMovingLeft && !isMovingRight)
+        lateralSpeed = 0.0f;
+
+    static float previousForwardSpeed = 0.0f;
+    static float previousLateralSpeed = 0.0f;
+
+    float forwardSpeedChange = forwardSpeed - previousForwardSpeed;
+    float maxForwardAcceleration = MAX_FORWARD_ACCELERATION * dt;
+    if (fabs(forwardSpeedChange) > maxForwardAcceleration) {
+        forwardSpeed = (forwardSpeed > previousForwardSpeed) ? previousForwardSpeed + maxForwardAcceleration
+            : previousForwardSpeed - maxForwardAcceleration;
+    }
+
+    float lateralSpeedChange = lateralSpeed - previousLateralSpeed;
+    float maxLateraldAcceleration = MAX_LATERAL_ACCELERATION * dt;
+    if (fabs(lateralSpeedChange) > maxLateraldAcceleration) {
+        lateralSpeed = (lateralSpeed > previousLateralSpeed) ? previousLateralSpeed + maxLateraldAcceleration
+            : previousLateralSpeed - maxLateraldAcceleration;
+    }
+
+    forwardSpeed = glm::clamp(forwardSpeed, MIN_FORWARD_SPEED, MAX_FORWARD_SPEED);
+    lateralSpeed = glm::clamp(lateralSpeed, MIN_LATERAL_SPEED, MAX_LATERAL_SPEED);
+
+    _characterController->UpdateVelocity(forwardSpeed, lateralSpeed);
+
+    previousForwardSpeed = forwardSpeed;
+    previousLateralSpeed = lateralSpeed;
 }
 
 void DeepMotionNode::updateRelativePosesFromCharacterLinks() {

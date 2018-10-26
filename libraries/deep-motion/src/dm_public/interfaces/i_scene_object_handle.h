@@ -10,7 +10,7 @@ namespace avatar
         enum class ObjectType
         {
             RigidBody,
-            MultiBody,
+            Articulation,
             Controller
         };
         virtual const char* GetName() const = 0;

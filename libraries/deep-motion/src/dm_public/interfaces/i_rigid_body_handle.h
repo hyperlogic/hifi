@@ -11,6 +11,7 @@ namespace avatar
     class IRigidBodyHandle : public ISceneObjectHandle
     {
     public:
+        virtual ObjectType GetType() const override { return ObjectType::RigidBody; }
         virtual Transform GetTransform() const = 0;
         virtual void SetTransform(const Transform&) = 0;
         virtual IColliderHandle* GetCollider() = 0;
