@@ -14,13 +14,11 @@
 #include <map>
 #include <unordered_map>
 
-#define APPLY_X_Z_MOVEMENT_TO_CHARACTER
-#define USE_FIX_FOR_TRACKER_ROT
 //#define ENABLE_PRINTING
-//#define DLL_WITH_DEBUG_VISU;
+//#define DLL_WITH_DEBUG_VISU
 
-const float METERS_TO_CENTIMETERS = 100.0f;
 const float AVATAR_SCALE = 1.4f;
+const float AVATAR_SCALE_INV = 1.0f / AVATAR_SCALE;
 
 class RotationConstraint;
 class Resource;
@@ -68,8 +66,10 @@ protected:
     // for AnimDebugDraw rendering
     virtual const AnimPoseVec& getPosesInternal() const override { return _relativePoses; }
 
-    AnimPose getLinkTransformInRigSpace(int linkIndex) const;
-    AnimPose getFbxJointPose(int linkIndex) const;
+    AnimPose getLinkTransformInHFWorldSpace(int linkIndex) const;
+    AnimPose getLinkTransformInGeomSpace(int linkIndex) const;
+
+    AnimPose getSkinnedLinkTransformInHFWorldSpace(int linkIndex) const;
     int getTargetJointIndex(int linkIndex) const;
     void getAdditionalTargetJointIndices(std::string targetBoneName, std::vector<int>& additionalTargetJointIndices) const;
     AnimPose getTargetJointAbsPose(int linkIndex) const;
@@ -79,9 +79,9 @@ protected:
     void debugDrawGround(const AnimContext& context) const;
 
     void debugDrawLink(const AnimContext& context, int linkIndex) const;
-    void drawCollider(const AnimContext& context, AnimPose transform, avatar::IColliderHandle& collider, glm::vec4 color, const mat4& geomToWorld, bool drawDiagonals = false) const;
-    void drawCompoundCollider(const AnimContext& context, AnimPose transform, avatar::ICompoundColliderHandle& collider, glm::vec4 color, const mat4& geomToWorld, bool drawDiagonals = false) const;
-    void drawBoxCollider(const AnimContext& context, AnimPose transform, avatar::IBoxColliderHandle& collider, glm::vec4 color, const mat4& geomToWorld, bool drawDiagonals = false) const;
+    void drawCollider(const AnimContext& context, const AnimPose& transform, avatar::IColliderHandle& collider, const glm::vec4& color, bool drawDiagonals = false) const;
+    void drawCompoundCollider(const AnimContext& context, const AnimPose& transform, avatar::ICompoundColliderHandle& collider, const glm::vec4& color, bool drawDiagonals = false) const;
+    void drawBoxCollider(const AnimContext& context, const AnimPose& transform, avatar::IBoxColliderHandle& collider, const glm::vec4& color, bool drawDiagonals = false) const;
 
     void drawDebug(const AnimContext& context);
 
@@ -115,8 +115,8 @@ protected:
         avatar::IHumanoidControllerHandle::BoneTarget getControllerBoneTarget() const;
         QString getControllerBoneTargetName() const { return controllerBoneTargetName; }
         QString getJointName() const { return jointName; }
-        void setPosition(vec3 position) { pose.trans() = position; }
-        void setRotation(quat rotation) { pose.rot() = rotation; }
+        void setPosition(const glm::vec3& position) { pose.trans() = position; }
+        void setRotation(const glm::quat& rotation) { pose.rot() = rotation; }
         avatar::Transform getTransform() const { return transform; }
 
 
@@ -134,6 +134,7 @@ protected:
         QString typeVar;
         int jointIndex = -1; // cached joint index
 #ifdef DLL_WITH_DEBUG_VISU
+    public:
         avatar::IRigidBodyHandle* debugBody = nullptr;
 #endif
     };
@@ -146,7 +147,6 @@ protected:
     const QString _characterPath = QString("deepMotion/0911_schoolBoyScene.json");
     QSharedPointer<Resource> _characterResource;
 
-    glm::mat4 _dmToAvtMatrix;
     avatar::IEngineInterface& _engineInterface;
     std::shared_ptr<avatar::ISceneHandle> _sceneHandle = nullptr;
     avatar::IMultiBodyHandle* _characterHandle = nullptr;
@@ -155,6 +155,9 @@ protected:
     avatar::IHumanoidControllerHandle* _characterController = nullptr;
 
     avatar::IRigidBodyHandle* _groundHandle = nullptr;
+
+    glm::mat4 _rigToWorldMatrix = Matrices::IDENTITY;
+    glm::mat4 _geomToRigMatrix = Matrices::IDENTITY;
 };
 
 #endif // hifi_DeepMotionNode_h
