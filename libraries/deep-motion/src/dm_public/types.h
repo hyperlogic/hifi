@@ -9,7 +9,7 @@ namespace Detail
 {
 enum HandleTypes : uint32_t
 {
-    MULTI_BODY_LINK_HANDLE
+    ARTICULATION_LINK_HANDLE
 };
 
 enum ResourceIdentifierTypes

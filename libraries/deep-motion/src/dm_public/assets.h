@@ -6,8 +6,8 @@ namespace avatar
 {
     enum class AssetType : uint8_t
     {
-        GENERIC_ASSET,
-        CHARACTER_ASSET,
+        GENERIC_ASSET = UINT8_MAX,
+        CHARACTER_ASSET = 0,
         ANIMATION_ASSET,
         MAP_ASSET,
         FRAGMENT_HOST,

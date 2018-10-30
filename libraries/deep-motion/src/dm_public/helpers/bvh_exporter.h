@@ -3,14 +3,14 @@
 
 namespace avatar
 {
-    class IMultiBodyHandle;
+    class IArticulation;
 
     class BVHExporter final
     {
     public:
         BVHExporter();
         ~BVHExporter();
-        bool Initialize(IMultiBodyHandle& multiBodyHandle, const char* filePath);
+        bool Initialize(IArticulation& articulationHandle, const char* filePath);
         void UpdateWithNewFrame(float deltaTime);
         void Finalize();
     private:
