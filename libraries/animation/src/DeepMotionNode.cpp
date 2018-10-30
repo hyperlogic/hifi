@@ -429,7 +429,6 @@ const AnimPoseVec& DeepMotionNode::overlay(const AnimVariantMap& animVars, const
 }
 
 void DeepMotionNode::overridePhysCharacterPositionAndOrientation(float floorDistance, glm::vec3& position, glm::quat& rotation) {
-    static auto dmToHfCharacterShift = Vectors::MAX;
     const float maxFloorDistance = 1000.0f; // for couple first calls the floorDistance have a very high value, than it jumps to 1.5
 
     if (!_characterHandle || _relativePoses.empty() || !_characterController)
@@ -598,16 +597,16 @@ void DeepMotionNode::processMovement(const AnimVariantMap& animVars, float dt) {
     static float previousForwardSpeed = 0.0f;
     static float previousLateralSpeed = 0.0f;
 
-    float forwardSpeedChange = forwardSpeed - previousForwardSpeed;
+    float forwardSpeedChange = fabs(forwardSpeed - previousForwardSpeed);
     float maxForwardAcceleration = MAX_FORWARD_ACCELERATION * dt;
-    if (fabs(forwardSpeedChange) > maxForwardAcceleration) {
+    if (forwardSpeedChange > maxForwardAcceleration) {
         forwardSpeed = (forwardSpeed > previousForwardSpeed) ? previousForwardSpeed + maxForwardAcceleration
             : previousForwardSpeed - maxForwardAcceleration;
     }
 
-    float lateralSpeedChange = lateralSpeed - previousLateralSpeed;
+    float lateralSpeedChange = fabs(lateralSpeed - previousLateralSpeed);
     float maxLateraldAcceleration = MAX_LATERAL_ACCELERATION * dt;
-    if (fabs(lateralSpeedChange) > maxLateraldAcceleration) {
+    if (lateralSpeedChange > maxLateraldAcceleration) {
         lateralSpeed = (lateralSpeed > previousLateralSpeed) ? previousLateralSpeed + maxLateraldAcceleration
             : previousLateralSpeed - maxLateraldAcceleration;
     }

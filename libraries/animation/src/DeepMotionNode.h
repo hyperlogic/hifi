@@ -14,7 +14,7 @@
 #include <map>
 #include <unordered_map>
 
-#define ENABLE_PRINTING
+//#define ENABLE_PRINTING
 //#define DLL_WITH_DEBUG_VISU
 
 const float AVATAR_SCALE = 1.4f;
