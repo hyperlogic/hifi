@@ -19,10 +19,17 @@
 // AJT: hard code the reorient offset for the head.
 // This particular offset only works for the following avatar, that has a -x forward head.
 // https://s3.amazonaws.com/hifi-public/tony/steel-debug-dude/steel-debug-dude-head-x.fst
+// http://hifi-content.s3.amazonaws.com/angus/avatars/pei_z_neckNexX_spine2NegY_fwd/pei_z_neckNexX_spine2NegY_fwd.fst
 // eventually these offsets should come from the .fst file
 static const AnimPose HEAD_REORIENT_POSE(glm::quat(0.707107f, 0.0f, -0.707107f, 0.0f), glm::vec3());
 
-AnimSkeleton::AnimSkeleton(const HFMModel& hfmGeometry) {
+// add offsets for spine2 and the neck
+QMap<int, glm::quat> jointOffsets = {
+    {13, glm::angleAxis(PI/2.0f, Vectors::UNIT_X) * glm::angleAxis(-PI/2.0f, Vectors::UNIT_Z)},  // Spine2
+    {62, glm::angleAxis(-PI/2.0f, Vectors::UNIT_Y)}  // Neck
+};
+
+AnimSkeleton::AnimSkeleton(const HFMModel& hfmModel) {
     // convert to std::vector of joints
     std::vector<HFMJoint> joints;
     joints.reserve(hfmModel.joints.size());
@@ -34,20 +41,23 @@ AnimSkeleton::AnimSkeleton(const HFMModel& hfmGeometry) {
     // AJT: Proof of concept only, this mutates the FBXGeometry to munge the bind pose.
     // The FBXGeometry structure should be const, because it can be shared between avatars/entities.
     // DO NOT SHIP THIS.
-    for (int i = 0; i < (int)fbxGeometry.meshes.size(); i++) {
-        const FBXMesh& mesh = fbxGeometry.meshes.at(i);
-        for (int j = 0; j < mesh.clusters.size(); j++) {
-            // cast into a non-const reference, so we can mutate the FBXCluster
-            FBXCluster& cluster = const_cast<FBXCluster&>(mesh.clusters.at(j));
-            if (cluster.jointIndex == nameToJointIndex("Head")) {
-                // AJT: mutate bind pose! this allows us to oreint the skeleton back into the authored orientaiton before
-                // rendering, with no runtime overhead.
-                cluster.inverseBindMatrix = (glm::mat4)HEAD_REORIENT_POSE.inverse() * cluster.inverseBindMatrix;
-                cluster.inverseBindTransform.evalFromRawMatrix(cluster.inverseBindMatrix);
+    static bool once = true;
+    if (once && hfmModel.originalURL == "/angus/avatars/pei_z_neckNexX_spine2NegY_fwd/pei_z_neckNexX_spine2NegY_fwd/pei_z_neckNexX_spine2NegY_fwd.fbx") {
+        for (int i = 0; i < (int)hfmModel.meshes.size(); i++) {
+            const HFMMesh& mesh = hfmModel.meshes.at(i);
+            for (int j = 0; j < mesh.clusters.size(); j++) {
+                // cast into a non-const reference, so we can mutate the HFMCluster
+                HFMCluster& cluster = const_cast<HFMCluster&>(mesh.clusters.at(j));
+
+                if (jointOffsets.contains(cluster.jointIndex)) {
+                    AnimPose localOffset(jointOffsets[cluster.jointIndex], glm::vec3());
+                    cluster.inverseBindMatrix = (glm::mat4)localOffset.inverse() * cluster.inverseBindMatrix;
+                    cluster.inverseBindTransform.evalFromRawMatrix(cluster.inverseBindMatrix);
+                }
             }
         }
+        once = false;
     }
-
 }
 
 AnimSkeleton::AnimSkeleton(const std::vector<HFMJoint>& joints) {
@@ -215,17 +225,6 @@ void AnimSkeleton::buildSkeletonFromJoints(const std::vector<HFMJoint>& joints) 
         AnimPose relDefaultPose(relDefaultMat);
         int parentIndex = getParentIndex(i);
 
-        // AJT: Apply skeleton reorient offset to relative pose
-        if (_joints[i].name == "Head") {
-            relDefaultPose = relDefaultPose * HEAD_REORIENT_POSE;
-        }
-
-        // AJT: Because translation is in the parents frame, we have to account for the parents reorient offset.
-        if (parentIndex >= 0 && _joints[parentIndex].name == "Head") {
-            // AJT: rotate the translation into the parents post-oriented frame.
-            relDefaultPose = HEAD_REORIENT_POSE.inverse() * AnimPose(glm::quat(), relDefaultPose.trans()) * HEAD_REORIENT_POSE * AnimPose(relDefaultPose.rot(), glm::vec3());
-        }
-
         _relativeDefaultPoses.push_back(relDefaultPose);
 
         if (parentIndex >= 0) {
@@ -234,6 +233,17 @@ void AnimSkeleton::buildSkeletonFromJoints(const std::vector<HFMJoint>& joints) 
             _absoluteDefaultPoses.push_back(relDefaultPose);
         }
     }
+
+    // now apply the jointOffsets
+    for (int i = 0; i < _jointsSize; i++) {
+        if (jointOffsets.contains(i)) {
+            _absoluteDefaultPoses[i] = _absoluteDefaultPoses[i] * AnimPose(jointOffsets[i], glm::vec3());
+        }
+    }
+
+    // re-compute relative poses
+    _relativeDefaultPoses = _absoluteDefaultPoses;
+    convertAbsolutePosesToRelative(_relativeDefaultPoses);
 
     for (int i = 0; i < _jointsSize; i++) {
         _jointIndicesByName[_joints[i].name] = i;
@@ -324,6 +334,8 @@ std::vector<int> AnimSkeleton::lookUpJointIndices(const std::vector<QString>& jo
     result.reserve(jointNames.size());
     for (auto& name : jointNames) {
         int index = nameToJointIndex(name);
+
+
         if (index == -1) {
             qWarning(animation) << "AnimSkeleton::lookUpJointIndices(): could not find bone with named " << name;
         }
