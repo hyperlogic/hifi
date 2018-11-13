@@ -11,12 +11,12 @@
 
 #include "AvatarMotionState.h"
 
-static xColor getLoadingOrbColor(Avatar::LoadingStatus loadingStatus) {
+static glm::u8vec3 getLoadingOrbColor(Avatar::LoadingStatus loadingStatus) {
 
-    const xColor NO_MODEL_COLOR(0xe3, 0xe3, 0xe3);
-    const xColor LOAD_MODEL_COLOR(0xef, 0x93, 0xd1);
-    const xColor LOAD_SUCCESS_COLOR(0x1f, 0xc6, 0xa6);
-    const xColor LOAD_FAILURE_COLOR(0xc6, 0x21, 0x47);
+    const glm::u8vec3 NO_MODEL_COLOR(0xe3, 0xe3, 0xe3);
+    const glm::u8vec3 LOAD_MODEL_COLOR(0xef, 0x93, 0xd1);
+    const glm::u8vec3 LOAD_SUCCESS_COLOR(0x1f, 0xc6, 0xa6);
+    const glm::u8vec3 LOAD_FAILURE_COLOR(0xc6, 0x21, 0x47);
     switch (loadingStatus) {
     case Avatar::LoadingStatus::NoModel:
         return NO_MODEL_COLOR;
@@ -117,6 +117,11 @@ void OtherAvatar::setWorkloadRegion(uint8_t region) {
 
 bool OtherAvatar::shouldBeInPhysicsSimulation() const {
     return (_workloadRegion < workload::Region::R3 && !isDead());
+}
+
+bool OtherAvatar::needsPhysicsUpdate() const {
+    constexpr uint32_t FLAGS_OF_INTEREST = Simulation::DIRTY_SHAPE | Simulation::DIRTY_MASS | Simulation::DIRTY_POSITION;
+    return (_motionState && (bool)(_motionState->getIncomingDirtyFlags() & FLAGS_OF_INTEREST));
 }
 
 void OtherAvatar::rebuildCollisionShape() {

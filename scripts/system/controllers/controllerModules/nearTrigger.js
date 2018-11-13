@@ -16,7 +16,7 @@ Script.include("/~/system/libraries/controllerDispatcherUtils.js");
 
     function entityWantsNearTrigger(props) {
         var grabbableData = getGrabbableData(props);
-        return grabbableData.triggerable || grabbableData.wantsTrigger;
+        return grabbableData.triggerable;
     }
 
     function NearTriggerEntity(hand) {
@@ -29,7 +29,7 @@ Script.include("/~/system/libraries/controllerDispatcherUtils.js");
         this.startSent = false;
 
         this.parameters = makeDispatcherModuleParameters(
-            120,
+            480,
             this.hand === RIGHT_HAND ? ["rightHandTrigger", "rightHand"] : ["leftHandTrigger", "leftHand"],
             [],
             100);

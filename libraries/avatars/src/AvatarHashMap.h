@@ -49,6 +49,7 @@ public:
     void parseDataFromBuffer(const QUuid& parentID, const QByteArray& buffer);
     void processAvatarIdentity(const QUuid& parentID, const QByteArray& identityData, bool& identityChanged, bool& displayNameChanged);
     void removeReplicas(const QUuid& parentID);
+    std::vector<AvatarSharedPointer> takeReplicas(const QUuid& parentID);
     void processTrait(const QUuid& parentID, AvatarTraits::TraitType traitType, QByteArray traitBinaryData);
     void processDeletedTraitInstance(const QUuid& parentID, AvatarTraits::TraitType traitType, AvatarTraits::TraitInstanceID instanceID);
     void processTraitInstance(const QUuid& parentID, AvatarTraits::TraitType traitType,
@@ -160,6 +161,11 @@ protected slots:
      */
     void processAvatarIdentityPacket(QSharedPointer<ReceivedMessage> message, SharedNodePointer sendingNode);
     
+    /**jsdoc
+     * @function AvatarList.processBulkAvatarTraits
+     * @param {} message
+     * @param {} sendingNode
+     */
     void processBulkAvatarTraits(QSharedPointer<ReceivedMessage> message, SharedNodePointer sendingNode);
     
     /**jsdoc
@@ -179,18 +185,11 @@ protected:
         bool& isNew);
     virtual AvatarSharedPointer findAvatar(const QUuid& sessionUUID) const; // uses a QReadLocker on the hashLock
     virtual void removeAvatar(const QUuid& sessionUUID, KillAvatarReason removalReason = KillAvatarReason::NoReason);
-
+    
     virtual void handleRemovedAvatar(const AvatarSharedPointer& removedAvatar, KillAvatarReason removalReason = KillAvatarReason::NoReason);
     
-    AvatarHash _avatarHash;
-    struct PendingAvatar {
-        std::chrono::steady_clock::time_point creationTime;
-        int transmits;
-        AvatarSharedPointer avatar;
-    };
-    using AvatarPendingHash = QHash<QUuid, PendingAvatar>;
-    AvatarPendingHash _pendingAvatars;
     mutable QReadWriteLock _hashLock;
+    AvatarHash _avatarHash;
 
     std::unordered_map<QUuid, AvatarTraits::TraitVersions> _processedTraitVersions;
     AvatarReplicas _replicas;

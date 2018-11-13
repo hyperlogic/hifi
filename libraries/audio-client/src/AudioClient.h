@@ -46,7 +46,6 @@
 #include <AudioConstants.h>
 #include <AudioGate.h>
 
-
 #include <shared/RateCounter.h>
 
 #include <plugins/CodecPlugin.h>
@@ -62,6 +61,13 @@
 
 #ifdef _WIN32
 #pragma warning( pop )
+#endif
+
+#if defined (Q_OS_ANDROID)
+#define VOICE_RECOGNITION "voicerecognition"
+#define VOICE_COMMUNICATION "voicecommunication"
+
+#define SETTING_AEC_KEY "Android/aec"
 #endif
 
 class QAudioInput;
@@ -164,9 +170,14 @@ public:
     void stopRecording();
     void setAudioPaused(bool pause);
 
+    AudioSolo& getAudioSolo() override { return _solo; }
 
 #ifdef Q_OS_WIN
     static QString getWinDeviceName(wchar_t* guid);
+#endif
+
+#if defined(Q_OS_ANDROID)
+    bool isHeadsetPluggedIn() { return _isHeadsetPluggedIn; }
 #endif
 
 public slots:
@@ -216,6 +227,9 @@ public slots:
     // calling with a null QAudioDevice will use the system default
     bool switchAudioDevice(QAudio::Mode mode, const QAudioDeviceInfo& deviceInfo = QAudioDeviceInfo());
     bool switchAudioDevice(QAudio::Mode mode, const QString& deviceName);
+
+    // Qt opensles plugin is not able to detect when the headset is plugged in
+    void setHeadsetPluggedIn(bool pluggedIn);
 
     float getInputVolume() const { return (_audioInput) ? (float)_audioInput->volume() : 0.0f; }
     void setInputVolume(float volume, bool emitSignal = true);
@@ -278,6 +292,7 @@ private:
 #ifdef Q_OS_ANDROID
     QTimer _checkInputTimer;
     long _inputReadsSinceLastCheck = 0l;
+    bool _isHeadsetPluggedIn;
 #endif
 
     class Gate {
@@ -431,8 +446,12 @@ private:
 #if defined(Q_OS_ANDROID)
     bool _shouldRestartInputSetup { true }; // Should we restart the input device because of an unintended stop?
 #endif
+
+    AudioSolo _solo;
     
+    Mutex _checkDevicesMutex;
     QTimer* _checkDevicesTimer { nullptr };
+    Mutex _checkPeakValuesMutex;
     QTimer* _checkPeakValuesTimer { nullptr };
 
     bool _isRecording { false };
