@@ -223,6 +223,25 @@ static NodeProcessFunc animNodeTypeToProcessFunc(AnimNode::Type type) {
                    (float)NAME##_ARRAY.at(1).toDouble(),                \
                    (float)NAME##_ARRAY.at(2).toDouble())
 
+#define READ_OPTIONAL_QUAT(NAME, JSON_OBJ, DEFAULT, ID, URL, ERROR_RETURN) \
+    auto NAME##_VAL = JSON_OBJ.value(#NAME);                               \
+    glm::quat NAME = (glm::quat)DEFAULT;                                   \
+    if (NAME##_VAL.isArray()) {                                            \
+        QJsonArray NAME##_ARRAY = NAME##_VAL.toArray();                    \
+        if (NAME##_ARRAY.size() != 4) {                                    \
+        qCCritical(animation) << "AnimNodeLoader, quaternion size != 4"    \
+                              << #NAME << "id =" << ID                     \
+                              << ", url =" << URL.toDisplayString();       \
+        return ERROR_RETURN;                                               \
+        }                                                                  \
+        NAME.w = (float)NAME##_ARRAY.at(0).toDouble();                     \
+        NAME.x = (float)NAME##_ARRAY.at(1).toDouble();                     \
+        NAME.y = (float)NAME##_ARRAY.at(2).toDouble();                     \
+        NAME.z = (float)NAME##_ARRAY.at(3).toDouble();                     \
+    }                                                                      \
+    do {} while (0)
+
+
 static AnimNode::Pointer loadNode(const QJsonObject& jsonObj, const QUrl& jsonUrl) {
     auto idVal = jsonObj.value("id");
     if (!idVal.isString()) {
@@ -598,12 +617,13 @@ AnimNode::Pointer loadDeepMotionNode(const QJsonObject& jsonObj, const QString& 
         READ_STRING(rotationVar, targetObj, id, jsonUrl, nullptr);
         READ_BOOL(trackPosition, targetObj, id, jsonUrl, nullptr);
         READ_BOOL(trackRotation, targetObj, id, jsonUrl, nullptr);
+        READ_OPTIONAL_QUAT(rotationOffset, targetObj, Quaternions::IDENTITY, id, jsonUrl, nullptr);
         READ_OPTIONAL_STRING(typeVar, targetObj);
 
         node->setTargetVars(jointName,
             controllerBoneTarget,
             targetLinkName,
-            positionVar, rotationVar, 
+            positionVar, rotationVar, rotationOffset,
             trackPosition, trackRotation,
             typeVar);
     };

@@ -224,8 +224,9 @@ namespace
 DeepMotionNode::IKTargetVar::IKTargetVar(
     const QString& jointNameIn, const QString& controllerBoneTargetIn, 
     const QString& targetLinkName,
-    const QString& positionVar, const QString& rotationVar, 
+    const QString& positionVar, const QString& rotationVar, const glm::quat& rotationOffset,
     bool trackPosition, bool trackRotation, const QString& typeVar) :
+    rotationOffset(rotationOffset),
     trackPosition(trackPosition),
     trackRotation(trackRotation),
     jointName(jointNameIn),
@@ -336,6 +337,20 @@ void DeepMotionNode::loadPoses(const AnimPoseVec& poses) {
         int hipsIndex = _skeleton->nameToJointIndex("Hips");
         _relativePoses[hipsIndex].rot() = Quaternions::IDENTITY;
 
+        // fix thumb rotation
+        int lThumb1Index = _skeleton->nameToJointIndex("LeftHandThumb1");
+        int lThumb2Index = _skeleton->nameToJointIndex("LeftHandThumb2");
+        int lThumb3Index = _skeleton->nameToJointIndex("LeftHandThumb3");
+        int rThumb1Index = _skeleton->nameToJointIndex("RightHandThumb1");
+        int rThumb2Index = _skeleton->nameToJointIndex("RightHandThumb2");
+        int rThumb3Index = _skeleton->nameToJointIndex("RightHandThumb3");
+        _relativePoses[lThumb1Index].rot() = Quaternions::IDENTITY;
+        _relativePoses[lThumb2Index].rot() = Quaternions::IDENTITY;
+        _relativePoses[lThumb3Index].rot() = Quaternions::IDENTITY;
+        _relativePoses[rThumb1Index].rot() = Quaternions::IDENTITY;
+        _relativePoses[rThumb2Index].rot() = Quaternions::IDENTITY;
+        _relativePoses[rThumb3Index].rot() = Quaternions::IDENTITY;
+
         // cache target joints indices
         for (auto linkIndex = 0u; linkIndex < _characterLinks.size(); ++linkIndex) {
             _characterLinks[linkIndex].targetJointIndex = getTargetJointIndex(linkIndex);
@@ -348,11 +363,11 @@ void DeepMotionNode::loadPoses(const AnimPoseVec& poses) {
 }
 
 void DeepMotionNode::setTargetVars(const QString& jointName, const QString& controllerBoneTarget, const QString& targetLinkName, 
-                                   const QString& positionVar, const QString& rotationVar, 
+                                   const QString& positionVar, const QString& rotationVar, const glm::quat& rotationOffset,
                                    bool trackPosition, bool trackRotation, const QString& typeVar) {
-    IKTargetVar targetVar(jointName, controllerBoneTarget, 
+    IKTargetVar targetVar(jointName, controllerBoneTarget,
         targetLinkName, 
-        positionVar, rotationVar, 
+        positionVar, rotationVar, rotationOffset,
         trackPosition, trackRotation, typeVar);
 
     // if there are duplications, last one wins.
@@ -492,6 +507,8 @@ void DeepMotionNode::computeTargets(const AnimContext& context, const AnimVarian
 
                 targetVar.setPosition(animVars.lookupRigToGeometry(targetVar.positionVar, absPose.trans()));
                 targetVar.setRotation(animVars.lookupRigToGeometry(targetVar.rotationVar, absPose.rot()));
+
+                targetVar.setRotation(targetVar.pose.rot() * targetVar.rotationOffset);
 
                 const auto trackerInGeomSpace = targetVar.pose;
                 const auto trackerInHFWorldSpace = AnimPose(context.getRigToWorldMatrix() * context.getGeometryToRigMatrix()) * trackerInGeomSpace;

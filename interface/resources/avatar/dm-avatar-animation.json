@@ -57,7 +57,7 @@
 									"positionVar": "hipsPosition",
 									"rotationVar": "hipsRotation",
 									"trackPosition": true,
-									"trackRotation": true,
+									"trackRotation": false,
 									"typeVar": "hipsType"
 								},
 								{
@@ -68,6 +68,7 @@
 									"rotationVar": "rightHandRotation",
 									"trackPosition": true,
 									"trackRotation": true,
+									"rotationOffset": [0.0, 0.707, -0.707, 0.0],
 									"typeVar": "rightHandType"
 								},
 								{
@@ -78,6 +79,7 @@
 									"rotationVar": "leftHandRotation",
 									"trackPosition": true,
 									"trackRotation": true,
+									"rotationOffset": [0.0, 0.707, -0.707, 0.0],
 									"typeVar": "leftHandType"
 								},
 								{

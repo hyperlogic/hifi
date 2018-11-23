@@ -50,7 +50,7 @@ public:
     void loadPoses(const AnimPoseVec& poses);
 
     void setTargetVars(const QString& jointName, const QString& controllerBoneTarget, const QString& targetLinkName, 
-        const QString& positionVar, const QString& rotationVar, 
+        const QString& positionVar, const QString& rotationVar, const glm::quat& rotationOffset,
         bool trackPosition, bool trackRotation, const QString& typeVar);
 
     virtual const AnimPoseVec& evaluate(const AnimVariantMap& animVars, const AnimContext& context, float dt, AnimVariantMap& triggersOut) override;
@@ -107,7 +107,7 @@ protected:
 
         IKTargetVar(const QString& jointNameIn, const QString& controllerBoneTargetIn,
             const QString& targetLinkName,
-            const QString& positionVar, const QString& rotationVar,
+            const QString& positionVar, const QString& rotationVar, const glm::quat& rotationOffset,
             bool trackPosition, bool trackRotation, const QString& typeVar);
         IKTargetVar(const IKTargetVar&) = default;
         IKTargetVar& operator=(const IKTargetVar&);
@@ -123,6 +123,7 @@ protected:
     private:
         AnimPose pose;
         avatar::Transform transform;
+        const quat rotationOffset;
         bool trackPosition = false;
         bool trackRotation = false;
 
