@@ -244,13 +244,20 @@ AudioClient::AudioClient() :
     // initialize wasapi; if getAvailableDevices is called from the CheckDevicesThread before this, it will crash
     getAvailableDevices(QAudio::AudioInput);
     getAvailableDevices(QAudio::AudioOutput);
-    
+
     // start a thread to detect any device changes
     _checkDevicesTimer = new QTimer(this);
-    connect(_checkDevicesTimer, &QTimer::timeout, this, [this] {
-        QtConcurrent::run(QThreadPool::globalInstance(), [this] { checkDevices(); });
-    });
     const unsigned long DEVICE_CHECK_INTERVAL_MSECS = 2 * 1000;
+    connect(_checkDevicesTimer, &QTimer::timeout, this, [=] {
+        QtConcurrent::run(QThreadPool::globalInstance(), [=] {
+            checkDevices();
+            // On some systems (Ubuntu) checking all the audio devices can take more than 2 seconds.  To
+            // avoid consuming all of the thread pool, don't start the check interval until the previous
+            // check has completed.
+            QMetaObject::invokeMethod(_checkDevicesTimer, "start", Q_ARG(int, DEVICE_CHECK_INTERVAL_MSECS));
+        });
+    });
+    _checkDevicesTimer->setSingleShot(true);
     _checkDevicesTimer->start(DEVICE_CHECK_INTERVAL_MSECS);
 
     // start a thread to detect peak value changes
@@ -476,7 +483,7 @@ QAudioDeviceInfo defaultAudioDeviceForMode(QAudio::Mode mode) {
 
 #if defined (Q_OS_ANDROID)
     if (mode == QAudio::AudioInput) {
-        Setting::Handle<bool> enableAEC(SETTING_AEC_KEY, false);
+        Setting::Handle<bool> enableAEC(SETTING_AEC_KEY, DEFAULT_AEC_ENABLED);
         bool aecEnabled = enableAEC.get();
         auto audioClient = DependencyManager::get<AudioClient>();
         bool headsetOn = audioClient? audioClient->isHeadsetPluggedIn() : false;
@@ -1684,7 +1691,7 @@ void AudioClient::setHeadsetPluggedIn(bool pluggedIn) {
             QThread::msleep(200);
         }
 
-        Setting::Handle<bool> enableAEC(SETTING_AEC_KEY, false);
+        Setting::Handle<bool> enableAEC(SETTING_AEC_KEY, DEFAULT_AEC_ENABLED);
         bool aecEnabled = enableAEC.get();
 
         if ((pluggedIn || !aecEnabled) && _inputDeviceInfo.deviceName() != VOICE_RECOGNITION) {

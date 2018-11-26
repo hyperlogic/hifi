@@ -14,8 +14,8 @@ set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests/manual-tests/")
 # link in the shared libraries
 link_hifi_libraries(
     shared task networking octree 
-    shaders gl gpu render ktx image deep-motion animation 
-    graphics fbx model-networking 
+    shaders gl gpu render ktx image animation 
+    graphics hfm fbx model-networking deep-moton
     render-utils 
     entities entities-renderer audio avatars 
     script-engine physics 

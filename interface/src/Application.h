@@ -228,6 +228,9 @@ public:
     bool getPreferAvatarFingerOverStylus() { return false; }
     void setPreferAvatarFingerOverStylus(bool value);
 
+    bool getMiniTabletEnabled() { return _miniTabletEnabledSetting.get(); }
+    void setMiniTabletEnabled(bool enabled);
+
     float getSettingConstrainToolbarPosition() { return _constrainToolbarPosition.get(); }
     void setSettingConstrainToolbarPosition(bool setting);
 
@@ -307,6 +310,7 @@ public:
 
     bool isServerlessMode() const;
     bool isInterstitialMode() const { return _interstitialMode; }
+    bool failedToConnectToEntityServer() const { return _failedToConnectToEntityServer; }
 
     void replaceDomainContent(const QString& url);
 
@@ -337,6 +341,8 @@ signals:
     void interstitialModeChanged(bool isInInterstitialMode);
 
     void loginDialogPoppedUp();
+
+    void miniTabletEnabledChanged(bool enabled);
 
 public slots:
     QVector<EntityItemID> pasteEntities(float x, float y, float z);
@@ -381,6 +387,8 @@ public slots:
 
     void resetSensors(bool andReload = false);
     void setActiveFaceTracker() const;
+
+    void hmdVisibleChanged(bool visible);
 
 #if (PR_BUILD || DEV_BUILD)
     void sendWrongProtocolVersionsSignature(bool checked) { ::sendWrongProtocolVersionsSignature(checked); }
@@ -460,6 +468,7 @@ private slots:
 
     void loadSettings();
     void saveSettings() const;
+    void setFailedToConnectToEntityServer() { _failedToConnectToEntityServer = true; }
 
     bool acceptSnapshot(const QString& urlString);
     bool askToSetAvatarUrl(const QString& url);
@@ -543,6 +552,7 @@ private:
     void keyReleaseEvent(QKeyEvent* event);
 
     void focusOutEvent(QFocusEvent* event);
+    void synthesizeKeyReleasEvents();
     void focusInEvent(QFocusEvent* event);
 
     void mouseMoveEvent(QMouseEvent* event);
@@ -629,6 +639,7 @@ private:
     Setting::Handle<bool> _preferAvatarFingerOverStylusSetting;
     Setting::Handle<bool> _constrainToolbarPosition;
     Setting::Handle<QString> _preferredCursor;
+    Setting::Handle<bool> _miniTabletEnabledSetting;
 
     float _scaleMirror;
     float _mirrorYawOffset;
@@ -710,6 +721,7 @@ private:
     bool _isForeground = true; // starts out assumed to be in foreground
     bool _isGLInitialized { false };
     bool _physicsEnabled { false };
+    bool _failedToConnectToEntityServer { false };
 
     bool _reticleClickPressed { false };
 
@@ -756,6 +768,7 @@ private:
     QStringList _addAssetToWorldInfoMessages;  // Info message
     QTimer _addAssetToWorldInfoTimer;
     QTimer _addAssetToWorldErrorTimer;
+    mutable QTimer _entityServerConnectionTimer;
 
     FileScriptingInterface* _fileDownload;
     AudioInjectorPointer _snapshotSoundInjector;
