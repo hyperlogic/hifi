@@ -303,7 +303,8 @@ void UserInputMapper::update(float deltaTime) {
             emit inputEvent(input.id, value);
         }
     }
-    inputRecorder->frameTick();
+
+    inputRecorder->frameTick(getInputCalibrationData());
 }
 
 Input::NamedVector UserInputMapper::getAvailableInputs(uint16 deviceID) const {

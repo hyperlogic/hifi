@@ -17,7 +17,6 @@ using namespace controller;
 
 void ActionEndpoint::apply(float newValue, const Pointer& source) {
     auto userInputMapper = DependencyManager::get<UserInputMapper>();
-    InputRecorder* inputRecorder = InputRecorder::getInstance();
     QString actionName;
     if (inputRecorder->isPlayingback() || inputRecorder->isRecording()) {
         actionName = userInputMapper->getActionName(Action(_input.getChannel()));
@@ -31,11 +30,6 @@ void ActionEndpoint::apply(float newValue, const Pointer& source) {
         userInputMapper->deltaActionState(Action(_input.getChannel()), newValue);
     }
     inputRecorder->setActionState(actionName, newValue);
-
-    // record the current inputCalibrationData information.
-    if (inputRecorder->isRecording()) {
-        inputRecorder->setInputCalibrationData(userInputMapper->getInputCalibrationData());
-    }
 }
 
 void ActionEndpoint::apply(const Pose& value, const Pointer& source) {

@@ -215,6 +215,8 @@ namespace controller {
     }
 
     void InputRecorder::startRecording() {
+        std::lock_guard<std::mutex> guard(_mutex);
+
         _recording = true;
         _playback = false;
         _framesRecorded = 0;
@@ -224,6 +226,7 @@ namespace controller {
     }
 
     QJsonObject InputRecorder::recordDataToJson() {
+
         QJsonObject data;
         data["frameCount"] = _framesRecorded;
         data["version"] = CURRENT_VERSION_STRING;
@@ -264,6 +267,8 @@ namespace controller {
     }
 
     void InputRecorder::saveRecording() {
+        std::lock_guard<std::mutex> guard(_mutex);
+
         QJsonObject jsonData = recordDataToJson();
         QString timeStamp = QDateTime::currentDateTime().toString(Qt::ISODate);
         timeStamp.replace(":", "-");
@@ -272,6 +277,8 @@ namespace controller {
     }
 
     void InputRecorder::loadRecording(const QString& path) {
+        std::lock_guard<std::mutex> guard(_mutex);
+
         _recording = false;
         _playback = false;
         _loading = true;
@@ -324,17 +331,23 @@ namespace controller {
     }
 
     void InputRecorder::stopRecording() {
+        std::lock_guard<std::mutex> guard(_mutex);
+
         _recording = false;
         _framesRecorded = (int)_actionStateList.size();
     }
 
     void InputRecorder::startPlayback() {
+        std::lock_guard<std::mutex> guard(_mutex);
+
         _playback = true;
         _recording = false;
         _playCount = 0;
     }
 
     void InputRecorder::stopPlayback() {
+        std::lock_guard<std::mutex> guard(_mutex);
+
         _playback = false;
         _playCount = 0;
     }
@@ -348,12 +361,6 @@ namespace controller {
     void InputRecorder::setActionState(const QString& action, const controller::Pose& pose) {
         if (_recording) {
             _currentFramePoses[action] = pose;
-        }
-    }
-
-    void InputRecorder::setInputCalibrationData(const InputCalibrationData& inputCalibrationData) {
-        if (_recording) {
-            _currentInputCalibrationData = inputCalibrationData;
         }
     }
 
@@ -380,12 +387,14 @@ namespace controller {
         return Pose();
     }
 
-    void InputRecorder::frameTick() {
+    void InputRecorder::frameTick(const InputCalibrationData& inputCalibrationData) {
+        std::lock_guard<std::mutex> guard(_mutex);
+
         if (_recording) {
             _framesRecorded++;
             _poseStateList.push_back(_currentFramePoses);
             _actionStateList.push_back(_currentFrameActions);
-            _inputCalibrationDataList.push_back(_currentInputCalibrationData);
+            _inputCalibrationDataList.push_back(inputCalibrationData);
         }
 
         if (_playback) {
