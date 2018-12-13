@@ -364,8 +364,6 @@ Menu::Menu() {
         qApp->setHmdTabletBecomesToolbarSetting(action->isChecked());
     });
 
-    addCheckableActionToQMenuAndActionHash(uiOptionsMenu, MenuOption::Use3DKeyboard, 0, true);
-
     // Developer > Render >>>
     MenuWrapper* renderOptionsMenu = developerMenu->addMenu("Render");
 
@@ -804,7 +802,7 @@ Menu::Menu() {
     connect(action, &QAction::triggered, qApp, []() { std::thread(crash::newFault).join(); });
 
     // Developer > Show Statistics
-    addCheckableActionToQMenuAndActionHash(developerMenu, MenuOption::Stats);
+    addCheckableActionToQMenuAndActionHash(developerMenu, MenuOption::Stats, 0, true);
 
     // Developer > Show Animation Statistics
     addCheckableActionToQMenuAndActionHash(developerMenu, MenuOption::AnimStats);
