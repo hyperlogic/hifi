@@ -1276,7 +1276,11 @@ void Rig::updateHead(bool headEnabled, bool hipsEnabled, const AnimPose& headPos
             if (hipsEnabled) {
                 // Since there is an explicit hips ik target, switch the head to use the more flexible Spline IK chain type.
                 // this will allow the spine to compress/expand and bend more natrually, ensuring that it can reach the head target position.
-                _animVars.set("headType", (int)IKTarget::Type::Spline);
+
+                // AJT: HACK FOR DEEPMOTION
+                //_animVars.set("headType", (int)IKTarget::Type::Spline);
+                _animVars.set("headType", (int)IKTarget::Type::RotationAndPosition);
+
                 _animVars.unset("headWeight");  // use the default weight for this target.
             } else {
                 // When there is no hips IK target, use the HmdHead IK chain type.  This will make the spine very stiff,
@@ -1811,6 +1815,9 @@ void Rig::updateFromControllerParameters(const ControllerParameters& params, flo
     } else {
         _animVars.set("hipsType", (int)IKTarget::Type::Unknown);
     }
+
+    // AJT: DEEPMOTION HACK DISABLE HIPS
+    _animVars.set("hipsType", (int)IKTarget::Type::Unknown);
 
     if (hipsEnabled && spine2Enabled) {
         _animVars.set("spine2Type", (int)IKTarget::Type::Spline);

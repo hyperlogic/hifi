@@ -1032,6 +1032,16 @@ void MyAvatar::updateSensorToWorldMatrix() {
     glm::mat4 desiredMat = createMatFromScaleQuatAndPos(glm::vec3(sensorToWorldScale), getWorldOrientation(), getWorldPosition());
     _sensorToWorldMatrix = desiredMat * glm::inverse(_bodySensorMatrix);
 
+    // AJT: HACK for DEEP_MOTION
+    if (_skeletonModelURL == QUrl("https://s3-us-west-1.amazonaws.com/hifi-content/Avatars/deepmotion/SchoolBoy_Rig_Lambert_JointOrientation_Rename.fst")) {
+        // HARDCODE sensor to world matrix to work for the blank white serverless domain.
+        const float WORLD_FLOOR_Y = -11.5f;
+        const float SENSOR_FLOOR_Y = 0.0f;
+        const float SENSOR_HEIGHT = getUserHeight() - DEFAULT_AVATAR_NECK_TO_TOP_OF_HEAD;
+        const float WORLD_HEIGHT = 1.1267f;
+        _sensorToWorldMatrix = createMatFromScaleQuatAndPos(glm::vec3(WORLD_HEIGHT / SENSOR_HEIGHT), glm::quat(), glm::vec3(0.0f, WORLD_FLOOR_Y, 0.0f));
+    }
+
     bool hasSensorToWorldScaleChanged = false;
     if (fabsf(getSensorToWorldScale() - sensorToWorldScale) > MIN_SCALE_CHANGED_DELTA) {
         hasSensorToWorldScaleChanged = true;
