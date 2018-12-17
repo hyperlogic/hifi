@@ -17,6 +17,7 @@ using namespace controller;
 
 void ActionEndpoint::apply(float newValue, const Pointer& source) {
     auto userInputMapper = DependencyManager::get<UserInputMapper>();
+    InputRecorder* inputRecorder = InputRecorder::getInstance();
     QString actionName;
     if (inputRecorder->isPlayingback() || inputRecorder->isRecording()) {
         actionName = userInputMapper->getActionName(Action(_input.getChannel()));

@@ -47,7 +47,7 @@ namespace controller {
         float getActionState(const QString&  action);
         controller::Pose getPoseState(const QString& action);
         QString getSaveDirectory();
-        void frameTick();
+        void frameTick(const InputCalibrationData& inputCalibrationData);
     private:
         QJsonObject recordDataToJson();
 
