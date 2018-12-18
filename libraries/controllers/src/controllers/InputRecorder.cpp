@@ -8,8 +8,6 @@
 
 #include "InputRecorder.h"
 
-#include <QJsonArray>
-#include <QJsonDocument>
 #include <QFile>
 #include <QDir>
 #include <QDirIterator>
@@ -27,6 +25,10 @@
 #include "UserInputMapper.h"
 #include <glm/gtc/matrix_transform.hpp>
 
+// input recording json files are too large for Qt, https://bugreports.qt.io/browse/QTBUG-60728
+// use this library instead.
+#include <nlohmann/json.hpp>
+
 QString SAVE_DIRECTORY = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/" + BuildInfo::MODIFIED_ORGANIZATION + "/" + BuildInfo::INTERFACE_NAME + "/hifi-input-recordings/";
 QString FILE_PREFIX_NAME = "input-recording-";
 QString COMPRESS_EXTENSION = ".json.gz";
@@ -39,69 +41,47 @@ QString CURRENT_VERSION_STRING = INPUT_CALIBRATION_VERSION_STRING;
 
 namespace controller {
 
-    QJsonObject poseToJsonObject(const Pose pose) {
-        QJsonObject newPose;
-
-        QJsonArray translation;
-        translation.append(pose.translation.x);
-        translation.append(pose.translation.y);
-        translation.append(pose.translation.z);
-
-        QJsonArray rotation;
-        rotation.append(pose.rotation.x);
-        rotation.append(pose.rotation.y);
-        rotation.append(pose.rotation.z);
-        rotation.append(pose.rotation.w);
-
-        QJsonArray velocity;
-        velocity.append(pose.velocity.x);
-        velocity.append(pose.velocity.y);
-        velocity.append(pose.velocity.z);
-
-        QJsonArray angularVelocity;
-        angularVelocity.append(pose.angularVelocity.x);
-        angularVelocity.append(pose.angularVelocity.y);
-        angularVelocity.append(pose.angularVelocity.z);
-
-        newPose["translation"] = translation;
-        newPose["rotation"] = rotation;
-        newPose["velocity"] = velocity;
-        newPose["angularVelocity"] = angularVelocity;
+    nlohmann::json poseToJsonObject(const Pose pose) {
+        nlohmann::json newPose;
+        newPose["translation"] = {pose.translation.x, pose.translation.y, pose.translation.z};
+        newPose["rotation"] = {pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w};
+        newPose["velocity"] = {pose.velocity.x, pose.velocity.y, pose.velocity.z};
+        newPose["angularVelocity"] = {pose.velocity.x, pose.velocity.y, pose.velocity.z};
         newPose["valid"] = pose.valid;
-
         return newPose;
     }
 
-    Pose jsonObjectToPose(const QJsonObject object) {
+    Pose jsonObjectToPose(const nlohmann::json& json) {
         Pose pose;
-        QJsonArray translation = object["translation"].toArray();
-        QJsonArray rotation = object["rotation"].toArray();
-        QJsonArray velocity = object["velocity"].toArray();
-        QJsonArray angularVelocity = object["angularVelocity"].toArray();
 
-        pose.valid = object["valid"].toBool();
+        const nlohmann::json& translation = json["translation"];
+        const nlohmann::json& rotation = json["rotation"];
+        const nlohmann::json& velocity = json["velocity"];
+        const nlohmann::json& angularVelocity = json["angularVelocity"];
 
-        pose.translation.x = translation[0].toDouble();
-        pose.translation.y = translation[1].toDouble();
-        pose.translation.z = translation[2].toDouble();
+        pose.valid = json["valid"].get<bool>();
 
-        pose.rotation.x = rotation[0].toDouble();
-        pose.rotation.y = rotation[1].toDouble();
-        pose.rotation.z = rotation[2].toDouble();
-        pose.rotation.w = rotation[3].toDouble();
+        pose.translation.x = translation[0].get<double>();
+        pose.translation.y = translation[1].get<double>();
+        pose.translation.z = translation[2].get<double>();
 
-        pose.velocity.x = velocity[0].toDouble();
-        pose.velocity.y = velocity[1].toDouble();
-        pose.velocity.z = velocity[2].toDouble();
+        pose.rotation.x = rotation[0].get<double>();
+        pose.rotation.y = rotation[1].get<double>();
+        pose.rotation.z = rotation[2].get<double>();
+        pose.rotation.w = rotation[3].get<double>();
 
-        pose.angularVelocity.x = angularVelocity[0].toDouble();
-        pose.angularVelocity.y = angularVelocity[1].toDouble();
-        pose.angularVelocity.z = angularVelocity[2].toDouble();
+        pose.velocity.x = velocity[0].get<double>();
+        pose.velocity.y = velocity[1].get<double>();
+        pose.velocity.z = velocity[2].get<double>();
+
+        pose.angularVelocity.x = angularVelocity[0].get<double>();
+        pose.angularVelocity.y = angularVelocity[1].get<double>();
+        pose.angularVelocity.z = angularVelocity[2].get<double>();
 
         return pose;
     }
 
-    QJsonObject matrixToJsonObject(const glm::mat4& mat) {
+    nlohmann::json matrixToJsonObject(const glm::mat4& mat) {
 
         // same code from AnimPose constructor
         static const float EPSILON = 0.0001f;
@@ -116,33 +96,15 @@ namespace controller {
         }
         glm::vec3 trans = extractTranslation(mat);
 
-        QJsonObject result;
-
-        QJsonArray transObj;
-        transObj.append(trans.x);
-        transObj.append(trans.y);
-        transObj.append(trans.z);
-
-        QJsonArray rotObj;
-        rotObj.append(rot.x);
-        rotObj.append(rot.y);
-        rotObj.append(rot.z);
-        rotObj.append(rot.w);
-
-        QJsonArray scaleObj;
-        scaleObj.append(scale.x);
-        scaleObj.append(scale.y);
-        scaleObj.append(scale.z);
-
-        result["translation"] = transObj;
-        result["rotation"] = rotObj;
-        result["scale"] = scaleObj;
-
+        nlohmann::json result;
+        result["translation"] = {trans.x, trans.y, trans.z};
+        result["rotation"] = {rot.x, rot.y, rot.z, rot.w};
+        result["scale"] = {scale.x, scale.y, scale.z};
         return result;
     }
 
-    QJsonObject inputCalibrationDataToJsonObject(const InputCalibrationData& inputCalibrationData) {
-        QJsonObject result;
+    nlohmann::json inputCalibrationDataToJsonObject(const InputCalibrationData& inputCalibrationData) {
+        nlohmann::json result;
 
         result["sensorToWorld"] = matrixToJsonObject(inputCalibrationData.sensorToWorldMat);
         result["avatar"] = matrixToJsonObject(inputCalibrationData.avatarMat);
@@ -154,7 +116,7 @@ namespace controller {
     }
 
 
-    void exportToFile(const QJsonObject& object, const QString& fileName) {
+    void exportToFile(const QByteArray& jsonData, const QString& fileName) {
         if (!QDir(SAVE_DIRECTORY).exists()) {
             QDir().mkdir(SAVE_DIRECTORY);
         }
@@ -164,10 +126,8 @@ namespace controller {
             qWarning() << "could not open file: " << fileName;
             return;
         }
-        QJsonDocument saveData(object);
-        QByteArray jsonData = saveData.toJson(QJsonDocument::Indented);
-        QByteArray jsonDataForFile;
 
+        QByteArray jsonDataForFile;
         if (!gzip(jsonData, jsonDataForFile, -1)) {
             qCritical("unable to gzip while saving to json.");
             return;
@@ -177,8 +137,8 @@ namespace controller {
         saveFile.close();
     }
 
-    QJsonObject openFile(const QString& file, bool& status) {
-        QJsonObject object;
+    nlohmann::json openFile(const QString& file, bool& status) {
+        nlohmann::json object;
         QFile openFile(file);
         if (!openFile.open(QIODevice::ReadOnly)) {
             qWarning() << "could not open file: " << file;
@@ -194,10 +154,10 @@ namespace controller {
             return object;
         }
 
-        QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
-        object = jsonDoc.object();
+        object = nlohmann::json::parse(jsonData.data());
         status = true;
         openFile.close();
+
         return object;
     }
 
@@ -215,7 +175,7 @@ namespace controller {
     }
 
     void InputRecorder::startRecording() {
-        std::lock_guard<std::mutex> guard(_mutex);
+        LockGuard guard(_mutex);
 
         _recording = true;
         _playback = false;
@@ -225,51 +185,56 @@ namespace controller {
         _inputCalibrationDataList.clear();
     }
 
-    QJsonObject InputRecorder::recordDataToJson() {
+    QByteArray InputRecorder::recordDataToJson() {
 
-        QJsonObject data;
-        data["frameCount"] = _framesRecorded;
-        data["version"] = CURRENT_VERSION_STRING;
+        nlohmann::json json;
+        json["frameCount"] = _framesRecorded;
+        json["version"] = CURRENT_VERSION_STRING.toStdString();
 
-        QJsonArray actionArrayList;
+        // actions
+        nlohmann::json actionStateListJson = nlohmann::json::array();
         for(const auto& actionState: _actionStateList) {
-            QJsonArray actionArray;
+            nlohmann::json actionStateJson = nlohmann::json::array();
             for (const auto& action: actionState) {
-                QJsonObject actionJson;
-                actionJson["name"] = action.first;
+                nlohmann::json actionJson;
+                actionJson["name"] = action.first.toStdString();
                 actionJson["value"] = action.second;
-                actionArray.append(actionJson);
+                actionStateJson.push_back(actionJson);
             }
-            actionArrayList.append(actionArray);
+            actionStateListJson.push_back(actionStateJson);
         }
-        data["actionList"] = actionArrayList;
+        json["actionList"] = actionStateListJson;
 
-        QJsonArray poseArrayList;
+        // poses
+        nlohmann::json poseStateListJson = nlohmann::json::array();
         for (const auto& poseState: _poseStateList) {
-            QJsonArray poseArray;
+            nlohmann::json poseStateJson = nlohmann::json::array();
             for (const auto& pose: poseState) {
-                QJsonObject poseJson;
-                poseJson["name"] = pose.first;
+                nlohmann::json poseJson;
+                poseJson["name"] = pose.first.toStdString();
                 poseJson["pose"] = poseToJsonObject(pose.second);
-                poseArray.append(poseJson);
+                poseStateJson.push_back(poseJson);
             }
-            poseArrayList.append(poseArray);
+            poseStateListJson.push_back(poseStateJson);
         }
-        data["poseList"] = poseArrayList;
+        json["poseList"] = poseStateListJson;
 
-        QJsonArray inputCalibrationDataList;
+        // inputCalibrationData
+        nlohmann::json inputCalibrationListJson = nlohmann::json::array();
         for (const auto& inputCalibrationData: _inputCalibrationDataList) {
-            inputCalibrationDataList.append(inputCalibrationDataToJsonObject(inputCalibrationData));
+            inputCalibrationListJson.push_back(inputCalibrationDataToJsonObject(inputCalibrationData));
         }
-        data["inputCalibrationDataList"] = inputCalibrationDataList;
+        json["inputCalibrationDataList"] = inputCalibrationListJson;
 
-        return data;
+        // convert nlohmann::json to QByteArray
+        std::string temp = json.dump(4);
+        return QByteArray(temp.data());
     }
 
     void InputRecorder::saveRecording() {
-        std::lock_guard<std::mutex> guard(_mutex);
+        LockGuard guard(_mutex);
 
-        QJsonObject jsonData = recordDataToJson();
+        QByteArray jsonData = recordDataToJson();
         QString timeStamp = QDateTime::currentDateTime().toString(Qt::ISODate);
         timeStamp.replace(":", "-");
         QString fileName = SAVE_DIRECTORY + FILE_PREFIX_NAME + timeStamp + COMPRESS_EXTENSION;
@@ -277,7 +242,7 @@ namespace controller {
     }
 
     void InputRecorder::loadRecording(const QString& path) {
-        std::lock_guard<std::mutex> guard(_mutex);
+        LockGuard guard(_mutex);
 
         _recording = false;
         _playback = false;
@@ -298,47 +263,53 @@ namespace controller {
         }
 
         bool success = false;
-        QJsonObject data = openFile(filePath, success);
-        auto keyValue = data.find("version");
-        if (success && keyValue != data.end()) {
-            _framesRecorded = data["frameCount"].toInt();
-            QJsonArray actionArrayList = data["actionList"].toArray();
-            QJsonArray poseArrayList = data["poseList"].toArray();
+        nlohmann::json data = openFile(filePath, success);
+        if (success) {
+            QString version = QString::fromStdString(data["version"].get<std::string>());
+            _framesRecorded = data["frameCount"].get<int>();
 
+            // actions
+            const nlohmann::json& actionArrayList = data["actionList"];
             for (int actionIndex = 0; actionIndex < actionArrayList.size(); actionIndex++) {
-                QJsonArray actionState = actionArrayList[actionIndex].toArray();
+                const nlohmann::json& actionState = actionArrayList[actionIndex];
                 for (int index = 0; index < actionState.size(); index++) {
-                    QJsonObject actionObject = actionState[index].toObject();
-                    _currentFrameActions[actionObject["name"].toString()] = actionObject["value"].toDouble();
+                    const nlohmann::json& actionObject = actionState[index];
+                    QString key = QString::fromStdString(actionObject["name"].get<std::string>());
+                    _currentFrameActions[key] = actionObject["value"].get<double>();
                 }
                 _actionStateList.push_back(_currentFrameActions);
                 _currentFrameActions.clear();
             }
 
+            // poses
+            const nlohmann::json& poseArrayList = data["poseList"];
             for (int poseIndex = 0; poseIndex < poseArrayList.size(); poseIndex++) {
-                QJsonArray poseState = poseArrayList[poseIndex].toArray();
+                const nlohmann::json& poseState = poseArrayList[poseIndex];
                 for (int index = 0; index < poseState.size(); index++) {
-                    QJsonObject poseObject = poseState[index].toObject();
-                    _currentFramePoses[poseObject["name"].toString()] = jsonObjectToPose(poseObject["pose"].toObject());
+                    const nlohmann::json& poseObject = poseState[index];
+                    QString key = QString::fromStdString(poseObject["name"].get<std::string>());
+                    _currentFramePoses[key] = jsonObjectToPose(poseObject["pose"]);
                 }
                 _poseStateList.push_back(_currentFramePoses);
                 _currentFramePoses.clear();
             }
 
-            // Currently, we don't do anything with the "inputCalibrationDataList" during playback, so don't bother reading it in.
+            if (version == INPUT_CALIBRATION_VERSION_STRING) {
+                // Currently, we don't do anything with the "inputCalibrationDataList" during playback, so don't bother reading it in.
+            }
         }
         _loading = false;
     }
 
     void InputRecorder::stopRecording() {
-        std::lock_guard<std::mutex> guard(_mutex);
+        LockGuard guard(_mutex);
 
         _recording = false;
         _framesRecorded = (int)_actionStateList.size();
     }
 
     void InputRecorder::startPlayback() {
-        std::lock_guard<std::mutex> guard(_mutex);
+        LockGuard guard(_mutex);
 
         _playback = true;
         _recording = false;
@@ -346,7 +317,7 @@ namespace controller {
     }
 
     void InputRecorder::stopPlayback() {
-        std::lock_guard<std::mutex> guard(_mutex);
+        LockGuard guard(_mutex);
 
         _playback = false;
         _playCount = 0;
@@ -365,6 +336,8 @@ namespace controller {
     }
 
     void InputRecorder::resetFrame() {
+        LockGuard guard(_mutex);
+
         if (_recording) {
             _currentFramePoses.clear();
             _currentFrameActions.clear();
@@ -388,7 +361,7 @@ namespace controller {
     }
 
     void InputRecorder::frameTick(const InputCalibrationData& inputCalibrationData) {
-        std::lock_guard<std::mutex> guard(_mutex);
+        LockGuard guard(_mutex);
 
         if (_recording) {
             _framesRecorded++;

@@ -49,9 +49,10 @@ namespace controller {
         QString getSaveDirectory();
         void frameTick(const InputCalibrationData& inputCalibrationData);
     private:
-        QJsonObject recordDataToJson();
+        QByteArray recordDataToJson();
 
-        std::mutex _mutex;
+        std::recursive_mutex _mutex;
+        using LockGuard = std::lock_guard<std::recursive_mutex>;
 
         bool _recording { false };
         bool _playback { false };
