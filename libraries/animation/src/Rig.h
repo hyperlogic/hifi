@@ -92,6 +92,8 @@ public:
         HFMJointShapeInfo spineShapeInfo;
         HFMJointShapeInfo spine1ShapeInfo;
         HFMJointShapeInfo spine2ShapeInfo;
+        glm::vec3 hipsVelocity;
+        glm::vec3 hipsAngularVelocity;
     };
 
     struct EyeParameters {

@@ -30,6 +30,7 @@ enum class AnimNodeType {
     TwoBoneIK,
     SplineIK,
     PoleVectorConstraint,
+    MotionMatching,
     NumTypes
 };
 

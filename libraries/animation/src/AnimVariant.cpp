@@ -141,13 +141,11 @@ std::map<QString, QString> AnimVariantMap::toDebugMap() const {
             break;
         case AnimVariant::Type::Vec3: {
             // To prevent filling up debug stats, don't show vec3 values
-            /*
             glm::vec3 value = pair.second.getVec3();
             result[pair.first] = QString("(%1, %2, %3)").
                 arg(QString::number(value.x, 'f', 3)).
                 arg(QString::number(value.y, 'f', 3)).
                 arg(QString::number(value.z, 'f', 3));
-            */
             break;
         }
         case AnimVariant::Type::Quat: {
