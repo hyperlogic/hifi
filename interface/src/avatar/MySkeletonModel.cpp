@@ -259,9 +259,27 @@ void MySkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
             }
         }
 
+        // AJTMM
+        // transform head velocity into rig space.
+        // TODO: should really track the motion of the avatars hips in world frame.
+
+        auto headPose = myAvatar->getControllerPoseInAvatarFrame(controller::Action::LEFT_HAND);
+        glm::quat avatarToRigRot = Quaternions::Y_180;
+        params.hipsVelocity = avatarToRigRot * headPose.velocity;
+        params.hipsAngularVelocity = avatarToRigRot * headPose.angularVelocity;
+
         _prevIsEstimatingHips = true;
     } else {
         _prevIsEstimatingHips = false;
+
+        // AJTMM
+        // transform avatar velocity into rig space.
+        glm::vec3 worldVelocity = myAvatar->getLocalVelocity() / myAvatar->getSensorToWorldScale();
+        glm::vec3 worldAngularVelocity = myAvatar->getLocalAngularVelocity();
+        glm::quat worldToRigRot = (Quaternions::Y_180 * glm::inverse(myAvatar->getLocalOrientation()));
+
+        params.hipsVelocity = worldToRigRot * worldVelocity;
+        params.hipsAngularVelocity = worldToRigRot * worldAngularVelocity;
     }
 
     params.isTalking = head->getTimeWithoutTalking() <= 1.5f;

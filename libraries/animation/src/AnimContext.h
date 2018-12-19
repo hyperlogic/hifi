@@ -29,6 +29,7 @@ enum class AnimNodeType {
     DefaultPose,
     TwoBoneIK,
     PoleVectorConstraint,
+    MotionMatching,
     NumTypes
 };
 

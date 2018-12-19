@@ -1505,6 +1505,10 @@ void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabl
     int hipsIndex = indexOfJoint("Hips");
     const float KNEE_POLE_VECTOR_BLEND_FACTOR = 0.85f;
 
+    // AJT: MM HACK always do IK even in desktop mode.
+    headEnabled = true;
+    // AJT: MM HACK
+
     if (headEnabled) {
         // always do IK if head is enabled
         _animVars.set("leftFootIKEnabled", true);
@@ -1833,6 +1837,9 @@ void Rig::updateFromControllerParameters(const ControllerParameters& params, flo
             }
         }
     }
+
+    _animVars.set("hipsVelocity", params.hipsVelocity);
+    _animVars.set("hipsAngularVelocity", params.hipsAngularVelocity);
 
     _previousControllerParameters = params;
 }
