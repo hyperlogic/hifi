@@ -33,6 +33,20 @@ Rig::CharacterControllerState convertCharacterControllerState(CharacterControlle
     };
 }
 
+static glm::vec3 computeSpine2WithHeadHipsSpline(MyAvatar* myAvatar, AnimPose hipsIKTargetPose, AnimPose headIKTargetPose) {
+
+    // the the ik targets to compute the spline with
+    CubicHermiteSplineFunctorWithArcLength splineFinal(headIKTargetPose.rot(), headIKTargetPose.trans(), hipsIKTargetPose.rot(), hipsIKTargetPose.trans());
+
+    // measure the total arc length along the spline
+    float totalArcLength = splineFinal.arcLength(1.0f);
+    float tFinal = splineFinal.arcLengthInverse(myAvatar->getSpine2SplineRatio() * totalArcLength);
+    glm::vec3 spine2Translation = splineFinal(tFinal);
+
+    return spine2Translation + myAvatar->getSpine2SplineOffset();
+
+}
+
 static AnimPose computeHipsInSensorFrame(MyAvatar* myAvatar, bool isFlying) {
     glm::mat4 worldToSensorMat = glm::inverse(myAvatar->getSensorToWorldMatrix());
 
@@ -233,6 +247,11 @@ void MySkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
             myAvatar->getControllerPoseInAvatarFrame(controller::Action::LEFT_HAND).isValid() &&
             !(params.primaryControllerFlags[Rig::PrimaryControllerType_Spine2] & (uint8_t)Rig::ControllerFlags::Enabled)) {
 
+            AnimPose headAvatarSpace(avatarHeadPose.getRotation(), avatarHeadPose.getTranslation());
+            AnimPose headRigSpace = avatarToRigPose * headAvatarSpace;
+            AnimPose hipsRigSpace = sensorToRigPose * sensorHips;
+            glm::vec3 spine2TargetTranslation = computeSpine2WithHeadHipsSpline(myAvatar, hipsRigSpace, headRigSpace);
+
             const float SPINE2_ROTATION_FILTER = 0.5f;
             AnimPose currentSpine2Pose;
             AnimPose currentHeadPose;
@@ -253,6 +272,7 @@ void MySkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
                 }
                 generateBasisVectors(up, fwd, u, v, w);
                 AnimPose newSpinePose(glm::mat4(glm::vec4(w, 0.0f), glm::vec4(u, 0.0f), glm::vec4(v, 0.0f), glm::vec4(glm::vec3(0.0f, 0.0f, 0.0f), 1.0f)));
+                currentSpine2Pose.trans() = spine2TargetTranslation;
                 currentSpine2Pose.rot() = safeLerp(currentSpine2Pose.rot(), newSpinePose.rot(), SPINE2_ROTATION_FILTER);
                 params.primaryControllerPoses[Rig::PrimaryControllerType_Spine2] = currentSpine2Pose;
                 params.primaryControllerFlags[Rig::PrimaryControllerType_Spine2] = (uint8_t)Rig::ControllerFlags::Enabled | (uint8_t)Rig::ControllerFlags::Estimated;
