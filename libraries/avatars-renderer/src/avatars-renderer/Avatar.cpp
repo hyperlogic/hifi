@@ -225,6 +225,7 @@ Avatar::Avatar(QThread* thread) :
 }
 
 Avatar::~Avatar() {
+    invalidateJointIndicesCache();
     auto geometryCache = DependencyManager::get<GeometryCache>();
     if (geometryCache) {
         geometryCache->releaseID(_nameRectGeometryID);
@@ -1315,8 +1316,9 @@ int Avatar::getJointIndex(const QString& name) const {
     }
 
     withValidJointIndicesCache([&]() {
-        if (_modelJointIndicesCache.contains(name)) {
-            result = _modelJointIndicesCache[name] - 1;
+        auto iter = _modelJointIndicesCache.find(name);
+        if (iter != _modelJointIndicesCache.end()) {
+            result = iter.value() - 1;
         }
     });
     return result;
