@@ -3322,11 +3322,14 @@ void MyAvatar::updateActionMotor(float deltaTime) {
     _isPushing = directionLength > EPSILON;
 
     // normalize direction
+    // AJTMM don't normalize, for analog stick input..
+    /*
     if (_isPushing) {
         direction /= directionLength;
     } else {
         direction = Vectors::ZERO;
     }
+    */
 
     float sensorToWorldScale = getSensorToWorldScale();
     if (state == CharacterController::State::Hover) {

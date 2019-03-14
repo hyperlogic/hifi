@@ -14,6 +14,66 @@
 #include <string>
 #include "AnimNode.h"
 
+
+enum RowIndices {
+    ID_INDEX = 0,
+    HIPS_PX_INDEX,
+    HIPS_PY_INDEX,
+    HIPS_PZ_INDEX,
+    HIPS_RX_INDEX,
+    HIPS_RY_INDEX,
+    HIPS_RZ_INDEX,
+    HIPS_RW_INDEX,
+    LEFTFOOT_PX_INDEX,
+    LEFTFOOT_PY_INDEX,
+    LEFTFOOT_PZ_INDEX,
+    LEFTFOOT_RX_INDEX,
+    LEFTFOOT_RY_INDEX,
+    LEFTFOOT_RZ_INDEX,
+    LEFTFOOT_RW_INDEX,
+    RIGHTFOOT_PX_INDEX,
+    RIGHTFOOT_PY_INDEX,
+    RIGHTFOOT_PZ_INDEX,
+    RIGHTFOOT_RX_INDEX,
+    RIGHTFOOT_RY_INDEX,
+    RIGHTFOOT_RZ_INDEX,
+    RIGHTFOOT_RW_INDEX,
+    HEAD_PX_INDEX,
+    HEAD_PY_INDEX,
+    HEAD_PZ_INDEX,
+    HEAD_RX_INDEX,
+    HEAD_RY_INDEX,
+    HEAD_RZ_INDEX,
+    HEAD_RW_INDEX,
+    LEFTHAND_PX_INDEX,
+    LEFTHAND_PY_INDEX,
+    LEFTHAND_PZ_INDEX,
+    LEFTHAND_RX_INDEX,
+    LEFTHAND_RY_INDEX,
+    LEFTHAND_RZ_INDEX,
+    LEFTHAND_RW_INDEX,
+    RIGHTHAND_PX_INDEX,
+    RIGHTHAND_PY_INDEX,
+    RIGHTHAND_PZ_INDEX,
+    RIGHTHAND_RX_INDEX,
+    RIGHTHAND_RY_INDEX,
+    RIGHTHAND_RZ_INDEX,
+    RIGHTHAND_RW_INDEX,
+    ROOTF1_PX_INDEX,
+    ROOTF1_PY_INDEX,
+    ROOTF1_PZ_INDEX,
+    ROOTF2_PX_INDEX,
+    ROOTF2_PY_INDEX,
+    ROOTF2_PZ_INDEX,
+    ROOTF3_PX_INDEX,
+    ROOTF3_PY_INDEX,
+    ROOTF3_PZ_INDEX,
+    ROOTF4_PX_INDEX,
+    ROOTF4_PY_INDEX,
+    ROOTF4_PZ_INDEX,
+    DATA_ROW_SIZE
+};
+
 class AnimMotionMatching : public AnimNode {
 public:
     AnimMotionMatching(const QString& id);
@@ -27,14 +87,19 @@ protected:
     AnimPoseVec _poses;
 
 public:
-    static const size_t DATA_ROW_SIZE = 31;
+
     struct DataRow {
         float data[DATA_ROW_SIZE];
     };
 
+    struct TrajectoryPoint {
+        glm::vec3 position;
+        glm::quat rotation;
+    };
+
+    static const size_t NUM_TRAJECTORY_POINTS = 4;
     struct Goal {
-        glm::vec3 hipsVel;
-        glm::vec3 hipsAngularVel;
+        TrajectoryPoint desiredTrajectory[NUM_TRAJECTORY_POINTS];
     };
 protected:
 
