@@ -255,10 +255,31 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     glm::vec3 currentHipsPos(currentRow.data[HIPS_PX_INDEX], currentRow.data[HIPS_PY_INDEX], currentRow.data[HIPS_PZ_INDEX]);
     glm::quat currentHipsRot = glm::quat(currentRow.data[HIPS_RW_INDEX], currentRow.data[HIPS_RX_INDEX], currentRow.data[HIPS_RY_INDEX], currentRow.data[HIPS_RZ_INDEX]);
     AnimPose currentHipsPose(currentHipsRot, currentHipsPos);
-    currentHipsPose = rigToGeometryPose * currentHipsPose;
+    //currentHipsPose = rigToGeometryPose * currentHipsPose;
     currentHipsPose.scale() = glm::vec3(1.0f);
 
+    // grab lefthand from currentRow
+    glm::vec3 currentLeftHandPos(currentRow.data[LEFTHAND_PX_INDEX], currentRow.data[LEFTHAND_PY_INDEX], currentRow.data[LEFTHAND_PZ_INDEX]);
+    glm::quat currentLeftHandRot = glm::quat(currentRow.data[LEFTHAND_RW_INDEX], currentRow.data[LEFTHAND_RX_INDEX], currentRow.data[LEFTHAND_RY_INDEX], currentRow.data[LEFTHAND_RZ_INDEX]);
+    AnimPose currentLeftHandPose(currentLeftHandRot, currentLeftHandPos);
+    //currentLeftHandPose = rigToGeometryPose * currentLeftHandPose;
+    currentLeftHandPose.scale() = glm::vec3(1.0f);
 
+    // grab righthand from currentRow
+    glm::vec3 currentRightHandPos(currentRow.data[RIGHTHAND_PX_INDEX], currentRow.data[RIGHTHAND_PY_INDEX], currentRow.data[RIGHTHAND_PZ_INDEX]);
+    glm::quat currentRightHandRot = glm::quat(currentRow.data[RIGHTHAND_RW_INDEX], currentRow.data[RIGHTHAND_RX_INDEX], currentRow.data[RIGHTHAND_RY_INDEX], currentRow.data[RIGHTHAND_RZ_INDEX]);
+    AnimPose currentRightHandPose(currentRightHandRot, currentRightHandPos);
+    //currentRightHandPose = rigToGeometryPose * currentRightHandPose;
+    currentRightHandPose.scale() = glm::vec3(1.0f);
+
+    // grab head from currentRow
+    glm::vec3 currentHeadPos(currentRow.data[HEAD_PX_INDEX], currentRow.data[HEAD_PY_INDEX], currentRow.data[HEAD_PZ_INDEX]);
+    glm::quat currentHeadRot = glm::quat(currentRow.data[HEAD_RW_INDEX], currentRow.data[HEAD_RX_INDEX], currentRow.data[HEAD_RY_INDEX], currentRow.data[HEAD_RZ_INDEX]);
+    AnimPose currentHeadPose(currentHeadRot, currentHeadPos);
+    //currentHeadPose = rigToGeometryPose * currentHeadPose;
+    currentHeadPose.scale() = glm::vec3(1.0f);
+
+    /*
     // set Hips transform from currentRow
     int hipsIndex = _skeleton->nameToJointIndex("Hips");
     int hipsParentIndex = _skeleton->getParentIndex(hipsIndex);
@@ -270,17 +291,27 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     } else {
         _poses[hipsIndex] = currentHipsPose;
     }
+    */
 
     // AJT: hack for debugging
     triggersOut.set("_frame", _frame);
 
     processOutputJoints(triggersOut);
 
-    // Output feet poses for IK node to pick them up.
+    // Output feet poses for IK node to pick them up.  in geom space!?!
     triggersOut.set("mainStateMachineLeftFootPosition", currentLeftFootPose.trans());
     triggersOut.set("mainStateMachineLeftFootRotation", currentLeftFootPose.rot());
     triggersOut.set("mainStateMachineRightFootPosition", currentRightFootPose.trans());
     triggersOut.set("mainStateMachineRightFootRotation", currentRightFootPose.rot());
+
+    triggersOut.set("mmHeadPosition", currentHeadPose.trans());
+    triggersOut.set("mmHeadRotation", currentHeadPose.rot());
+    triggersOut.set("mmHipsPosition", currentHipsPose.trans());
+    triggersOut.set("mmHipsRotation", currentHipsPose.rot());
+    triggersOut.set("mmLeftHandPosition", currentLeftHandPose.trans());
+    triggersOut.set("mmLeftHandRotation", currentLeftHandPose.rot());
+    triggersOut.set("mmRightHandPosition", currentRightHandPose.trans());
+    triggersOut.set("mmRightHandRotation", currentRightHandPose.rot());
 
     return _poses;
 }

@@ -1305,6 +1305,9 @@ void Rig::updateHead(bool headEnabled, bool hipsEnabled, const AnimPose& headPos
             _animVars.set("headRotation", headPose.rot());
             _animVars.set("headType", (int)IKTarget::Type::RotationOnly);
         }
+
+        // AJTMM HACK  force HEAD IK ON
+        _animVars.set("mmHeadType", (int)IKTarget::Type::Spline);
     }
 }
 
@@ -1551,6 +1554,11 @@ void Rig::updateHands(bool leftHandEnabled, bool rightHandEnabled, bool hipsEnab
             _animVars.set("rightHandType", (int)IKTarget::Type::Unknown);
         }
     }
+
+    // AJTMM HACK  FORCE HAND IK ON
+    _animVars.set("mmRightHandType", (int)IKTarget::Type::RotationAndPosition);
+    _animVars.set("mmLeftHandType", (int)IKTarget::Type::RotationAndPosition);
+
 }
 
 void Rig::updateFeet(bool leftFootEnabled, bool rightFootEnabled, bool headEnabled,
