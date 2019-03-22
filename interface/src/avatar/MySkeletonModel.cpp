@@ -289,14 +289,40 @@ void MySkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
             }
         }
 
+        static RingBufferHistory<glm::vec3> headHistory(100);  // sensor frame...
+
+
         // AJTMM
         // transform head velocity into rig space.
         // TODO: should really track the motion of the avatars hips in world frame.
 
-        auto headPose = myAvatar->getControllerPoseInAvatarFrame(controller::Action::LEFT_HAND);
+        controller::Pose sensorHead = myAvatar->getControllerPoseInSensorFrame(controller::Action::HEAD);
+        controller::Pose headPose = myAvatar->getControllerPoseInAvatarFrame(controller::Action::HEAD);
         glm::quat avatarToRigRot = Quaternions::Y_180;
         params.hipsVelocity = avatarToRigRot * headPose.velocity;
         params.hipsAngularVelocity = avatarToRigRot * headPose.angularVelocity;
+
+        // transform head history
+        glm::vec3 headTrajectory[4];
+        if (headHistory.isFilled()) {
+            headTrajectory[0] = *headHistory.get(18);
+            headTrajectory[1] = *headHistory.get(36);
+            headTrajectory[2] = *headHistory.get(62);
+            headTrajectory[3] = *headHistory.get(90);
+        } else {
+            headTrajectory[0] = sensorHead.translation;
+            headTrajectory[1] = sensorHead.translation;
+            headTrajectory[2] = sensorHead.translation;
+            headTrajectory[3] = sensorHead.translation;
+        }
+
+        // record the head history
+        glm::mat4 sensorToRigMat = glm::inverse(params.rigToSensorMatrix);
+        for (int i = 0; i < 4; i++) {
+            params.headTrajectory[i] = transformPoint(sensorToRigMat, headTrajectory[i]);
+        }
+
+        headHistory.insert(sensorHead.translation);
 
         _prevIsEstimatingHips = true;
     } else {
@@ -307,7 +333,6 @@ void MySkeletonModel::updateRig(float deltaTime, glm::mat4 parentTransform) {
         glm::vec3 worldVelocity = myAvatar->getLocalVelocity() / myAvatar->getSensorToWorldScale();
         glm::vec3 worldAngularVelocity = myAvatar->getLocalAngularVelocity();
         glm::quat worldToRigRot = (Quaternions::Y_180 * glm::inverse(myAvatar->getLocalOrientation()));
-
         params.hipsVelocity = worldToRigRot * worldVelocity;
         params.hipsAngularVelocity = worldToRigRot * worldAngularVelocity;
     }

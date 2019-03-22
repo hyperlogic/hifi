@@ -59,18 +59,54 @@ enum RowIndices {
     RIGHTHAND_RY_INDEX,
     RIGHTHAND_RZ_INDEX,
     RIGHTHAND_RW_INDEX,
-    ROOTF1_PX_INDEX,
-    ROOTF1_PY_INDEX,
-    ROOTF1_PZ_INDEX,
-    ROOTF2_PX_INDEX,
-    ROOTF2_PY_INDEX,
-    ROOTF2_PZ_INDEX,
-    ROOTF3_PX_INDEX,
-    ROOTF3_PY_INDEX,
-    ROOTF3_PZ_INDEX,
-    ROOTF4_PX_INDEX,
-    ROOTF4_PY_INDEX,
-    ROOTF4_PZ_INDEX,
+    ROOTTRAJ1_PX_INDEX,
+    ROOTTRAJ1_PY_INDEX,
+    ROOTTRAJ1_PZ_INDEX,
+    ROOTTRAJ2_PX_INDEX,
+    ROOTTRAJ2_PY_INDEX,
+    ROOTTRAJ2_PZ_INDEX,
+    ROOTTRAJ3_PX_INDEX,
+    ROOTTRAJ3_PY_INDEX,
+    ROOTTRAJ3_PZ_INDEX,
+    ROOTTRAJ4_PX_INDEX,
+    ROOTTRAJ4_PY_INDEX,
+    ROOTTRAJ4_PZ_INDEX,
+    ROOTTRAJ5_PX_INDEX,
+    ROOTTRAJ5_PY_INDEX,
+    ROOTTRAJ5_PZ_INDEX,
+    ROOTTRAJ6_PX_INDEX,
+    ROOTTRAJ6_PY_INDEX,
+    ROOTTRAJ6_PZ_INDEX,
+    ROOTTRAJ7_PX_INDEX,
+    ROOTTRAJ7_PY_INDEX,
+    ROOTTRAJ7_PZ_INDEX,
+    ROOTTRAJ8_PX_INDEX,
+    ROOTTRAJ8_PY_INDEX,
+    ROOTTRAJ8_PZ_INDEX,
+    HEADTRAJ1_PX_INDEX,
+    HEADTRAJ1_PY_INDEX,
+    HEADTRAJ1_PZ_INDEX,
+    HEADTRAJ2_PX_INDEX,
+    HEADTRAJ2_PY_INDEX,
+    HEADTRAJ2_PZ_INDEX,
+    HEADTRAJ3_PX_INDEX,
+    HEADTRAJ3_PY_INDEX,
+    HEADTRAJ3_PZ_INDEX,
+    HEADTRAJ4_PX_INDEX,
+    HEADTRAJ4_PY_INDEX,
+    HEADTRAJ4_PZ_INDEX,
+    HEADTRAJ5_PX_INDEX,
+    HEADTRAJ5_PY_INDEX,
+    HEADTRAJ5_PZ_INDEX,
+    HEADTRAJ6_PX_INDEX,
+    HEADTRAJ6_PY_INDEX,
+    HEADTRAJ6_PZ_INDEX,
+    HEADTRAJ7_PX_INDEX,
+    HEADTRAJ7_PY_INDEX,
+    HEADTRAJ7_PZ_INDEX,
+    HEADTRAJ8_PX_INDEX,
+    HEADTRAJ8_PY_INDEX,
+    HEADTRAJ8_PZ_INDEX,
     DATA_ROW_SIZE
 };
 
@@ -99,7 +135,9 @@ public:
 
     static const size_t NUM_TRAJECTORY_POINTS = 4;
     struct Goal {
-        TrajectoryPoint desiredTrajectory[NUM_TRAJECTORY_POINTS];
+        TrajectoryPoint desiredRootTrajectory[NUM_TRAJECTORY_POINTS];
+        TrajectoryPoint previousHeadTrajectory[NUM_TRAJECTORY_POINTS];
+        bool hmdMode;
     };
 protected:
 
@@ -118,6 +156,18 @@ protected:
     float _futureHipsAngularVelocityCostFactor = 0.0f;
     float _futureCostFactor = 0.25f;
     float _sameLocationWindow = 0.2f;
+
+    float _interpTimer = -1.0f;
+
+    struct Snapshot {
+        AnimPose head;
+        AnimPose hips;
+        AnimPose leftFoot;
+        AnimPose rightFoot;
+        AnimPose leftHand;
+        AnimPose rightHand;
+    };
+    Snapshot _snapshot;
 
     // no copies
     AnimMotionMatching(const AnimMotionMatching&) = delete;

@@ -104,29 +104,26 @@ float AnimMotionMatching::computeFutureCost(const DataRow& currentRow, const Goa
 
     const float K_V = _futureHipsVelocityCostFactor;
 
-    cost += K_V * glm::length2(glm::vec3(currentRow.data[ROOTF1_PX_INDEX], currentRow.data[ROOTF1_PY_INDEX], currentRow.data[ROOTF1_PZ_INDEX]) - goal.desiredTrajectory[0].position);
-    cost += K_V * glm::length2(glm::vec3(currentRow.data[ROOTF2_PX_INDEX], currentRow.data[ROOTF2_PY_INDEX], currentRow.data[ROOTF2_PZ_INDEX]) - goal.desiredTrajectory[1].position);
-    cost += K_V * glm::length2(glm::vec3(currentRow.data[ROOTF3_PX_INDEX], currentRow.data[ROOTF3_PY_INDEX], currentRow.data[ROOTF3_PZ_INDEX]) - goal.desiredTrajectory[2].position);
-    cost += K_V * glm::length2(glm::vec3(currentRow.data[ROOTF4_PX_INDEX], currentRow.data[ROOTF4_PY_INDEX], currentRow.data[ROOTF4_PZ_INDEX]) - goal.desiredTrajectory[3].position);
+    // match future root trajectory with desired goal trajectory
+    cost += K_V * glm::length2(glm::vec3(currentRow.data[ROOTTRAJ1_PX_INDEX], currentRow.data[ROOTTRAJ1_PY_INDEX], currentRow.data[ROOTTRAJ1_PZ_INDEX]) - goal.desiredRootTrajectory[0].position);
+    cost += K_V * glm::length2(glm::vec3(currentRow.data[ROOTTRAJ2_PX_INDEX], currentRow.data[ROOTTRAJ2_PY_INDEX], currentRow.data[ROOTTRAJ2_PZ_INDEX]) - goal.desiredRootTrajectory[1].position);
+    cost += K_V * glm::length2(glm::vec3(currentRow.data[ROOTTRAJ3_PX_INDEX], currentRow.data[ROOTTRAJ3_PY_INDEX], currentRow.data[ROOTTRAJ3_PZ_INDEX]) - goal.desiredRootTrajectory[2].position);
+    cost += K_V * glm::length2(glm::vec3(currentRow.data[ROOTTRAJ4_PX_INDEX], currentRow.data[ROOTTRAJ4_PY_INDEX], currentRow.data[ROOTTRAJ4_PZ_INDEX]) - goal.desiredRootTrajectory[3].position);
 
-    /*
-    const float K_V = _futureHipsVelocityCostFactor;
+    // AJT: HACK re-using this coeff
     const float K_AV = _futureHipsAngularVelocityCostFactor;
 
-    float cost = 0.0f;
-
-    cost += K_V * glm::length2(glm::vec3(currentRow.data[HIPS_DX_INDEX], currentRow.data[HIPS_DY_INDEX], currentRow.data[HIPS_DZ_INDEX]) - goal.hipsVel);
-    cost += K_AV * glm::length2(glm::vec3(currentRow.data[HIPS_WX_INDEX], currentRow.data[HIPS_WY_INDEX], currentRow.data[HIPS_WZ_INDEX]) - goal.hipsAngularVel);
-
-    if (debug) {
-        qDebug() << "AJT:        currentRow.vel =" << glm::vec3(currentRow.data[HIPS_DX_INDEX], currentRow.data[HIPS_DY_INDEX], currentRow.data[HIPS_DZ_INDEX]);
-        qDebug() << "AJT:        goal.vel =" << goal.hipsVel;
-        qDebug() << "AJT:        futureCost =" << cost;
+    if (goal.hmdMode) {
+        // match past head trajectory with previous head trajectory
+        cost += K_V * glm::length2(glm::vec3(currentRow.data[HEADTRAJ5_PX_INDEX], currentRow.data[ROOTTRAJ5_PY_INDEX], currentRow.data[ROOTTRAJ5_PZ_INDEX]) - goal.previousHeadTrajectory[0].position);
+        cost += K_V * glm::length2(glm::vec3(currentRow.data[HEADTRAJ6_PX_INDEX], currentRow.data[ROOTTRAJ6_PY_INDEX], currentRow.data[ROOTTRAJ6_PZ_INDEX]) - goal.previousHeadTrajectory[1].position);
+        cost += K_V * glm::length2(glm::vec3(currentRow.data[HEADTRAJ7_PX_INDEX], currentRow.data[ROOTTRAJ7_PY_INDEX], currentRow.data[ROOTTRAJ7_PZ_INDEX]) - goal.previousHeadTrajectory[2].position);
+        cost += K_V * glm::length2(glm::vec3(currentRow.data[HEADTRAJ8_PX_INDEX], currentRow.data[ROOTTRAJ8_PY_INDEX], currentRow.data[ROOTTRAJ8_PZ_INDEX]) - goal.previousHeadTrajectory[3].position);
     }
-    */
 
     return cost;
 }
+
 
 float AnimMotionMatching::computeCost(const DataRow& currentRow, const DataRow& candidateRow, const Goal& goal) const {
 
@@ -190,14 +187,40 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     for (size_t i = 0; i < NUM_TRAJECTORY_POINTS; i++) {
         float trajectoryTime = (TRAJECTORY_FRAMES[i] / FPS);
         // glm::angleAxis(rigDesiredAngularVelLength * trajectoryTime, glm::vec3(0.0f, 1.0f, 0.0f))
-        goal.desiredTrajectory[i] = {rigDesiredVel * trajectoryTime, glm::quat()};
+        goal.desiredRootTrajectory[i] = {rigDesiredVel * trajectoryTime, glm::quat()};
     }
 
     // debug desired goal
-    DebugDraw::getInstance().addMyAvatarMarker("RootF1", goal.desiredTrajectory[0].rotation * Quaternions::Y_180, Quaternions::Y_180 * goal.desiredTrajectory[0].position, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
-    DebugDraw::getInstance().addMyAvatarMarker("RootF2", goal.desiredTrajectory[1].rotation * Quaternions::Y_180, Quaternions::Y_180 * goal.desiredTrajectory[1].position, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
-    DebugDraw::getInstance().addMyAvatarMarker("RootF3", goal.desiredTrajectory[2].rotation * Quaternions::Y_180, Quaternions::Y_180 * goal.desiredTrajectory[2].position, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
-    DebugDraw::getInstance().addMyAvatarMarker("RootF4", goal.desiredTrajectory[3].rotation * Quaternions::Y_180, Quaternions::Y_180 * goal.desiredTrajectory[3].position, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("DesiredRootTraj1", goal.desiredRootTrajectory[0].rotation * Quaternions::Y_180, Quaternions::Y_180 * goal.desiredRootTrajectory[0].position, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("DesiredRootTraj2", goal.desiredRootTrajectory[1].rotation * Quaternions::Y_180, Quaternions::Y_180 * goal.desiredRootTrajectory[1].position, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("DesiredRootTraj3", goal.desiredRootTrajectory[2].rotation * Quaternions::Y_180, Quaternions::Y_180 * goal.desiredRootTrajectory[2].position, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("DesiredRootTraj4", goal.desiredRootTrajectory[3].rotation * Quaternions::Y_180, Quaternions::Y_180 * goal.desiredRootTrajectory[3].position, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+
+    glm::vec3 headTraj1 = animVars.lookupRaw("mmHeadTraj1", glm::vec3());
+    glm::vec3 headTraj2 = animVars.lookupRaw("mmHeadTraj2", glm::vec3());
+    glm::vec3 headTraj3 = animVars.lookupRaw("mmHeadTraj3", glm::vec3());
+    glm::vec3 headTraj4 = animVars.lookupRaw("mmHeadTraj4", glm::vec3());
+
+    AnimPose horizontalHeadPose(cancelOutRollAndPitch(animVars.lookupRaw("headRotation", glm::quat())), animVars.lookupRaw("headPosition", glm::vec3()));
+    AnimPose invHorizontalHeadPose = horizontalHeadPose.inverse();
+
+    // transform head trajectory into horizontal hmd
+    goal.previousHeadTrajectory[0].rotation = glm::quat();
+    goal.previousHeadTrajectory[0].position = invHorizontalHeadPose.xformPoint(headTraj1);
+    goal.previousHeadTrajectory[1].rotation = glm::quat();
+    goal.previousHeadTrajectory[1].position = invHorizontalHeadPose.xformPoint(headTraj2);
+    goal.previousHeadTrajectory[2].rotation = glm::quat();
+    goal.previousHeadTrajectory[2].position = invHorizontalHeadPose.xformPoint(headTraj3);
+    goal.previousHeadTrajectory[3].rotation = glm::quat();
+    goal.previousHeadTrajectory[3].position = invHorizontalHeadPose.xformPoint(headTraj4);
+
+    goal.hmdMode = animVars.lookup("mmHmdMode", false);
+
+    // debug draw head trajectory
+    DebugDraw::getInstance().addMyAvatarMarker("HeadHistory1", Quaternions::Y_180 * glm::quat(), Quaternions::Y_180 * headTraj1, glm::vec4(1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("HeadHistory2", Quaternions::Y_180 * glm::quat(), Quaternions::Y_180 * headTraj2, glm::vec4(1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("HeadHistory3", Quaternions::Y_180 * glm::quat(), Quaternions::Y_180 * headTraj3, glm::vec4(1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("HeadHistory4", Quaternions::Y_180 * glm::quat(), Quaternions::Y_180 * headTraj4, glm::vec4(1.0f));
 
     DataRow currentRow = _rows[floorf(_frame)];
     float bestCost = FLT_MAX;
@@ -213,10 +236,12 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
 
     qDebug() << "AJT:     bestRow.frame =" << bestRow.data[ID_INDEX] << ", bestCost =" << bestCost;
 
+    const float JUMP_INTERP_TIME = 0.25;
     const float SAME_LOCATION_THRESHOLD = _sameLocationWindow * FPS;
     bool theWinnerIsAtTheSameLocation = fabs(_frame - bestRow.data[ID_INDEX]) < SAME_LOCATION_THRESHOLD;
     if (!theWinnerIsAtTheSameLocation)
     {
+        _interpTimer = JUMP_INTERP_TIME;
         // jump to the winning location
         _frame = bestRow.data[ID_INDEX];
         currentRow = bestRow;
@@ -225,17 +250,33 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
         qDebug() << "AJT:     same loc, delta = " << fabs(_frame - bestRow.data[ID_INDEX]);
     }
 
+    _interpTimer -= dt;
+
     // debug draw current trajectory
-    DebugDraw::getInstance().addMyAvatarMarker("CurrentF1", Quaternions::Y_180, Quaternions::Y_180 * glm::vec3(currentRow.data[ROOTF1_PX_INDEX], currentRow.data[ROOTF1_PY_INDEX], currentRow.data[ROOTF1_PZ_INDEX]), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-    DebugDraw::getInstance().addMyAvatarMarker("CurrentF2", Quaternions::Y_180, Quaternions::Y_180 * glm::vec3(currentRow.data[ROOTF2_PX_INDEX], currentRow.data[ROOTF2_PY_INDEX], currentRow.data[ROOTF2_PZ_INDEX]), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-    DebugDraw::getInstance().addMyAvatarMarker("CurrentF3", Quaternions::Y_180, Quaternions::Y_180 * glm::vec3(currentRow.data[ROOTF3_PX_INDEX], currentRow.data[ROOTF3_PY_INDEX], currentRow.data[ROOTF3_PZ_INDEX]), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-    DebugDraw::getInstance().addMyAvatarMarker("CurrentF4", Quaternions::Y_180, Quaternions::Y_180 * glm::vec3(currentRow.data[ROOTF4_PX_INDEX], currentRow.data[ROOTF4_PY_INDEX], currentRow.data[ROOTF4_PZ_INDEX]), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("RootTraj1", Quaternions::Y_180, Quaternions::Y_180 * glm::vec3(currentRow.data[ROOTTRAJ1_PX_INDEX], currentRow.data[ROOTTRAJ1_PY_INDEX], currentRow.data[ROOTTRAJ1_PZ_INDEX]), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("RootTraj2", Quaternions::Y_180, Quaternions::Y_180 * glm::vec3(currentRow.data[ROOTTRAJ2_PX_INDEX], currentRow.data[ROOTTRAJ2_PY_INDEX], currentRow.data[ROOTTRAJ2_PZ_INDEX]), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("RootTraj3", Quaternions::Y_180, Quaternions::Y_180 * glm::vec3(currentRow.data[ROOTTRAJ3_PX_INDEX], currentRow.data[ROOTTRAJ3_PY_INDEX], currentRow.data[ROOTTRAJ3_PZ_INDEX]), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("RootTraj4", Quaternions::Y_180, Quaternions::Y_180 * glm::vec3(currentRow.data[ROOTTRAJ4_PX_INDEX], currentRow.data[ROOTTRAJ4_PY_INDEX], currentRow.data[ROOTTRAJ4_PZ_INDEX]), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
 
-    qDebug() << "AJT: p4" << glm::vec3(currentRow.data[ROOTF4_PX_INDEX], currentRow.data[ROOTF4_PY_INDEX], currentRow.data[ROOTF4_PZ_INDEX]);
+    // debug draw current previous trajectory
+    AnimPose Y_180_POSE(Quaternions::Y_180, glm::vec3());
+    AnimPose headTraj5Pose = Y_180_POSE * horizontalHeadPose * AnimPose(glm::quat(), glm::vec3(currentRow.data[ROOTTRAJ5_PX_INDEX], currentRow.data[ROOTTRAJ5_PY_INDEX], currentRow.data[ROOTTRAJ5_PZ_INDEX]));
+    AnimPose headTraj6Pose = Y_180_POSE * horizontalHeadPose * AnimPose(glm::quat(), glm::vec3(currentRow.data[ROOTTRAJ6_PX_INDEX], currentRow.data[ROOTTRAJ6_PY_INDEX], currentRow.data[ROOTTRAJ6_PZ_INDEX]));
+    AnimPose headTraj7Pose = Y_180_POSE * horizontalHeadPose * AnimPose(glm::quat(), glm::vec3(currentRow.data[ROOTTRAJ7_PX_INDEX], currentRow.data[ROOTTRAJ7_PY_INDEX], currentRow.data[ROOTTRAJ7_PZ_INDEX]));
+    AnimPose headTraj8Pose = Y_180_POSE * horizontalHeadPose * AnimPose(glm::quat(), glm::vec3(currentRow.data[ROOTTRAJ8_PX_INDEX], currentRow.data[ROOTTRAJ8_PY_INDEX], currentRow.data[ROOTTRAJ8_PZ_INDEX]));
+    DebugDraw::getInstance().addMyAvatarMarker("HeadTraj5", headTraj5Pose.rot(), headTraj5Pose.trans(), glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("HeadTraj6", headTraj6Pose.rot(), headTraj6Pose.trans(), glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("HeadTraj7", headTraj7Pose.rot(), headTraj7Pose.trans(), glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
+    DebugDraw::getInstance().addMyAvatarMarker("HeadTraj8", headTraj8Pose.rot(), headTraj8Pose.trans(), glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
 
+    // AJT: TODO apply offset?!?
+
+    qDebug() << "AJT: p4" << glm::vec3(currentRow.data[ROOTTRAJ4_PX_INDEX], currentRow.data[ROOTTRAJ4_PY_INDEX], currentRow.data[ROOTTRAJ4_PZ_INDEX]);
 
 
     AnimPose rigToGeometryPose = AnimPose(glm::inverse(context.getGeometryToRigMatrix()));
+
+    Snapshot targetSnapshot;
 
     // grab leftfoot from currentRow
     glm::vec3 currentLeftFootPos(currentRow.data[LEFTFOOT_PX_INDEX], currentRow.data[LEFTFOOT_PY_INDEX], currentRow.data[LEFTFOOT_PZ_INDEX]);
@@ -243,6 +284,7 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     AnimPose currentLeftFootPose(currentLeftFootRot, currentLeftFootPos);
     currentLeftFootPose = rigToGeometryPose * currentLeftFootPose;
     currentLeftFootPose.scale() = glm::vec3(1.0f);
+    targetSnapshot.leftFoot = currentLeftFootPose;
 
     // grab rightfoot from currentRow
     glm::vec3 currentRightFootPos(currentRow.data[RIGHTFOOT_PX_INDEX], currentRow.data[RIGHTFOOT_PY_INDEX], currentRow.data[RIGHTFOOT_PZ_INDEX]);
@@ -250,6 +292,7 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     AnimPose currentRightFootPose(currentRightFootRot, currentRightFootPos);
     currentRightFootPose = rigToGeometryPose * currentRightFootPose;
     currentRightFootPose.scale() = glm::vec3(1.0f);
+    targetSnapshot.rightFoot = currentRightFootPose;
 
     // grab hips from currentRow
     glm::vec3 currentHipsPos(currentRow.data[HIPS_PX_INDEX], currentRow.data[HIPS_PY_INDEX], currentRow.data[HIPS_PZ_INDEX]);
@@ -257,6 +300,7 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     AnimPose currentHipsPose(currentHipsRot, currentHipsPos);
     //currentHipsPose = rigToGeometryPose * currentHipsPose;
     currentHipsPose.scale() = glm::vec3(1.0f);
+    targetSnapshot.hips = currentHipsPose;
 
     // grab lefthand from currentRow
     glm::vec3 currentLeftHandPos(currentRow.data[LEFTHAND_PX_INDEX], currentRow.data[LEFTHAND_PY_INDEX], currentRow.data[LEFTHAND_PZ_INDEX]);
@@ -264,6 +308,7 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     AnimPose currentLeftHandPose(currentLeftHandRot, currentLeftHandPos);
     //currentLeftHandPose = rigToGeometryPose * currentLeftHandPose;
     currentLeftHandPose.scale() = glm::vec3(1.0f);
+    targetSnapshot.leftHand = currentLeftHandPose;
 
     // grab righthand from currentRow
     glm::vec3 currentRightHandPos(currentRow.data[RIGHTHAND_PX_INDEX], currentRow.data[RIGHTHAND_PY_INDEX], currentRow.data[RIGHTHAND_PZ_INDEX]);
@@ -271,6 +316,7 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     AnimPose currentRightHandPose(currentRightHandRot, currentRightHandPos);
     //currentRightHandPose = rigToGeometryPose * currentRightHandPose;
     currentRightHandPose.scale() = glm::vec3(1.0f);
+    targetSnapshot.rightHand = currentRightHandPose;
 
     // grab head from currentRow
     glm::vec3 currentHeadPos(currentRow.data[HEAD_PX_INDEX], currentRow.data[HEAD_PY_INDEX], currentRow.data[HEAD_PZ_INDEX]);
@@ -278,40 +324,49 @@ const AnimPoseVec& AnimMotionMatching::evaluate(const AnimVariantMap& animVars, 
     AnimPose currentHeadPose(currentHeadRot, currentHeadPos);
     //currentHeadPose = rigToGeometryPose * currentHeadPose;
     currentHeadPose.scale() = glm::vec3(1.0f);
-
-    /*
-    // set Hips transform from currentRow
-    int hipsIndex = _skeleton->nameToJointIndex("Hips");
-    int hipsParentIndex = _skeleton->getParentIndex(hipsIndex);
-
-    // set hips directly
-    if (hipsParentIndex != -1) {
-        AnimPose hipsParentPose = _skeleton->getAbsolutePose(hipsParentIndex, _poses);
-        _poses[hipsIndex] = hipsParentPose.inverse() * currentHipsPose;
-    } else {
-        _poses[hipsIndex] = currentHipsPose;
+    if (goal.hmdMode) {
+        // drive the head with the actual hmd.
+        currentHeadPose.trans() = animVars.lookupRaw("headPosition", glm::vec3());
+        currentHeadPose.rot() = animVars.lookupRaw("headRotation", glm::quat());
     }
-    */
+    targetSnapshot.head = currentHeadPose;
+
 
     // AJT: hack for debugging
     triggersOut.set("_frame", _frame);
 
     processOutputJoints(triggersOut);
 
-    // Output feet poses for IK node to pick them up.  in geom space!?!
-    triggersOut.set("mainStateMachineLeftFootPosition", currentLeftFootPose.trans());
-    triggersOut.set("mainStateMachineLeftFootRotation", currentLeftFootPose.rot());
-    triggersOut.set("mainStateMachineRightFootPosition", currentRightFootPose.trans());
-    triggersOut.set("mainStateMachineRightFootRotation", currentRightFootPose.rot());
+    if (_interpTimer > 0.0f) {
+        float alpha = (JUMP_INTERP_TIME - _interpTimer) / JUMP_INTERP_TIME;
 
-    triggersOut.set("mmHeadPosition", currentHeadPose.trans());
-    triggersOut.set("mmHeadRotation", currentHeadPose.rot());
-    triggersOut.set("mmHipsPosition", currentHipsPose.trans());
-    triggersOut.set("mmHipsRotation", currentHipsPose.rot());
-    triggersOut.set("mmLeftHandPosition", currentLeftHandPose.trans());
-    triggersOut.set("mmLeftHandRotation", currentLeftHandPose.rot());
-    triggersOut.set("mmRightHandPosition", currentRightHandPose.trans());
-    triggersOut.set("mmRightHandRotation", currentRightHandPose.rot());
+        targetSnapshot.head.blend(_snapshot.head, alpha);
+        targetSnapshot.hips.blend(_snapshot.hips, alpha);
+        targetSnapshot.leftFoot.blend(_snapshot.leftFoot, alpha);
+        targetSnapshot.rightFoot.blend(_snapshot.rightFoot, alpha);
+        targetSnapshot.leftHand.blend(_snapshot.leftHand, alpha);
+        targetSnapshot.rightHand.blend(_snapshot.rightHand, alpha);
+
+    } else {
+        _snapshot = targetSnapshot;
+    }
+
+
+    // Output feet poses for IK node to pick them up.  in geom space!?!
+    triggersOut.set("mainStateMachineLeftFootPosition", targetSnapshot.leftFoot.trans());
+    triggersOut.set("mainStateMachineLeftFootRotation", targetSnapshot.leftFoot.rot());
+    triggersOut.set("mainStateMachineRightFootPosition", targetSnapshot.rightFoot.trans());
+    triggersOut.set("mainStateMachineRightFootRotation", targetSnapshot.rightFoot.rot());
+
+    // rig space
+    triggersOut.set("mmHeadPosition", targetSnapshot.head.trans());
+    triggersOut.set("mmHeadRotation", targetSnapshot.head.rot());
+    triggersOut.set("mmHipsPosition", targetSnapshot.hips.trans());
+    triggersOut.set("mmHipsRotation", targetSnapshot.hips.rot());
+    triggersOut.set("mmLeftHandPosition", targetSnapshot.leftHand.trans());
+    triggersOut.set("mmLeftHandRotation", targetSnapshot.leftHand.rot());
+    triggersOut.set("mmRightHandPosition", targetSnapshot.rightHand.trans());
+    triggersOut.set("mmRightHandRotation", targetSnapshot.rightHand.rot());
 
     return _poses;
 }

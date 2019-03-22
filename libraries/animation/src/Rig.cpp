@@ -1308,6 +1308,9 @@ void Rig::updateHead(bool headEnabled, bool hipsEnabled, const AnimPose& headPos
 
         // AJTMM HACK  force HEAD IK ON
         _animVars.set("mmHeadType", (int)IKTarget::Type::Spline);
+        if (headEnabled) {
+            _animVars.set("mmHmdMode", true);
+        }
     }
 }
 
@@ -1810,6 +1813,11 @@ void Rig::updateFromControllerParameters(const ControllerParameters& params, flo
     bool leftArmEnabled = params.secondaryControllerFlags[SecondaryControllerType_LeftArm] & (uint8_t)ControllerFlags::Enabled;
     bool rightArmEnabled = params.secondaryControllerFlags[SecondaryControllerType_RightArm] & (uint8_t)ControllerFlags::Enabled;
     glm::mat4 sensorToRigMatrix = glm::inverse(params.rigToSensorMatrix);
+
+    _animVars.set("mmHeadTraj1", params.headTrajectory[0]);
+    _animVars.set("mmHeadTraj2", params.headTrajectory[1]);
+    _animVars.set("mmHeadTraj3", params.headTrajectory[2]);
+    _animVars.set("mmHeadTraj4", params.headTrajectory[3]);
 
     updateHead(_headEnabled, hipsEnabled, params.primaryControllerPoses[PrimaryControllerType_Head]);
 
