@@ -80,6 +80,7 @@ private:
         void update(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) override;
         void focusOutEvent() override;
         bool triggerHapticPulse(float strength, float duration, controller::Hand hand) override;
+        bool setControllerOffset(glm::quat rotation, glm::vec3 translation, controller::Hand hand) override;
         void hapticsHelper(float deltaTime, bool leftHand);
         void calibrateOrUncalibrate(const controller::InputCalibrationData& inputCalibration);
         void calibrate(const controller::InputCalibrationData& inputCalibration);
@@ -190,6 +191,12 @@ private:
         float _leftHapticDuration { 0.0f };
         float _rightHapticStrength { 0.0f };
         float _rightHapticDuration { 0.0f };
+
+        glm::quat _leftHandRotationOffset;
+        glm::vec3 _leftHandTranslationOffset;
+        glm::quat _rightHandRotationOffset;
+        glm::vec3 _rightHandTranslationOffset;
+
         float _headPuckYOffset { -0.05f };
         float _headPuckZOffset { -0.05f };
         float _handPuckYOffset { 0.0f };

@@ -1042,7 +1042,27 @@ void ViveControllerManager::InputDevice::handleHeadPoseEvent(const controller::I
 void ViveControllerManager::InputDevice::handlePoseEvent(float deltaTime, const controller::InputCalibrationData& inputCalibrationData,
                                                          const mat4& mat, const vec3& linearVelocity,
                                                          const vec3& angularVelocity, bool isLeftHand) {
-    auto pose = openVrControllerPoseToHandPose(isLeftHand, mat, linearVelocity, angularVelocity);
+    // construct a controller::Pose with all the relevent data.
+    glm::vec3 position = extractTranslation(mat);
+    glm::quat rotation = glmExtractRotation(mat);
+    auto pose = controller::Pose(position, rotation, linearVelocity, angularVelocity);
+
+    // apply controller to hand offsets
+    if (isLeftHand) {
+        // AJT: HACK: identity indicates that offset is disabled
+        if (_leftHandTranslationOffset == glm::vec3() && _leftHandRotationOffset == Quaternions::IDENTITY) {
+            pose = openVrControllerPoseToHandPose(isLeftHand, mat, linearVelocity, angularVelocity);
+        } else {
+            pose = pose.postTransform(createMatFromQuatAndPos(_leftHandRotationOffset, _leftHandTranslationOffset));
+        }
+    } else {
+        // AJT: HACK: identity indicates that offset is disabled
+        if (_rightHandTranslationOffset == glm::vec3() && _rightHandRotationOffset == Quaternions::IDENTITY) {
+            pose = openVrControllerPoseToHandPose(isLeftHand, mat, linearVelocity, angularVelocity);
+        } else {
+            pose = pose.postTransform(createMatFromQuatAndPos(_rightHandRotationOffset, _rightHandTranslationOffset));
+        }
+    }
 
     // transform into avatar frame
     glm::mat4 controllerToAvatar = glm::inverse(inputCalibrationData.avatarMat) * inputCalibrationData.sensorToWorldMat;
@@ -1071,6 +1091,21 @@ bool ViveControllerManager::InputDevice::triggerHapticPulse(float strength, floa
     }
     return true;
 }
+
+bool ViveControllerManager::InputDevice::setControllerOffset(glm::quat rotation, glm::vec3 translation, controller::Hand hand) {
+    Locker locker(_lock);
+    if (hand == controller::LEFT) {
+        _leftHandRotationOffset = rotation;
+        _leftHandTranslationOffset = translation;
+    } else if (hand == controller::RIGHT) {
+        _rightHandRotationOffset = rotation;
+        _rightHandTranslationOffset = translation;
+    } else {
+        return false;
+    }
+    return true;
+}
+
 
 void ViveControllerManager::InputDevice::hapticsHelper(float deltaTime, bool leftHand) {
     auto handRole = leftHand ? vr::TrackedControllerRole_LeftHand : vr::TrackedControllerRole_RightHand;

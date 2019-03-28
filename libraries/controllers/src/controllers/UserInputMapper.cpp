@@ -376,6 +376,14 @@ bool UserInputMapper::triggerHapticPulseOnDevice(uint16 deviceID, float strength
     return false;
 }
 
+bool UserInputMapper::setControllerOffset(uint16 deviceID, glm::quat rotation, glm::vec3 translation, controller::Hand hand) {
+    Locker locker(_lock);
+    if (_registeredDevices.find(deviceID) != _registeredDevices.end()) {
+        return _registeredDevices[deviceID]->setControllerOffset(rotation, translation, hand);
+    }
+    return false;
+}
+
 int actionMetaTypeId = qRegisterMetaType<Action>();
 int inputMetaTypeId = qRegisterMetaType<Input>();
 int inputPairMetaTypeId = qRegisterMetaType<Input::NamedPair>();

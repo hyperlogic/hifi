@@ -121,6 +121,9 @@ public:
     // By default, Input Devices do not support haptics
     virtual bool triggerHapticPulse(float strength, float duration, controller::Hand hand) { return false; }
 
+    // By default, Input Devices do not support controller offsets
+    virtual bool setControllerOffset(glm::quat rotation, glm::vec3 translation, controller::Hand hand) { return false; }
+
     // Update call MUST be called once per simulation loop
     // It takes care of updating the action states and deltas
     virtual void update(float deltaTime, const InputCalibrationData& inputCalibrationData) {};

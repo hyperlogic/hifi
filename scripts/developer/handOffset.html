@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+  <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+  <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+  <script>
+    $(document).bind('pageinit', function () {
+      function controlHandlerMaker(name) {
+        return function (event, ui) {
+          var val = $('#' + name).val();
+          var checked = $('#' + name).is(":checked");
+          EventBridge.emitWebEvent({name: name, val: val, checked: checked});
+        };
+      }
+      var controls = [
+        "left-hand-x-rotation",
+        "left-hand-y-rotation",
+        "left-hand-z-rotation",
+        "left-hand-x-translation",
+        "left-hand-y-translation",
+        "left-hand-z-translation",
+        "right-hand-x-rotation",
+        "right-hand-y-rotation",
+        "right-hand-z-rotation",
+        "right-hand-x-translation",
+        "right-hand-y-translation",
+        "right-hand-z-translation"
+      ];
+      controls.forEach(function (name) {
+        $('#' + name).bind('change', controlHandlerMaker(name));
+      });
+      EventBridge.scriptEventReceived.connect(function (msg) {
+        var array = JSON.parse(msg);
+        array.forEach(function (obj) {
+          var widget = $('#' + obj.name);
+          if (widget) {
+            if (widget.attr('type') === "checkbox") {
+              $('#' + obj.name).prop('checked', obj.checked).checkboxradio('refresh');
+            } else if (widget.attr('type') === "number") {
+              $('#' + obj.name).val(obj.val).slider('refresh');
+            } else {
+              $('#' + obj.name).val(obj.val).slider('refresh');
+            }
+          }
+        });
+      });
+      EventBridge.emitWebEvent({name: 'init-complete'});
+    });
+  </script>
+  <head>
+    <meta charset="utf-8" />
+    <body>
+      <div style="margin:10px">
+
+        <h1>Left Hand</h1>
+
+        <label for="left-hand-x-rotation">left-hand-x-rotation</label>
+        <input type="range" name="left-hand-x-rotation" id="left-hand-x-rotation" value="0" min="-180" max="180" step="1.0">
+        <label for="left-hand-y-rotation">left-hand-y-rotation</label>
+        <input type="range" name="left-hand-y-rotation" id="left-hand-y-rotation" value="0" min="-180" max="180" step="1.0">
+        <label for="left-hand-z-rotation">left-hand-z-rotation</label>
+        <input type="range" name="left-hand-z-rotation" id="left-hand-z-rotation" value="0" min="-180" max="180" step="1.0">
+        <label for="left-hand-x-translation">left-hand-x-translation</label>
+        <input type="range" name="left-hand-x-translation" id="left-hand-x-translation" value="0" min="-0.3" max="0.3" step="0.01">
+        <label for="left-hand-y-translation">left-hand-y-translation</label>
+        <input type="range" name="left-hand-y-translation" id="left-hand-y-translation" value="0" min="-0.3" max="0.3" step="0.01">
+        <label for="left-hand-z-translation">left-hand-z-translation</label>
+        <input type="range" name="left-hand-z-translation" id="left-hand-z-translation" value="0" min="-0.3" max="0.3" step="0.01">
+
+        <h1>Right Hand</h1>
+
+        <label for="right-hand-x-rotation">right-hand-x-rotation</label>
+        <input type="range" name="right-hand-x-rotation" id="right-hand-x-rotation" value="0" min="-180" max="180" step="1.0">
+        <label for="right-hand-y-rotation">right-hand-y-rotation</label>
+        <input type="range" name="right-hand-y-rotation" id="right-hand-y-rotation" value="0" min="-180" max="180" step="1.0">
+        <label for="right-hand-z-rotation">right-hand-z-rotation</label>
+        <input type="range" name="right-hand-z-rotation" id="right-hand-z-rotation" value="0" min="-180" max="180" step="1.0">
+        <label for="right-hand-x-translation">right-hand-x-translation</label>
+        <input type="range" name="right-hand-x-translation" id="right-hand-x-translation" value="0" min="-0.3" max="0.3" step="0.01">
+        <label for="right-hand-y-translation">right-hand-y-translation</label>
+        <input type="range" name="right-hand-y-translation" id="right-hand-y-translation" value="0" min="-0.3" max="0.3" step="0.01">
+        <label for="right-hand-z-translation">right-hand-z-translation</label>
+        <input type="range" name="right-hand-z-translation" id="right-hand-z-translation" value="0" min="-0.3" max="0.3" step="0.01">
+
+      </div>
+    </body>
+  </head>
+</html>

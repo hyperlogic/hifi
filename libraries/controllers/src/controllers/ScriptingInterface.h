@@ -247,6 +247,16 @@ namespace controller {
             controller::Hand hand = BOTH) const;
 
         /**jsdoc
+         * Set the offset from the hand controller to the avatars hand.
+         * @function Controller.setControllerOffsetOnDevice
+         * @param {Quat} rotation
+         * @param {Vec3} translation
+         * @param {Controller.Hand} the hand to adjust offset on.  Both is not supported.
+         * @returns {bool} returns false if device was not found or device does not support this operation
+         */
+        Q_INVOKABLE bool setControllerOffset(unsigned int device, glm::quat rotation, glm::vec3 translation, controller::Hand hand);
+
+        /**jsdoc
          * Triggers a 250ms haptic pulse on a particular device if connected and enabled and it has the capability.
          * @function Controller.triggerShortHapticPulseOnDevice
          * @param {number} deviceID - The ID of the device to trigger the haptic pulse on.

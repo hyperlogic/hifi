@@ -193,6 +193,10 @@ namespace controller {
         return DependencyManager::get<UserInputMapper>()->triggerHapticPulseOnDevice(device, strength, duration, hand);
     }
 
+    bool ScriptingInterface::setControllerOffset(unsigned int device, glm::quat rotation, glm::vec3 translation, controller::Hand hand) {
+        return DependencyManager::get<UserInputMapper>()->setControllerOffset(device, rotation, translation, hand);
+    }
+
     bool ScriptingInterface::triggerShortHapticPulseOnDevice(unsigned int device, float strength, controller::Hand hand) const {
         const float SHORT_HAPTIC_DURATION_MS = 250.0f;
         return DependencyManager::get<UserInputMapper>()->triggerHapticPulseOnDevice(device, strength, SHORT_HAPTIC_DURATION_MS, hand);

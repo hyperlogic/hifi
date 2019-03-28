@@ -93,6 +93,8 @@ namespace controller {
         bool triggerHapticPulse(float strength, float duration, controller::Hand hand);
         bool triggerHapticPulseOnDevice(uint16 deviceID, float strength, float duration, controller::Hand hand);
 
+        bool setControllerOffset(uint16 deviceID, glm::quat rotation, glm::vec3 translation, controller::Hand hand);
+
         static Input makeStandardInput(controller::StandardButtonChannel button);
         static Input makeStandardInput(controller::StandardAxisChannel axis);
         static Input makeStandardInput(controller::StandardPoseChannel pose);
