@@ -332,6 +332,8 @@ QByteArray AvatarData::toByteArray(AvatarDataDetail dataDetail, quint64 lastSent
 
         bool hasFaceTrackerInfo = false;
 
+        // AJT: HACK SEND ABSOLUTE MINIMUM! global position ONLY
+        /*
         if (sendPALMinimum) {
             hasAudioLoudness = true;
         } else {
@@ -352,6 +354,7 @@ QByteArray AvatarData::toByteArray(AvatarDataDetail dataDetail, quint64 lastSent
             hasJointData = !sendMinimum;
             hasJointDefaultPoseFlags = hasJointData;
         }
+        */
 
         wantedFlags =
             (hasAvatarGlobalPosition ? AvatarDataPacket::PACKET_HAS_AVATAR_GLOBAL_POSITION : 0)
