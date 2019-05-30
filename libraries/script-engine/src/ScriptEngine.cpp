@@ -1345,7 +1345,7 @@ void ScriptEngine::callAnimationStateHandler(QScriptValue callback, AnimVariantM
 }
 
 void ScriptEngine::updateMemoryCost(const qint64& deltaSize) {
-    if (deltaSize > 0) {
+    if (deltaSize > 0 && _isRunning) {
         reportAdditionalMemoryCost(deltaSize);
     }
 }
