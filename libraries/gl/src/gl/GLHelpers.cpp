@@ -36,9 +36,7 @@ bool gl::disableGl45() {
 #endif
 }
 
-#ifdef Q_OS_MAC
 #define SERIALIZE_GL_RENDERING
-#endif
 
 #ifdef SERIALIZE_GL_RENDERING
 
