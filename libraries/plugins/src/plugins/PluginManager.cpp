@@ -14,7 +14,7 @@
 #include <QtCore/QDebug>
 #include <QtCore/QPluginLoader>
 
-//#define HIFI_PLUGINMANAGER_DEBUG
+#define HIFI_PLUGINMANAGER_DEBUG
 #if defined(HIFI_PLUGINMANAGER_DEBUG)
 #include <QJsonDocument>
 #endif
