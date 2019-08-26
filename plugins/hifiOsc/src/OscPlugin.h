@@ -15,6 +15,8 @@
 #include <controllers/StandardControls.h>
 #include <plugins/InputPlugin.h>
 
+#include "lo/lo.h"
+
 // OSC (Open Sound Control) input plugin.
 class OscPlugin : public InputPlugin {
     Q_OBJECT
@@ -65,6 +67,8 @@ protected:
     bool _enabled { false };
     bool _debug { false };
     mutable bool _initialized { false };
+
+    lo_server_thread _st;
 };
 
 #endif // hifi_OscPlugin_h

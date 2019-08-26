@@ -20,8 +20,6 @@
 #include <Preferences.h>
 #include <SettingHandle.h>
 
-#include "lo/lo.h"
-
 Q_DECLARE_LOGGING_CATEGORY(inputplugins)
 Q_LOGGING_CATEGORY(inputplugins, "hifi.inputplugins")
 
@@ -70,6 +68,29 @@ static void errorHandlerFunc(int num, const char* msg, const char* path) {
     qDebug() << "OscPlugin: server error" << num << "in path" << path << ":" << msg;
 }
 
+static int genericHandlerFunc(const char* path, const char* types, lo_arg** argv,
+                              int argc, void* data, void* user_data) {
+    int i;
+
+    qDebug() << "AJT: path:" << path;
+    for (i = 0; i < argc; i++) {
+        qDebug() << "AJT:     arg" << i << types[i];
+        lo_arg_pp((lo_type)types[i], argv[i]);
+    }
+
+    return 1;
+}
+
+
+static int volumeHandlerFunc(const char* path, const char* types, lo_arg** argv,
+                             int argc, void* data, void* user_data) {
+    // example showing pulling the argument values out of the argv array
+    qDebug() << "AJT:" << path << ": " << argv[0]->f;
+
+    return 0;
+}
+
+
 bool OscPlugin::activate() {
     InputPlugin::activate();
 
@@ -77,17 +98,38 @@ bool OscPlugin::activate() {
 
     if (_enabled) {
 
+        qDebug() << "OscPlugin: activated";
+
         // register with userInputMapper
         auto userInputMapper = DependencyManager::get<controller::UserInputMapper>();
         userInputMapper->registerDevice(_inputDevice);
 
         // start a new server on port 7770
-        lo_server_thread st = lo_server_thread_new("7770", errorHandlerFunc);
+        _st = lo_server_thread_new("7770", errorHandlerFunc);
 
-        qDebug() << "OscPlugin: activated";
+        qDebug() << "AJT: lo_sever_thread_new(7700) =" << _st;
 
-        // shutdown server
-        lo_server_thread_free(st);
+        // add method that will match any path and args
+        lo_server_thread_add_method(_st, NULL, NULL, genericHandlerFunc, NULL);
+
+        // volume from oscTouch app
+        lo_server_thread_add_method(_st, "/1/volume", "f", volumeHandlerFunc, NULL);
+
+        lo_server_thread_start(_st);
+
+#if 0
+    /* add method that will match the path /foo/bar, with two numbers, coerced
+     * to float and int */
+    lo_server_thread_add_method(st, "/foo/bar", "fi", foo_handler, NULL);
+
+    /* add method that will match the path /blobtest with one blob arg */
+    lo_server_thread_add_method(st, "/blobtest", "b", blobtest_handler, NULL);
+
+    /* add method that will match the path /quit with no args */
+    lo_server_thread_add_method(st, "/quit", "", quit_handler, NULL);
+
+#endif
+
 
         return true;
     }
@@ -95,8 +137,12 @@ bool OscPlugin::activate() {
 }
 
 void OscPlugin::deactivate() {
-    // AJT: disconnect?
+
     qDebug() << "OscPlugin: deactivated";
+
+    // stop and free server
+    lo_server_thread_stop(_st);
+    lo_server_thread_free(_st);
 }
 
 void OscPlugin::pluginUpdate(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) {
