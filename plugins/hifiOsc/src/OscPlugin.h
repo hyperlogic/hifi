@@ -48,15 +48,13 @@ protected:
         // Device functions
         virtual controller::Input::NamedVector getAvailableInputs() const override;
         virtual QString getDefaultMappingConfig() const override;
-        virtual void update(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) override {};
+        virtual void update(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) override;
         virtual void focusOutEvent() override {};
 
-        /* AJT: TODO REMOVE
-        void update(float deltaTime, const controller::InputCalibrationData& inputCalibrationData, 
-                const std::vector<KinectPlugin::KinectJoint>& joints, const std::vector<KinectPlugin::KinectJoint>& prevJoints);
-        */
-
         void clearState();
+        void setContainer(OscPlugin* container) { _container = container; }
+
+        OscPlugin* _container { nullptr };
     };
 
     std::shared_ptr<InputDevice> _inputDevice { std::make_shared<InputDevice>() };
@@ -68,7 +66,14 @@ protected:
     bool _debug { false };
     mutable bool _initialized { false };
 
-    lo_server_thread _st;
+    lo_server_thread _oscServerThread { nullptr };
+
+    int _oscKeyCount { 0 };
+
+public:
+    std::map<QString, int> _oscStringToValueMap;
+    std::vector<float> _oscValues;
+    std::mutex _oscMutex;
 };
 
 #endif // hifi_OscPlugin_h

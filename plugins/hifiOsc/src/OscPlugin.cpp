@@ -56,6 +56,7 @@ void OscPlugin::init() {
         auto preference = new CheckPreference(OSC_PLUGIN, "Extra Debugging", debugGetter, debugSetter);
         preferences->addPreference(preference);
     }
+
     // AJT: TODO network settings
 }
 
@@ -70,24 +71,123 @@ static void errorHandlerFunc(int num, const char* msg, const char* path) {
 
 static int genericHandlerFunc(const char* path, const char* types, lo_arg** argv,
                               int argc, void* data, void* user_data) {
-    int i;
 
-    qDebug() << "AJT: path:" << path;
-    for (i = 0; i < argc; i++) {
-        qDebug() << "AJT:     arg" << i << types[i];
-        lo_arg_pp((lo_type)types[i], argv[i]);
+    OscPlugin* container = reinterpret_cast<OscPlugin*>(user_data);
+    assert(container);
+
+    QString key(path);
+    std::lock_guard<std::mutex> guard(container->_oscMutex);
+
+    // look up _oscValues index in map
+    int index = -1;
+    auto iter = container->_oscStringToValueMap.find(key);
+    if (iter != container->_oscStringToValueMap.end()) {
+        // found it
+        index = iter->second;
+    } else {
+        // did not find it, add a new element ot the _oscValues array.
+        index = (int)container->_oscValues.size();
+        container->_oscValues.push_back(0.0f);
+
+        // and add the index to the map
+        container->_oscStringToValueMap[key] = index;
     }
 
+    if (argc > 0) {
+        switch (types[0]) {
+        case 'i':
+            container->_oscValues[index] = (float)argv[0]->i;
+            break;
+        case 'f':
+            container->_oscValues[index] = argv[0]->f;
+            break;
+        case 'h':
+            container->_oscValues[index] = (float)argv[0]->h;
+            break;
+        case 'd':
+            container->_oscValues[index] = (float)argv[0]->d;
+            break;
+        }
+    }
+
+#ifdef DUMP_ALL_OSC_VALUES
+    for (int i = 0; i < argc; i++) {
+        switch (types[i]) {
+        case 'i':
+            // int32
+            qDebug() << "OscPlugin: " << path << "=" << argv[i]->i;
+            break;
+        case 'f':
+            // float32
+            qDebug() << "OscPlugin: " << path << "=" << argv[i]->f32;
+            break;
+        case 's':
+            // OSC-string
+            qDebug() << "OscPlugin: " << path << "= <string>";
+            break;
+        case 'b':
+            // OSC-blob
+            break;
+        case 'h':
+            // 64 bit big-endian two's complement integer
+            qDebug() << "OscPlugin: " << path << "=" << argv[i]->h;
+            break;
+        case 't':
+            // OSC-timetag
+            qDebug() << "OscPlugin: " << path << "= <OSC-timetag>";
+            break;
+        case 'd':
+            // 64 bit ("double") IEEE 754 floating point number
+            qDebug() << "OscPlugin: " << path << "=" << argv[i]->d;
+            break;
+        case 'S':
+            // Alternate type represented as an OSC-string (for example, for systems that differentiate "symbols" from "strings")
+            qDebug() << "OscPlugin: " << path << "= <OSC-symbol>";
+            break;
+        case 'c':
+            // an ascii character, sent as 32 bits
+            qDebug() << "OscPlugin: " << path << "=" << argv[i]->c;
+            break;
+        case 'r':
+            // 32 bit RGBA color
+            qDebug() << "OscPlugin: " << path << "= <color>";
+            break;
+        case 'm':
+            // 4 byte MIDI message. Bytes from MSB to LSB are: port id, status byte, data1, data2
+            qDebug() << "OscPlugin: " << path << "= <midi>";
+            break;
+        case 'T':
+            // true
+            qDebug() << "OscPlugin: " << path << "= <true>";
+            break;
+        case 'F':
+            // false
+            qDebug() << "OscPlugin: " << path << "= <false>";
+            break;
+        case 'N':
+            // nil
+            qDebug() << "OscPlugin: " << path << "= <nil>";
+            break;
+        case 'I':
+            // inf
+            qDebug() << "OscPlugin: " << path << "= <inf>";
+            break;
+        case '[':
+            // Indicates the beginning of an array. The tags following are for data in the Array until a close brace tag is reached.
+            qDebug() << "OscPlugin: " << path << "= <begin-array>";
+            break;
+        case ']':
+            // Indicates the end of an array.
+            qDebug() << "OscPlugin: " << path << "= <end-array>";
+            break;
+        default:
+            qDebug() << "OscPlugin: " << path << "= <unknown-type>" << types[i];
+            break;
+        }
+    }
+#endif
+
     return 1;
-}
-
-
-static int volumeHandlerFunc(const char* path, const char* types, lo_arg** argv,
-                             int argc, void* data, void* user_data) {
-    // example showing pulling the argument values out of the argv array
-    qDebug() << "AJT:" << path << ": " << argv[0]->f;
-
-    return 0;
 }
 
 
@@ -100,36 +200,22 @@ bool OscPlugin::activate() {
 
         qDebug() << "OscPlugin: activated";
 
+        _inputDevice->setContainer(this);
+
         // register with userInputMapper
         auto userInputMapper = DependencyManager::get<controller::UserInputMapper>();
         userInputMapper->registerDevice(_inputDevice);
 
         // start a new server on port 7770
-        _st = lo_server_thread_new("7770", errorHandlerFunc);
+        _oscServerThread = lo_server_thread_new("7770", errorHandlerFunc);
 
-        qDebug() << "AJT: lo_sever_thread_new(7700) =" << _st;
+        qDebug() << "OscPlugin: server started on port 7770, _oscServerThread =" << _oscServerThread;
 
         // add method that will match any path and args
-        lo_server_thread_add_method(_st, NULL, NULL, genericHandlerFunc, NULL);
+        // NOTE: callback function will be called on the OSC thread, not the appliation thread.
+        lo_server_thread_add_method(_oscServerThread, NULL, NULL, genericHandlerFunc, (void*)this);
 
-        // volume from oscTouch app
-        lo_server_thread_add_method(_st, "/1/volume", "f", volumeHandlerFunc, NULL);
-
-        lo_server_thread_start(_st);
-
-#if 0
-    /* add method that will match the path /foo/bar, with two numbers, coerced
-     * to float and int */
-    lo_server_thread_add_method(st, "/foo/bar", "fi", foo_handler, NULL);
-
-    /* add method that will match the path /blobtest with one blob arg */
-    lo_server_thread_add_method(st, "/blobtest", "b", blobtest_handler, NULL);
-
-    /* add method that will match the path /quit with no args */
-    lo_server_thread_add_method(st, "/quit", "", quit_handler, NULL);
-
-#endif
-
+        lo_server_thread_start(_oscServerThread);
 
         return true;
     }
@@ -137,12 +223,14 @@ bool OscPlugin::activate() {
 }
 
 void OscPlugin::deactivate() {
+    qDebug() << "OscPlugin: deactivated, _oscServerThread =" << _oscServerThread;
 
-    qDebug() << "OscPlugin: deactivated";
-
-    // stop and free server
-    lo_server_thread_stop(_st);
-    lo_server_thread_free(_st);
+    if (_oscServerThread) {
+        // stop and free server
+        lo_server_thread_stop(_oscServerThread);
+        lo_server_thread_free(_oscServerThread);
+        _oscServerThread = nullptr;
+    }
 }
 
 void OscPlugin::pluginUpdate(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) {
@@ -184,19 +272,19 @@ void OscPlugin::loadSettings() {
 // InputDevice
 //
 
-// FIXME - we probably should only return the inputs we ACTUALLY have
 controller::Input::NamedVector OscPlugin::InputDevice::getAvailableInputs() const {
     static controller::Input::NamedVector availableInputs;
 
-    // AJT: TODO, HMM, how to know before hand what inputs are available?
-    /*
-    if (availableInputs.size() == 0) {
-        for (int i = 0; i < KinectJointIndex::Size; i++) {
-            auto channel = KinectJointIndexToPoseIndex(static_cast<KinectJointIndex>(i));
-            availableInputs.push_back(makePair(channel, getControllerJointName(channel)));
+    std::lock_guard<std::mutex> guard(_container->_oscMutex);
+    if (availableInputs.size() != _container->_oscValues.size()) {
+        availableInputs.clear();
+        for (auto&& iter : _container->_oscStringToValueMap) {
+            // AJT: TODO: is it ok to use actions past the end?
+            int action = (int)controller::Action::NUM_ACTIONS + iter.second;
+            controller::Input input = makeInput((controller::StandardAxisChannel)action);
+            availableInputs.push_back(controller::Input::NamedPair(input, iter.first));
         }
-    };
-    */
+    }
 
     return availableInputs;
 }
@@ -206,12 +294,20 @@ QString OscPlugin::InputDevice::getDefaultMappingConfig() const {
     return MAPPING_JSON;
 }
 
-void OscPlugin::InputDevice::clearState() {
-
-    /*
-    for (size_t i = 0; i < KinectJointIndex::Size; i++) {
-        int poseIndex = KinectJointIndexToPoseIndex((KinectJointIndex)i);
-        _poseStateMap[poseIndex] = controller::Pose();
+void OscPlugin::InputDevice::update(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) {
+    std::lock_guard<std::mutex> guard(_container->_oscMutex);
+    for (auto&& iter : _container->_oscStringToValueMap) {
+        float value = _container->_oscValues[iter.second];
+        _axisStateMap[iter.second] = controller::AxisValue(value, 0, false);
+        qDebug() << "AJT: " << iter.first << ", action =" << iter.second << ", value =" << value;
     }
-    */
 }
+
+void OscPlugin::InputDevice::clearState() {
+    // set all axes to invalid.
+    std::lock_guard<std::mutex> guard(_container->_oscMutex);
+    for (auto&& iter : _container->_oscStringToValueMap) {
+        _axisStateMap[iter.second] = controller::AxisValue(0.0f, 0, false);
+    }
+}
+
