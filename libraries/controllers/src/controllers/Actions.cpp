@@ -349,8 +349,8 @@ namespace controller {
             makePosePair(Action::HEAD, "Head"),
             makePosePair(Action::LEFT_EYE, "LeftEye"),
             makePosePair(Action::RIGHT_EYE, "RightEye"),
-            makeAxisPair(Action::LEFT_EYE_BLINK, "LeftEyeBlink"),
-            makeAxisPair(Action::RIGHT_EYE_BLINK, "RightEyeBlink"),
+            makeAxisPair(Action::EYE_BLINK_LEFT, "EyeBlinkLeft"),
+            makeAxisPair(Action::EYE_BLINK_RIGHT, "EyeBlinkRight"),
 
             makePosePair(Action::LEFT_HAND_THUMB1, "LeftHandThumb1"),
             makePosePair(Action::LEFT_HAND_THUMB2, "LeftHandThumb2"),

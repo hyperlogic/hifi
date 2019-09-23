@@ -62,12 +62,12 @@ void MyHead::simulate(float deltaTime) {
 
         auto userInputMapper = DependencyManager::get<UserInputMapper>();
         bool eyeLidsTracked =
-            userInputMapper->getActionStateValid(controller::Action::LEFT_EYE_BLINK) &&
-            userInputMapper->getActionStateValid(controller::Action::RIGHT_EYE_BLINK);
+            userInputMapper->getActionStateValid(controller::Action::EYE_BLINK_LEFT) &&
+            userInputMapper->getActionStateValid(controller::Action::EYE_BLINK_RIGHT);
         setFaceTrackerConnected(eyeLidsTracked);
         if (eyeLidsTracked) {
-            float leftEyeBlink = userInputMapper->getActionState(controller::Action::LEFT_EYE_BLINK);
-            float rightEyeBlink = userInputMapper->getActionState(controller::Action::RIGHT_EYE_BLINK);
+            float leftEyeBlink = userInputMapper->getActionState(controller::Action::EYE_BLINK_LEFT);
+            float rightEyeBlink = userInputMapper->getActionState(controller::Action::EYE_BLINK_RIGHT);
             _blendshapeCoefficients.resize(std::max(_blendshapeCoefficients.size(), 2));
             _blendshapeCoefficients[EYE_BLINK_INDICES[0]] = leftEyeBlink;
             _blendshapeCoefficients[EYE_BLINK_INDICES[1]] = rightEyeBlink;

@@ -23,11 +23,130 @@
 Q_DECLARE_LOGGING_CATEGORY(inputplugins)
 Q_LOGGING_CATEGORY(inputplugins, "hifi.inputplugins")
 
+//#define DUMP_ALL_OSC_VALUES 1
+
 const char* OscPlugin::NAME = "Open Sound Control (OSC)";
 const char* OscPlugin::OSC_ID_STRING = "Open Sound Control (OSC)";
 const bool DEFAULT_ENABLED = false;
 
+enum class FaceCap {
+    BrowInnerUp = 0,
+    BrowDownLeft,
+    BrowDownRight,
+    BrowOuterUpLeft,
+    BrowOuterUpRight,
+    EyeLookUpLeft,
+    EyeLookUpRight,
+    EyeLookDownLeft,
+    EyeLookDownRight,
+    EyeLookInLeft,
+    EyeLookInRight,
+    EyeLookOutLeft,
+    EyeLookOutRight,
+    EyeBlinkLeft,
+    EyeBlinkRight,
+    EyeSquintLeft,
+    EyeSquintRight,
+    EyeWideLeft,
+    EyeWideRight,
+    CheekPuff,
+    CheekSquintLeft,
+    CheckSquintRight,
+    NoseSneerLeft,
+    NoseSneerRight,
+    JawOpen,
+    JawForward,
+    JawLeft,
+    JawRight,
+    MouthFunnel,
+    MouthPucker,
+    MouthLeft,
+    MouthRight,
+    MouthRollUpper,
+    MouthRollLower,
+    MouthShrugUpper,
+    MouthShrugLower,
+    MouthClose,
+    MouthSmileLeft,
+    MouthSmileRight,
+    MouthFrownLeft,
+    MouthFrownRight,
+    MouthDimpleLeft,
+    MouthDimpleRight,
+    MouthUpperUpLeft,
+    MouthUpperUpRight,
+    MouthLowerDownLeft,
+    MouthLowerDownRight,
+    MouthPressLeft,
+    MouthPressRight,
+    MouthStretchLeft,
+    MouthStretchRight,
+    ToungueOut,
+    BlendshapeCount
+};
+
+/*
+static const char* FaceCapEnumToString[FaceCap::BlendshapeCount] = {
+    "BrowInnerUp",
+    "BrowDownLeft",
+    "BrowDownRight",
+    "BrowOuterUpLeft",
+    "BrowOuterUpRight",
+    "EyeLookUpLeft",
+    "EyeLookUpRight",
+    "EyeLookDownLeft",
+    "EyeLookDownRight",
+    "EyeLookInLeft",
+    "EyeLookInRight",
+    "EyeLookOutLeft",
+    "EyeLookOutRight",
+    "EyeBlinkLeft",
+    "EyeBlinkRight",
+    "EyeSquintLeft",
+    "EyeSquintRight",
+    "EyeWideLeft",
+    "EyeWideRight",
+    "CheekPuff",
+    "CheekSquintLeft",
+    "CheckSquintRight",
+    "NoseSneerLeft",
+    "NoseSneerRight",
+    "JawOpen",
+    "JawForward",
+    "JawLeft",
+    "JawRight",
+    "MouthFunnel",
+    "MouthPucker",
+    "MouthLeft",
+    "MouthRight",
+    "MouthRollUpper",
+    "MouthRollLower",
+    "MouthShrugUpper",
+    "MouthShrugLower",
+    "MouthClose",
+    "MouthSmileLeft",
+    "MouthSmileRight",
+    "MouthFrownLeft",
+    "MouthFrownRight",
+    "MouthDimpleLeft",
+    "MouthDimpleRight",
+    "MouthUpperUpLeft",
+    "MouthUpperUpRight",
+    "MouthLowerDownLeft",
+    "MouthLowerDownRight",
+    "MouthPressLeft",
+    "MouthPressRight",
+    "MouthStretchLeft",
+    "MouthStretchRight",
+    "ToungueOut"
+};
+*/
+
 void OscPlugin::init() {
+
+    _blendshapeValues.assign((int)FaceCap::BlendshapeCount, 0.0f);
+    _blendshapeValidFlags.assign((int)FaceCap::BlendshapeCount, false);
+
     loadSettings();
 
     auto preferences = DependencyManager::get<Preferences>();
@@ -66,7 +185,7 @@ bool OscPlugin::isSupported() const {
 }
 
 static void errorHandlerFunc(int num, const char* msg, const char* path) {
-    qDebug() << "OscPlugin: server error" << num << "in path" << path << ":" << msg;
+    qDebug(inputplugins) << "OscPlugin: server error" << num << "in path" << path << ":" << msg;
 }
 
 static int genericHandlerFunc(const char* path, const char* types, lo_arg** argv,
@@ -76,37 +195,15 @@ static int genericHandlerFunc(const char* path, const char* types, lo_arg** argv
     assert(container);
 
     QString key(path);
-    std::lock_guard<std::mutex> guard(container->_oscMutex);
+    std::lock_guard<std::mutex> guard(container->_blendshapeMutex);
 
-    // look up _oscValues index in map
-    int index = -1;
-    auto iter = container->_oscStringToValueMap.find(key);
-    if (iter != container->_oscStringToValueMap.end()) {
-        // found it
-        index = iter->second;
-    } else {
-        // did not find it, add a new element ot the _oscValues array.
-        index = (int)container->_oscValues.size();
-        container->_oscValues.push_back(0.0f);
-
-        // and add the index to the map
-        container->_oscStringToValueMap[key] = index;
-    }
-
-    if (argc > 0) {
-        switch (types[0]) {
-        case 'i':
-            container->_oscValues[index] = (float)argv[0]->i;
-            break;
-        case 'f':
-            container->_oscValues[index] = argv[0]->f;
-            break;
-        case 'h':
-            container->_oscValues[index] = (float)argv[0]->h;
-            break;
-        case 'd':
-            container->_oscValues[index] = (float)argv[0]->d;
-            break;
+    // Special case: decode blendshapes from face-cap iPhone app.
+    // http://www.bannaflak.com/face-cap/
+    if (argc == 2 && types[0] == 'i' && types[1] == 'f' && path[0] == '/' && path[1] == 'W') {
+        int index = argv[0]->i;
+        if (index >= 0 && index < (int)FaceCap::BlendshapeCount) {
+            container->_blendshapeValues[index] = argv[1]->f;
+            container->_blendshapeValidFlags[index] = true;
         }
     }
 
@@ -115,73 +212,73 @@ static int genericHandlerFunc(const char* path, const char* types, lo_arg** argv
         switch (types[i]) {
         case 'i':
             // int32
-            qDebug() << "OscPlugin: " << path << "=" << argv[i]->i;
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] =" << argv[i]->i;
             break;
         case 'f':
             // float32
-            qDebug() << "OscPlugin: " << path << "=" << argv[i]->f32;
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] =" << argv[i]->f32;
             break;
         case 's':
             // OSC-string
-            qDebug() << "OscPlugin: " << path << "= <string>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <string>";
             break;
         case 'b':
             // OSC-blob
             break;
         case 'h':
             // 64 bit big-endian two's complement integer
-            qDebug() << "OscPlugin: " << path << "=" << argv[i]->h;
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] =" << argv[i]->h;
             break;
         case 't':
             // OSC-timetag
-            qDebug() << "OscPlugin: " << path << "= <OSC-timetag>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <OSC-timetag>";
             break;
         case 'd':
             // 64 bit ("double") IEEE 754 floating point number
-            qDebug() << "OscPlugin: " << path << "=" << argv[i]->d;
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] =" << argv[i]->d;
             break;
         case 'S':
             // Alternate type represented as an OSC-string (for example, for systems that differentiate "symbols" from "strings")
-            qDebug() << "OscPlugin: " << path << "= <OSC-symbol>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <OSC-symbol>";
             break;
         case 'c':
             // an ascii character, sent as 32 bits
-            qDebug() << "OscPlugin: " << path << "=" << argv[i]->c;
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] =" << argv[i]->c;
             break;
         case 'r':
             // 32 bit RGBA color
-            qDebug() << "OscPlugin: " << path << "= <color>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <color>";
             break;
         case 'm':
             // 4 byte MIDI message. Bytes from MSB to LSB are: port id, status byte, data1, data2
-            qDebug() << "OscPlugin: " << path << "= <midi>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <midi>";
             break;
         case 'T':
             // true
-            qDebug() << "OscPlugin: " << path << "= <true>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <true>";
             break;
         case 'F':
             // false
-            qDebug() << "OscPlugin: " << path << "= <false>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <false>";
             break;
         case 'N':
             // nil
-            qDebug() << "OscPlugin: " << path << "= <nil>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <nil>";
             break;
         case 'I':
             // inf
-            qDebug() << "OscPlugin: " << path << "= <inf>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <inf>";
             break;
         case '[':
             // Indicates the beginning of an array. The tags following are for data in the Array until a close brace tag is reached.
-            qDebug() << "OscPlugin: " << path << "= <begin-array>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <begin-array>";
             break;
         case ']':
             // Indicates the end of an array.
-            qDebug() << "OscPlugin: " << path << "= <end-array>";
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <end-array>";
             break;
         default:
-            qDebug() << "OscPlugin: " << path << "= <unknown-type>" << types[i];
+            qDebug(inputplugins) << "OscPlugin: " << path << "[" << i << "] = <unknown-type>" << types[i];
             break;
         }
     }
@@ -198,7 +295,7 @@ bool OscPlugin::activate() {
 
     if (_enabled) {
 
-        qDebug() << "OscPlugin: activated";
+        qDebug(inputplugins) << "OscPlugin: activated";
 
         _inputDevice->setContainer(this);
 
@@ -209,7 +306,7 @@ bool OscPlugin::activate() {
         // start a new server on port 7770
         _oscServerThread = lo_server_thread_new("7770", errorHandlerFunc);
 
-        qDebug() << "OscPlugin: server started on port 7770, _oscServerThread =" << _oscServerThread;
+        qDebug(inputplugins) << "OscPlugin: server started on port 7770, _oscServerThread =" << _oscServerThread;
 
         // add method that will match any path and args
         // NOTE: callback function will be called on the OSC thread, not the appliation thread.
@@ -223,7 +320,7 @@ bool OscPlugin::activate() {
 }
 
 void OscPlugin::deactivate() {
-    qDebug() << "OscPlugin: deactivated, _oscServerThread =" << _oscServerThread;
+    qDebug(inputplugins) << "OscPlugin: deactivated, _oscServerThread =" << _oscServerThread;
 
     if (_oscServerThread) {
         // stop and free server
@@ -274,15 +371,11 @@ void OscPlugin::loadSettings() {
 
 controller::Input::NamedVector OscPlugin::InputDevice::getAvailableInputs() const {
     static controller::Input::NamedVector availableInputs;
-
-    std::lock_guard<std::mutex> guard(_container->_oscMutex);
-    if (availableInputs.size() != _container->_oscValues.size()) {
-        availableInputs.clear();
-        for (auto&& iter : _container->_oscStringToValueMap) {
-            // AJT: TODO: is it ok to use actions past the end?
-            int action = (int)controller::Action::NUM_ACTIONS + iter.second;
-            controller::Input input = makeInput((controller::StandardAxisChannel)action);
-            availableInputs.push_back(controller::Input::NamedPair(input, iter.first));
+    for (int i = 0; i < (int)FaceCap::BlendshapeCount; i++) {
+        if (i == (int)FaceCap::EyeBlinkLeft) {
+            availableInputs.push_back(makePair(controller::EYE_BLINK_LEFT, "EyeBlinkLeft"));
+        } else if (i == (int)FaceCap::EyeBlinkRight) {
+            availableInputs.push_back(makePair(controller::EYE_BLINK_RIGHT, "EyeBlinkRight"));
         }
     }
 
@@ -295,19 +388,20 @@ QString OscPlugin::InputDevice::getDefaultMappingConfig() const {
 }
 
 void OscPlugin::InputDevice::update(float deltaTime, const controller::InputCalibrationData& inputCalibrationData) {
-    std::lock_guard<std::mutex> guard(_container->_oscMutex);
-    for (auto&& iter : _container->_oscStringToValueMap) {
-        float value = _container->_oscValues[iter.second];
-        _axisStateMap[iter.second] = controller::AxisValue(value, 0, false);
-        qDebug() << "AJT: " << iter.first << ", action =" << iter.second << ", value =" << value;
+    std::lock_guard<std::mutex> guard(_container->_blendshapeMutex);
+    for (int i = 0; i < (int)FaceCap::BlendshapeCount; i++) {
+        if (_container->_blendshapeValidFlags[i]) {
+            if (i == (int)FaceCap::EyeBlinkLeft) {
+                _axisStateMap[controller::EYE_BLINK_LEFT] = controller::AxisValue(_container->_blendshapeValues[i], 0, true);
+            } else if (i == (int)FaceCap::EyeBlinkRight) {
+                _axisStateMap[controller::EYE_BLINK_RIGHT] = controller::AxisValue(_container->_blendshapeValues[i], 0, true);
+            }
+        }
     }
 }
 
 void OscPlugin::InputDevice::clearState() {
-    // set all axes to invalid.
-    std::lock_guard<std::mutex> guard(_container->_oscMutex);
-    for (auto&& iter : _container->_oscStringToValueMap) {
-        _axisStateMap[iter.second] = controller::AxisValue(0.0f, 0, false);
-    }
+    _axisStateMap[controller::EYE_BLINK_LEFT] = controller::AxisValue(0.0f, 0, false);
+    _axisStateMap[controller::EYE_BLINK_RIGHT] = controller::AxisValue(0.0f, 0, false);
 }
 

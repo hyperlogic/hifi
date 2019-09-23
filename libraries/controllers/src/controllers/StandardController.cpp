@@ -356,8 +356,8 @@ Input::NamedVector StandardController::getAvailableInputs() const {
         makePair(HEAD, "Head"),
         makePair(LEFT_EYE, "LeftEye"),
         makePair(RIGHT_EYE, "RightEye"),
-        makePair(LEFT_EYE_BLINK, "LeftEyeBlink"),
-        makePair(RIGHT_EYE_BLINK, "RightEyeBlink"),
+        makePair(EYE_BLINK_LEFT, "EyeBlinkLeft"),
+        makePair(EYE_BLINK_RIGHT, "EyeBlinkRight"),
 
         // Aliases, PlayStation style names
         makePair(LB, "L1"),

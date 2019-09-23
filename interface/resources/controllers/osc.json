@@ -1,5 +1,7 @@
 {
     "name": "OSC to Standard",
     "channels": [
+        { "from": "OSC.EyeBlinkLeft", "to": "Standard.EyeBlinkLeft" },
+        { "from": "OSC.EyeBlinkRight", "to": "Standard.EyeBlinkRight" }
     ]
 }

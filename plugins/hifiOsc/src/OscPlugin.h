@@ -71,9 +71,9 @@ protected:
     int _oscKeyCount { 0 };
 
 public:
-    std::map<QString, int> _oscStringToValueMap;
-    std::vector<float> _oscValues;
-    std::mutex _oscMutex;
+    std::vector<float> _blendshapeValues;
+    std::vector<bool> _blendshapeValidFlags;
+    std::mutex _blendshapeMutex;
 };
 
 #endif // hifi_OscPlugin_h
