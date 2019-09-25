@@ -37,6 +37,10 @@ public:
     virtual void saveSettings() const override;
     virtual void loadSettings() override;
 
+    bool startServer();
+    void stopServer();
+    void restartServer();
+
 protected:
 
     class InputDevice : public controller::InputDevice {
@@ -63,17 +67,28 @@ protected:
     static const char* OSC_ID_STRING;
 
     bool _enabled { false };
-    bool _debug { false };
     mutable bool _initialized { false };
 
     lo_server_thread _oscServerThread { nullptr };
 
-    int _oscKeyCount { 0 };
-
 public:
+    bool _debug { false };
+    enum Constants { DEFAULT_OSC_SERVER_PORT = 7700 };
+    int _serverPort { DEFAULT_OSC_SERVER_PORT };
+    controller::InputCalibrationData _lastInputCalibrationData;
+
     std::vector<float> _blendshapeValues;
     std::vector<bool> _blendshapeValidFlags;
-    std::mutex _blendshapeMutex;
+    glm::quat _headRot;
+    bool _headRotValid { false };
+    glm::vec3 _headTransTarget;
+    glm::vec3 _headTransSmoothed;
+    bool _headTransValid { false };
+    glm::quat _eyeLeftRot;
+    bool _eyeLeftRotValid { false };
+    glm::quat _eyeRightRot;
+    bool _eyeRightRotValid { false };
+    std::mutex _dataMutex;
 };
 
 #endif // hifi_OscPlugin_h
