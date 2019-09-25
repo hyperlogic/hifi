@@ -538,8 +538,9 @@ bool OscPlugin::startServer() {
     }
 
     // start a new server on specified port
-    char serverPortString[512];
-    itoa(_serverPort, serverPortString, 10);
+    const size_t BUFFER_SIZE = 64;
+    char serverPortString[BUFFER_SIZE];
+    snprintf(serverPortString, BUFFER_SIZE, "%d", _serverPort);
     _oscServerThread = lo_server_thread_new(serverPortString, errorHandlerFunc);
 
     qDebug(inputplugins) << "OscPlugin: server started on port" << serverPortString << ", _oscServerThread =" << _oscServerThread;
